@@ -1,14 +1,15 @@
-# AI Coding Starter Kit
+# Bonalyze
 
-> A Next.js template with an AI-powered development workflow using 6 specialized agents
+> KI-gestützte Kassenbon- und Haushaltsausgaben-Intelligence-App
 
 ## Vision
-Build web applications faster with AI agents handling Requirements, Architecture, Development, QA, and Deployment. Each agent has clear responsibilities and a human-in-the-loop workflow for quality control.
+Bonalyze macht Haushaltsausgaben transparent durch automatische Kassenbon-Erfassung mit KI. Statt manueller Budgetierung scannt der User einfach den Bon - die App erledigt den Rest: Preis-Tracking, Ausgaben-Analytics, faire Haushalts-Settlements und smarte Shopping-Insights.
 
 ---
 
 ## Aktueller Status
-Template ready - Start by defining your first feature!
+
+**Phase 0: Foundation** - DB Schema vorhanden, Auth + Layout als nächstes
 
 ---
 
@@ -18,30 +19,42 @@ Template ready - Start by defining your first feature!
 - **Framework:** Next.js 16 (App Router)
 - **Sprache:** TypeScript
 - **Styling:** Tailwind CSS
-- **UI Library:** shadcn/ui (copy-paste components)
+- **UI Library:** shadcn/ui (Mobile-First PWA)
 
 ### Backend
-- **Database:** Supabase (PostgreSQL with Auth)
-- **State Management:** React useState / Context API
-- **Data Fetching:** React Server Components / fetch
+- **Database:** Supabase (PostgreSQL + RLS)
+- **Auth:** Supabase Auth (Email/PW + Magic Link)
+- **Storage:** Supabase Storage (Receipt Images)
+- **AI:** Google Gemini Flash 1.5 (Receipt OCR)
 
 ### Deployment
-- **Hosting:** Vercel (oder Netlify)
+- **Hosting:** Vercel
+- **PWA:** next-pwa (später)
 
 ---
 
 ## Features Roadmap
 
-### Your Features Will Appear Here
+### Phase 0: Foundation
+- [PROJ-1] Database Schema → 🔵 Planned → [Spec](features/PROJ-1-database-schema.md)
+- [PROJ-2] User Authentication → 🔵 Planned → [Spec](features/PROJ-2-user-authentication.md)
+- [PROJ-3] Household Management → 🔵 Planned → [Spec](features/PROJ-3-household-management.md)
 
-Start by defining your first feature using the Requirements Engineer agent:
-```
-Read .claude/agents/requirements-engineer.md and create a feature spec for [your feature idea]
-```
+### Phase 1: MVP Core
+- [PROJ-4] Receipt Scanner & AI → 🔵 Planned → [Spec](features/PROJ-4-receipt-scanner-ai.md)
+- [PROJ-5] Receipt Editor UI → 🔵 Planned → [Spec](features/PROJ-5-receipt-editor-ui.md)
+- [PROJ-6] Receipt List & Detail → 🔵 Planned → [Spec](features/PROJ-6-receipt-list-detail.md)
 
-Example roadmap structure:
-- [PROJ-1] Your First Feature → 🔵 Planned → [Spec](/features/PROJ-1-feature-name.md)
-- [PROJ-2] Your Second Feature → ⚪ Backlog
+### Phase 2: Analytics & Settlement
+- [PROJ-7] Dashboard & Analytics → 🔵 Planned → [Spec](features/PROJ-7-dashboard-analytics.md)
+- [PROJ-8] Household Settlement → 🔵 Planned → [Spec](features/PROJ-8-household-settlement.md)
+
+### Phase 3: Intelligence
+- [PROJ-9] Preis-Tracking → 🔵 Planned → [Spec](features/PROJ-9-price-tracking.md)
+- [PROJ-10] Shopping Insights → 🔵 Planned → [Spec](features/PROJ-10-shopping-insights.md)
+
+### Phase 4: Polish
+- [PROJ-11] PWA Setup → 🔵 Planned → [Spec](features/PROJ-11-pwa-setup.md)
 
 ---
 
@@ -54,147 +67,104 @@ Example roadmap structure:
 
 ---
 
-## Development Workflow
+## Core User Flows
 
-1. **Requirements Engineer** erstellt Feature Spec → User reviewt
-2. **Solution Architect** designed Schema/Architecture → User approved
-3. **PROJECT_CONTEXT.md** Roadmap updaten (Status: 🔵 Planned → 🟢 In Development)
-4. **Frontend + Backend Devs** implementieren → User testet
-5. **QA Engineer** führt Tests aus → Bugs werden gemeldet
-6. **DevOps** deployed → Status: ✅ Done
+### 1. Receipt Scan Flow
+```
+Foto aufnehmen → AI analysiert → User korrigiert → Speichern
+```
+
+### 2. Analytics Flow
+```
+Dashboard → Monatliche Übersicht → Kategorie-Details → Preis-Tracking
+```
+
+### 3. Settlement Flow
+```
+Zeitraum wählen → Wer schuldet wem → Als erledigt markieren
+```
 
 ---
 
 ## Environment Variables
 
-For projects using Supabase:
 ```bash
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+
+# Gemini AI
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-See `.env.local.example` for full list.
-
 ---
 
-## Agent-Team Verantwortlichkeiten
+## Key Documents
 
-- **Requirements Engineer** (`.claude/agents/requirements-engineer.md`)
-  - Feature Specs in `/features` erstellen
-  - User Stories + Acceptance Criteria + Edge Cases
-
-- **Solution Architect** (`.claude/agents/solution-architect.md`)
-  - Database Schema + Component Architecture designen
-  - Tech-Entscheidungen treffen
-
-- **Frontend Developer** (`.claude/agents/frontend-dev.md`)
-  - UI Components bauen (React + Tailwind + shadcn/ui)
-  - Responsive Design + Accessibility
-
-- **Backend Developer** (`.claude/agents/backend-dev.md`)
-  - Supabase Queries + Row Level Security Policies
-  - API Routes + Server-Side Logic
-
-- **QA Engineer** (`.claude/agents/qa-engineer.md`)
-  - Features gegen Acceptance Criteria testen
-  - Bugs dokumentieren + priorisieren
-
-- **DevOps** (`.claude/agents/devops.md`)
-  - Deployment zu Vercel
-  - Environment Variables verwalten
-  - Production-Ready Essentials (Error Tracking, Security Headers, Performance)
-
----
-
-## Production-Ready Features
-
-This template includes production-readiness guides integrated into the agents:
-
-- **Error Tracking:** Sentry setup instructions (DevOps Agent)
-- **Security Headers:** XSS/Clickjacking protection (DevOps Agent)
-- **Performance:** Database indexing, query optimization (Backend Agent)
-- **Input Validation:** Zod schemas for API safety (Backend Agent)
-- **Caching:** Next.js caching strategies (Backend Agent)
-
-All guides are practical and include code examples ready to copy-paste.
+- [MVP Plan](docs/BONALYZE-MVP-PLAN.md) - Vollständiger Produktplan
+- [DB Schema](features/PROJ-1-database-schema.md) - Datenbank-Design
 
 ---
 
 ## Design Decisions
 
-Document your architectural decisions here as your project evolves.
+### Warum Gemini Flash 1.5?
+- Schnell und kostengünstig
+- Gute Multimodal-Fähigkeiten für Bild-zu-Text
+- Niedrige Latenz für Mobile UX
 
-**Template:**
-- **Why did we choose X over Y?**
-  → Reason 1
-  → Reason 2
+### Warum Online-only MVP?
+- Reduziert Komplexität erheblich
+- Offline-Sync später mit Background Sync API
+- Family-Use-Case hat meist Internet
+
+### Warum Settlement statt Budget?
+- User wollen keine Budgets pflegen
+- Settlement löst echtes Problem (wer schuldet wem)
+- Weniger Friction = höhere Adoption
 
 ---
 
 ## Folder Structure
 
 ```
-ai-coding-starter-kit/
+bonalyze/
 ├── .claude/
-│   └── agents/              ← 6 AI Agents (Requirements, Architect, Frontend, Backend, QA, DevOps)
-├── features/                ← Feature Specs (Requirements Engineer creates these)
-│   └── README.md            ← Documentation on how to write feature specs
+│   └── agents/              ← AI Agents
+├── docs/
+│   └── BONALYZE-MVP-PLAN.md ← Produktplan
+├── features/                ← Feature Specs
+├── migrations/              ← SQL Migrations
 ├── src/
-│   ├── app/                 ← Pages (Next.js App Router)
-│   ├── components/          ← React Components
-│   │   └── ui/              ← shadcn/ui components (add as needed)
-│   └── lib/                 ← Utility functions
-│       ├── supabase.ts      ← Supabase client (commented out by default)
-│       └── utils.ts         ← Helper functions
-├── public/                  ← Static files
-├── PROJECT_CONTEXT.md       ← This file - update as project grows
-└── package.json
+│   ├── app/                 ← Pages (App Router)
+│   ├── components/
+│   │   └── ui/              ← shadcn/ui
+│   ├── hooks/               ← Custom Hooks
+│   ├── lib/                 ← Utilities
+│   └── types/               ← TypeScript Types
+├── public/                  ← Static Assets
+└── PROJECT_CONTEXT.md       ← Diese Datei
 ```
 
 ---
 
-## Getting Started
+## Development Workflow
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Setup Environment Variables (if using Supabase):**
-   ```bash
-   cp .env.local.example .env.local
-   # Add your Supabase credentials
-   ```
-
-3. **Start development server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Start using the AI Agent workflow:**
-   - Tell Claude to read `.claude/agents/requirements-engineer.md` and define your first feature
-   - Follow the workflow: Requirements → Architecture → Development → QA → Deployment
+1. **Requirements Engineer** erstellt Feature Spec → User reviewt
+2. **Solution Architect** designed API/Components → User approved
+3. **Frontend + Backend Devs** implementieren → User testet
+4. **QA Engineer** testet gegen Acceptance Criteria
+5. **DevOps** deployed → Status: ✅ Done
 
 ---
 
 ## Next Steps
 
-1. **Define your first feature idea**
-   - Think about what you want to build
-
-2. **Start with Requirements Engineer**
-   - Tell Claude: "Read .claude/agents/requirements-engineer.md and create a feature spec for [your idea]"
-   - The agent will ask clarifying questions and create a detailed spec
-
-3. **Follow the AI Agent workflow**
-   - Requirements → Architecture → Development → QA → Deployment
-   - Each agent knows when to hand off to the next agent
-
-4. **Track progress via Git**
-   - Feature specs in `/features/PROJ-X.md` show status (Planned → In Progress → Deployed)
-   - Git commits track all implementation details
-   - Use `git log --grep="PROJ-X"` to see feature history
+1. ✅ MVP-Plan erstellt und approved
+2. ✅ Feature-Specs für PROJ-2 bis PROJ-11 erstellt
+3. Solution Architect für API-Design (PROJ-4 Gemini Integration)
+4. Development starten mit Phase 0 (Auth + Household)
 
 ---
 
-**Built with AI Agent Team System + Claude Code**
+**Built with Claude Code + AI Agent Team**
