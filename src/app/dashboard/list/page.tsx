@@ -255,7 +255,10 @@ export default function ShoppingListPage() {
           const isPartial = count < total
 
           return (
-            <div className="fixed bottom-bottom-nav left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 px-4 shadow-sm z-10 flex justify-between items-center text-sm">
+            <div 
+              className="fixed left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 px-4 shadow-sm z-10 flex justify-between items-center text-sm"
+              style={{ bottom: "var(--bottom-nav-height)" }}
+            >
               <span className="text-slate-500">Geschätzt (offen):</span>
               <div className="flex items-center gap-2">
                 {isPartial ? (
