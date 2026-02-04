@@ -65,8 +65,8 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     updateItemMutation.mutate({ id, updates: { is_checked: false } })
   }
 
-  const deleteItem = (id: string) => {
-    deleteItemMutation.mutate(id)
+  const deleteItem = async (id: string) => {
+    await deleteItemMutation.mutateAsync(id)
   }
 
   // Helper for clearing checked items
@@ -94,8 +94,8 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     lists.find(l => l.id === currentListId) || null,
   [lists, currentListId])
 
-  const updateItem = (id: string, updates: Partial<ShoppingListItem>) => {
-      updateItemMutation.mutate({ id, updates })
+  const updateItem = async (id: string, updates: Partial<ShoppingListItem>) => {
+      await updateItemMutation.mutateAsync({ id, updates })
   }
 
   return {
