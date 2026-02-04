@@ -156,7 +156,7 @@ export function BudgetSettings() {
               <Input
                 type="number"
                 step="0.01"
-                disabled={!isAdmin || isSaving}
+                disabled={isSaving}
                 {...form.register("total_amount")}
               />
               {form.formState.errors.total_amount && (
@@ -175,18 +175,16 @@ export function BudgetSettings() {
                   Setze spezifische Limits für bestimmte Kategorien.
                 </CardDescription>
               </div>
-              {isAdmin && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ category: "", amount: 0 })}
-                  disabled={isSaving}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Kategorie hinzufügen
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ category: "", amount: 0 })}
+                disabled={isSaving}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Kategorie hinzufügen
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -196,7 +194,7 @@ export function BudgetSettings() {
                   <Label className={index !== 0 ? "sr-only" : ""}>Kategorie</Label>
                   <Input
                     placeholder="z.B. Lebensmittel"
-                    disabled={!isAdmin || isSaving}
+                    disabled={isSaving}
                     {...form.register(`categories.${index}.category`)}
                   />
                   {form.formState.errors.categories?.[index]?.category && (
@@ -208,7 +206,7 @@ export function BudgetSettings() {
                   <Input
                     type="number"
                     step="0.01"
-                    disabled={!isAdmin || isSaving}
+                    disabled={isSaving}
                     {...form.register(`categories.${index}.amount`)}
                   />
                    {form.formState.errors.categories?.[index]?.amount && (
@@ -221,7 +219,7 @@ export function BudgetSettings() {
                     variant="ghost"
                     size="icon"
                     onClick={() => remove(index)}
-                    disabled={!isAdmin || isSaving}
+                    disabled={isSaving}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -236,15 +234,13 @@ export function BudgetSettings() {
           </CardContent>
         </Card>
 
-        {isAdmin && (
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Save className="mr-2 h-4 w-4" />
-              Einstellungen speichern
-            </Button>
-          </div>
-        )}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Save className="mr-2 h-4 w-4" />
+            Einstellungen speichern
+          </Button>
+        </div>
       </form>
     </div>
   )

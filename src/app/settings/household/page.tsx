@@ -145,7 +145,7 @@ export default function HouseholdSettingsPage() {
 
   // Load invites
   const loadInvites = useCallback(async () => {
-    if (!currentHousehold || !isAdmin) {
+    if (!currentHousehold) {
       setIsLoadingInvites(false)
       return
     }
@@ -375,16 +375,14 @@ export default function HouseholdSettingsPage() {
           ) : (
             <div className="flex items-center justify-between">
               <span className="font-medium">{currentHousehold.name}</span>
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingName(true)}
-                >
-                  <Edit2 className="mr-2 h-4 w-4" />
-                  Bearbeiten
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditingName(true)}
+              >
+                <Edit2 className="mr-2 h-4 w-4" />
+                Bearbeiten
+              </Button>
             </div>
           )}
           {nameForm.formState.errors.name && (
@@ -444,7 +442,7 @@ export default function HouseholdSettingsPage() {
                       </div>
                     </div>
                   </div>
-                  {isAdmin && !isCurrentUser && (
+                  {!isCurrentUser && (
                     <div className="flex items-center gap-1">
                       {member.role === 'admin' ? (
                         <Button
@@ -514,116 +512,114 @@ export default function HouseholdSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Pending Invites (Admin only) */}
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Ausstehende Einladungen</CardTitle>
-                <CardDescription>
-                  {invites.length} offene {invites.length === 1 ? 'Einladung' : 'Einladungen'}
-                </CardDescription>
-              </div>
-              <Button onClick={() => setShowInviteDialog(true)}>
-                <Mail className="mr-2 h-4 w-4" />
-                Einladen
-              </Button>
+      {/* Pending Invites */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Ausstehende Einladungen</CardTitle>
+              <CardDescription>
+                {invites.length} offene {invites.length === 1 ? 'Einladung' : 'Einladungen'}
+              </CardDescription>
             </div>
-          </CardHeader>
-          <CardContent>
-            {isLoadingInvites ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : invites.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                Keine ausstehenden Einladungen
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {invites.map((invite) => {
-                  const isExpired = new Date(invite.expires_at) < new Date()
+            <Button onClick={() => setShowInviteDialog(true)}>
+              <Mail className="mr-2 h-4 w-4" />
+              Einladen
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingInvites ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : invites.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              Keine ausstehenden Einladungen
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {invites.map((invite) => {
+                const isExpired = new Date(invite.expires_at) < new Date()
 
-                  return (
-                    <div
-                      key={invite.id}
-                      className="flex items-center justify-between py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                          <Mail className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <span className="font-medium">{invite.email}</span>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              Eingeladen {formatDistanceToNow(new Date(invite.created_at), {
-                                addSuffix: true,
-                                locale: de,
-                              })}
-                            </span>
-                            {isExpired && (
-                              <Badge variant="destructive" className="text-xs">
-                                Abgelaufen
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                return (
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                        <Mail className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleResendInvite(invite.id, invite.email)}
-                          disabled={actionLoading === invite.id}
-                          title="Einladung erneut senden"
-                        >
-                          {actionLoading === invite.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
+                      <div>
+                        <span className="font-medium">{invite.email}</span>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            Eingeladen {formatDistanceToNow(new Date(invite.created_at), {
+                              addSuffix: true,
+                              locale: de,
+                            })}
+                          </span>
+                          {isExpired && (
+                            <Badge variant="destructive" className="text-xs">
+                              Abgelaufen
+                            </Badge>
                           )}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={actionLoading === invite.id}
-                              title="Einladung loeschen"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Einladung loeschen?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Moechtest du die Einladung an {invite.email} wirklich loeschen?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteInvite(invite.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Loeschen
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleResendInvite(invite.id, invite.email)}
+                        disabled={actionLoading === invite.id}
+                        title="Einladung erneut senden"
+                      >
+                        {actionLoading === invite.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={actionLoading === invite.id}
+                            title="Einladung loeschen"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Einladung loeschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Moechtest du die Einladung an {invite.email} wirklich loeschen?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteInvite(invite.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Loeschen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Separator />
 
