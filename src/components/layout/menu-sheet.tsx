@@ -43,7 +43,7 @@ const menuGroups: MenuItem[][] = [
   ],
   [
     { href: '/settings/help', icon: HelpCircle, label: 'Hilfe & Support' },
-    { href: '/settings/household', icon: Settings, label: 'App-Einstellungen' },
+    { href: '/settings', icon: Settings, label: 'App-Einstellungen' },
   ],
 ]
 
