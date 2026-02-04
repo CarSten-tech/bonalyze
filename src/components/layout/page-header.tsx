@@ -143,6 +143,7 @@ export function ListHeader({
         {searchInputValue && (
           <button
             onClick={handleClearSearch}
+            aria-label="Suche löschen"
             className="absolute right-3 top-1/2 -translate-y-1/2 min-h-touch min-w-touch flex items-center justify-center"
           >
             <X className="w-4 h-4 text-muted-foreground" />

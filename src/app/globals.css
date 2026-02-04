@@ -214,6 +214,7 @@
     font-family: var(--font-sans);
     /* Prevent text size adjustment on iOS */
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     /* Smooth scrolling */
     scroll-behavior: smooth;
   }

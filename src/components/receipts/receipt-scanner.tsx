@@ -201,6 +201,7 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
           type="file"
           accept="image/*"
           onChange={handleFileChange}
+          aria-label="Bild aus Galerie auswählen"
           className="hidden"
         />
       </div>
