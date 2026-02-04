@@ -38,7 +38,8 @@ function DashboardContent({ children }: DashboardLayoutProps) {
         .single()
 
       if (!profile?.display_name) {
-        window.location.href = '/onboarding/profile'
+        // Redirect to settings to set up profile
+        window.location.href = '/settings'
         return
       }
 
@@ -48,10 +49,10 @@ function DashboardContent({ children }: DashboardLayoutProps) {
     loadProfile()
   }, [supabase])
 
-  // Redirect to onboarding if no household
+  // Redirect to settings if no household
   useEffect(() => {
     if (!isHouseholdLoading && !isLoading && households.length === 0) {
-      window.location.href = '/onboarding/household'
+      window.location.href = '/settings/household'
     }
   }, [isHouseholdLoading, isLoading, households])
 
