@@ -70,7 +70,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200"
       style={{ paddingBottom: "var(--safe-bottom)" }}
     >
-      <div className="flex items-center justify-around h-14 max-w-lg mx-auto px-2">
+      <div className="flex items-center justify-around h-12 max-w-lg mx-auto px-2">
         {/* First two nav items */}
         {navItems.slice(0, 2).map((item) => (
           <NavLink
