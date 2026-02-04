@@ -9,7 +9,19 @@ Bonalyze macht Haushaltsausgaben transparent durch automatische Kassenbon-Erfass
 
 ## Aktueller Status
 
-**Phase 0: Foundation** - DB Schema vorhanden, Auth + Layout als nächstes
+**Phase 2: Analytics & Settlement** - MVP Core komplett, Analytics erweitern als nächstes
+
+### Was funktioniert bereits:
+- ✅ User Registration & Login (Email/Password + Magic Link)
+- ✅ Passwort-Reset Flow
+- ✅ Protected Routes (Middleware)
+- ✅ Household erstellen & verwalten
+- ✅ Mitglieder einladen (Invite-Links)
+- ✅ Household-Switcher (Multi-Haushalt)
+- ✅ Kassenbons manuell erfassen (Store, Datum, Produkte, Preise)
+- ✅ **KI-Kassenbon-Scanner** (Gemini Flash 1.5)
+- ✅ Kassenbon-Liste & Detail-Ansicht
+- ✅ Basic Dashboard mit Ausgaben-Statistik
 
 ---
 
@@ -35,18 +47,18 @@ Bonalyze macht Haushaltsausgaben transparent durch automatische Kassenbon-Erfass
 
 ## Features Roadmap
 
-### Phase 0: Foundation
-- [PROJ-1] Database Schema → 🔵 Planned → [Spec](features/PROJ-1-database-schema.md)
-- [PROJ-2] User Authentication → 🔵 Planned → [Spec](features/PROJ-2-user-authentication.md)
-- [PROJ-3] Household Management → 🔵 Planned → [Spec](features/PROJ-3-household-management.md)
+### Phase 0: Foundation ✅
+- [PROJ-1] Database Schema → ✅ Done → [Spec](features/PROJ-1-database-schema.md)
+- [PROJ-2] User Authentication → ✅ Done → [Spec](features/PROJ-2-user-authentication.md)
+- [PROJ-3] Household Management → ✅ Done → [Spec](features/PROJ-3-household-management.md)
 
-### Phase 1: MVP Core
-- [PROJ-4] Receipt Scanner & AI → 🔵 Planned → [Spec](features/PROJ-4-receipt-scanner-ai.md)
-- [PROJ-5] Receipt Editor UI → 🔵 Planned → [Spec](features/PROJ-5-receipt-editor-ui.md)
-- [PROJ-6] Receipt List & Detail → 🔵 Planned → [Spec](features/PROJ-6-receipt-list-detail.md)
+### Phase 1: MVP Core ✅
+- [PROJ-4] Receipt Scanner & AI → ✅ Done → [Spec](features/PROJ-4-receipt-scanner-ai.md)
+- [PROJ-5] Receipt Editor UI → ✅ Done → [Spec](features/PROJ-5-receipt-editor-ui.md)
+- [PROJ-6] Receipt List & Detail → ✅ Done → [Spec](features/PROJ-6-receipt-list-detail.md)
 
-### Phase 2: Analytics & Settlement
-- [PROJ-7] Dashboard & Analytics → 🔵 Planned → [Spec](features/PROJ-7-dashboard-analytics.md)
+### Phase 2: Analytics & Settlement 🟢
+- [PROJ-7] Dashboard & Analytics → 🟡 Partial → [Spec](features/PROJ-7-dashboard-analytics.md) ⭐ **NEXT**
 - [PROJ-8] Household Settlement → 🔵 Planned → [Spec](features/PROJ-8-household-settlement.md)
 
 ### Phase 3: Intelligence
@@ -61,9 +73,9 @@ Bonalyze macht Haushaltsausgaben transparent durch automatische Kassenbon-Erfass
 ## Status-Legende
 - ⚪ Backlog (noch nicht gestartet)
 - 🔵 Planned (Requirements geschrieben)
-- 🟡 In Review (User reviewt)
+- 🟡 Partial (Teilweise implementiert)
 - 🟢 In Development (Wird gebaut)
-- ✅ Done (Live + getestet)
+- ✅ Done (Implementiert + funktioniert)
 
 ---
 
@@ -134,15 +146,23 @@ bonalyze/
 ├── docs/
 │   └── BONALYZE-MVP-PLAN.md ← Produktplan
 ├── features/                ← Feature Specs
-├── migrations/              ← SQL Migrations
+├── migrations/              ← SQL Migrations (Supabase)
 ├── src/
-│   ├── app/                 ← Pages (App Router)
+│   ├── app/
+│   │   ├── (auth)/          ← Auth Pages (Login, Signup, etc.)
+│   │   ├── dashboard/       ← Dashboard & Receipts
+│   │   ├── invite/          ← Invite Token Handler
+│   │   └── settings/        ← Settings Pages
 │   ├── components/
-│   │   └── ui/              ← shadcn/ui
+│   │   ├── ui/              ← shadcn/ui
+│   │   ├── layout/          ← Header, Navigation
+│   │   └── receipts/        ← Receipt Components
+│   ├── contexts/            ← React Context (Household)
 │   ├── hooks/               ← Custom Hooks
-│   ├── lib/                 ← Utilities
+│   ├── lib/                 ← Utilities (Supabase Client)
 │   └── types/               ← TypeScript Types
 ├── public/                  ← Static Assets
+├── middleware.ts            ← Route Protection
 └── PROJECT_CONTEXT.md       ← Diese Datei
 ```
 
@@ -162,8 +182,11 @@ bonalyze/
 
 1. ✅ MVP-Plan erstellt und approved
 2. ✅ Feature-Specs für PROJ-2 bis PROJ-11 erstellt
-3. Solution Architect für API-Design (PROJ-4 Gemini Integration)
-4. Development starten mit Phase 0 (Auth + Household)
+3. ✅ Phase 0 komplett (Auth + Household)
+4. ✅ Manuelle Bon-Erfassung implementiert
+5. ✅ PROJ-4: Receipt Scanner & AI - Gemini Integration
+6. 🎯 **PROJ-7: Dashboard Analytics erweitern** (Charts, Kategorien, Vergleiche)
+7. PROJ-8: Household Settlement
 
 ---
 

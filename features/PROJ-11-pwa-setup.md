@@ -206,6 +206,124 @@ function InstallPrompt() {
 - [x] **Status gesetzt**: 🔵 Planned
 - [ ] **User Review**: Warte auf User-Approval
 
+## Tech-Design (Solution Architect)
+
+### Bestehende Architektur (geprüft)
+- **Next.js 16** mit React 19 als Basis
+- **UI-Components**: 30+ shadcn/ui Komponenten bereits vorhanden (Button, Dialog, Toast, etc.)
+- **Styling**: Tailwind CSS konfiguriert
+- **Backend**: Supabase Integration vorhanden
+- **Public Folder**: Noch keine App-Icons (nur Standard Next.js SVGs)
+
+### Component-Struktur
+
+```
+App (Layout-Ebene)
+├── PWA Meta-Tags (unsichtbar, im HTML-Head)
+│   ├── Manifest-Link
+│   ├── Theme-Color
+│   └── iOS-spezifische Tags
+│
+├── Service Worker (unsichtbar, im Hintergrund)
+│   ├── Asset-Caching (schnelleres Laden)
+│   ├── Offline-Fallback (funktioniert ohne Internet)
+│   └── Update-Erkennung (neue Version verfuegbar)
+│
+└── Install-Banner (sichtbar, wenn installierbar)
+    ├── App-Icon + Nachricht
+    ├── "Installieren" Button
+    └── "Spaeter" Button (schließt Banner)
+
+Offline-Fallback Seite (wenn kein Internet)
+├── Offline-Icon
+├── "Du bist offline" Nachricht
+└── "Erneut versuchen" Button
+```
+
+### Daten-Model
+
+**PWA speichert keine eigenen Daten in der Datenbank.**
+
+Lokale Browser-Speicherung (automatisch):
+- **Service Worker Cache**: Statische Dateien (Bilder, CSS, JavaScript)
+- **localStorage Flag**: Hat User den Install-Banner geschlossen? (Ja/Nein)
+
+Das ist alles - PWA ist hauptsaechlich Konfiguration, keine Datenspeicherung.
+
+### Dateien-Struktur (was wird erstellt)
+
+```
+public/
+├── manifest.json          (App-Informationen fuer Browser)
+└── icons/
+    ├── icon-192.png       (kleines App-Icon)
+    ├── icon-512.png       (großes App-Icon)
+    ├── icon-512-maskable.png  (Android Adaptive Icon)
+    └── apple-touch-icon.png   (iOS Homescreen Icon)
+
+src/
+├── app/
+│   ├── layout.tsx         (erweitert mit PWA Meta-Tags)
+│   └── offline/
+│       └── page.tsx       (Offline-Fallback Seite)
+└── components/
+    └── pwa/
+        ├── InstallBanner.tsx   (Install-Aufforderung)
+        └── UpdatePrompt.tsx    (Update-Hinweis)
+```
+
+### Tech-Entscheidungen
+
+| Entscheidung | Warum? |
+|--------------|--------|
+| **next-pwa Package** | Automatische Service Worker Generierung, speziell fuer Next.js optimiert, wird aktiv gewartet |
+| **Workbox (via next-pwa)** | Google's Standard-Tool fuer PWA Caching, bewaehrt und stabil |
+| **Eigene Install-Banner Komponente** | Mehr Kontrolle ueber Design, passt zum Bonalyze Look & Feel |
+| **localStorage fuer "Banner geschlossen"** | Einfach, kein Server noetig, User-Praeferenz bleibt erhalten |
+| **Deaktiviert in Development** | Service Worker stoert beim Entwickeln, nur in Production aktiv |
+
+### App-Verhalten nach Installation
+
+| Aktion | Ergebnis |
+|--------|----------|
+| User oeffnet App vom Homescreen | App startet im Vollbild (ohne Browser-Leiste) |
+| App wird aktualisiert | "Neue Version verfuegbar" Banner erscheint |
+| Kein Internet | Offline-Seite wird angezeigt statt Fehler |
+| User schließt Install-Banner | Banner erscheint nicht mehr (localStorage) |
+
+### iOS Besonderheiten
+
+iOS Safari hat Einschraenkungen gegenueber Android:
+- **Kein echtes Push**: Push Notifications funktionieren nicht
+- **Storage-Limit**: Max 50MB lokaler Speicher
+- **Kein automatischer Install-Prompt**: User muss manuell "Zum Home-Bildschirm" waehlen
+
+Loesung: Spezielle iOS-Anleitung im Install-Banner ("Teilen-Button > Zum Home-Bildschirm")
+
+### Dependencies
+
+| Package | Zweck |
+|---------|-------|
+| **next-pwa** | Service Worker + Manifest Generation fuer Next.js |
+
+Das ist das einzige neue Package. Alle anderen Funktionen werden mit vorhandenen Tools (React, Tailwind, shadcn/ui) umgesetzt.
+
+### Performance-Ziele (Lighthouse)
+
+- PWA Score: > 90 Punkte
+- First Contentful Paint: < 2 Sekunden
+- Time to Interactive: < 3 Sekunden
+
+Diese Ziele werden durch den Service Worker Cache erreicht (Assets werden lokal gespeichert).
+
+### Risiken & Mitigationen
+
+| Risiko | Mitigation |
+|--------|------------|
+| Service Worker cached alte Version | skipWaiting + Update-Prompt informiert User |
+| iOS User verstehen Install nicht | Klare Anleitung mit Screenshots |
+| Lighthouse Score zu niedrig | Iterative Optimierung nach erstem Audit |
+
 ## Next Steps
 1. **User-Review**: Spec durchlesen und approven
 2. **Frontend Developer**: PWA Config + Icons

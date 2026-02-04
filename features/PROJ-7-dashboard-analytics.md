@@ -21,8 +21,11 @@ Das Dashboard zeigt Ausgaben-Übersichten, Trends und Kategorie-Verteilungen. Ze
 ### US-3: Store-Analyse
 - Als **User** möchte ich **sehen bei welchen Stores ich am meisten ausgebe**, um **mein Einkaufsverhalten zu verstehen**
 
-### US-4: Zeitraum wählen
-- Als **User** möchte ich **verschiedene Zeiträume analysieren** (Woche, Monat, Quartal), um **flexibel zu sein**
+### US-4: Zeitraum wählen (ERWEITERT)
+- Als **User** möchte ich **verschiedene Zeiträume analysieren** (Woche, Monat, Quartal, Jahr), um **flexibel zu sein**
+- Als **User** möchte ich **Rolling Periods wählen** (letzte 30/60/90 Tage), um **aktuelle Trends zu sehen**
+- Als **User** möchte ich **einen Custom-Zeitraum mit Datepicker wählen**, um **spezifische Zeiträume zu analysieren**
+- Als **User** möchte ich **Vergleiche zur Vorperiode sehen**, um **Veränderungen zu verstehen**
 
 ### US-5: Quick Actions
 - Als **User** möchte ich **vom Dashboard schnell einen Scan starten**, um **effizienter zu sein**
@@ -46,10 +49,24 @@ Das Dashboard zeigt Ausgaben-Übersichten, Trends und Kategorie-Verteilungen. Ze
 - [ ] Store-Name + Betrag + Anzahl Besuche
 - [ ] Tap → Filter auf Receipt-Liste
 
-### AC-4: Zeitraum-Auswahl
-- [ ] Tabs oder Dropdown: "Diese Woche", "Dieser Monat", "Dieses Quartal"
-- [ ] Alle Daten aktualisieren bei Wechsel
+### AC-4: Zeitraum-Auswahl (ERWEITERT)
+- [ ] **Preset Tabs**: "Woche", "Monat", "Quartal", "Jahr"
+- [ ] **Rolling Periods**: "Letzte 30 Tage", "Letzte 60 Tage", "Letzte 90 Tage"
+- [ ] **Custom Range**: Datepicker mit "Von" und "Bis" Feld
+- [ ] Alle Daten aktualisieren bei Wechsel (< 500ms)
 - [ ] Default: "Dieser Monat"
+- [ ] URL-Parameter für Zeitraum (deep-linkable: `/dashboard?period=month`)
+- [ ] "Custom" Pill wird aktiv wenn Datepicker genutzt wird
+
+### AC-4a: Vorperioden-Vergleich (NEU)
+- [ ] Jede KPI zeigt Vergleich zur Vorperiode
+- [ ] "Diese Woche" → vs. letzte Woche
+- [ ] "Dieser Monat" → vs. letzter Monat
+- [ ] "Dieses Quartal" → vs. letztes Quartal
+- [ ] "Dieses Jahr" → vs. letztes Jahr
+- [ ] "Letzte 30 Tage" → vs. die 30 Tage davor
+- [ ] "Custom Range" → vs. gleicher Zeitraum davor (automatisch berechnet)
+- [ ] Anzeige: "+12% vs. Vorperiode" oder "-5% vs. Vorperiode"
 
 ### AC-5: Trend-Indikator
 - [ ] "↑12% vs. Vormonat" oder "↓5% vs. Vormonat"
@@ -90,7 +107,7 @@ Das Dashboard zeigt Ausgaben-Übersichten, Trends und Kategorie-Verteilungen. Ze
 │  🏠 Familie Müller  ▼       │
 ├─────────────────────────────┤
 │                             │
-│  [Woche] [Monat*] [Quartal] │
+│  [Woche][Monat*][Quartal][Jahr][Custom]│
 │                             │
 │  ┌───────────────────────┐  │
 │  │                       │  │
@@ -135,31 +152,79 @@ Das Dashboard zeigt Ausgaben-Übersichten, Trends und Kategorie-Verteilungen. Ze
      [+] FAB: Neuer Scan
 ```
 
+### Custom Range Picker (NEU)
+```
+┌─────────────────────────────┐
+│  Zeitraum wählen        ×   │
+├─────────────────────────────┤
+│                             │
+│  [Letzte 30 Tage]           │
+│  [Letzte 60 Tage]           │
+│  [Letzte 90 Tage]           │
+│                             │
+│  ─── Custom ─────────────── │
+│                             │
+│  Von: [📅 01.01.2025    ]   │
+│  Bis: [📅 31.01.2025    ]   │
+│                             │
+│  [    Anwenden    ]         │
+│                             │
+└─────────────────────────────┘
+```
+
 ## Implementation Notes
 
-### Analytics Query
+### Analytics Query (ERWEITERT)
 ```typescript
-// Monatliche Zusammenfassung
-const { data } = await supabase.rpc('get_monthly_summary', {
+// Flexible Zeitraum-Abfrage
+const { data } = await supabase.rpc('get_dashboard_summary', {
   p_household_id: householdId,
-  p_year: 2025,
-  p_month: 1
+  p_start_date: '2025-01-01',  // ISO Date
+  p_end_date: '2025-01-31',    // ISO Date
+  p_include_comparison: true   // Vorperiode automatisch berechnen
 })
 
 // Returns:
 // {
-//   total_spent: 84732, // cents
-//   receipt_count: 23,
-//   prev_month_total: 75621,
-//   categories: [
-//     { name: 'food', total: 52534, percentage: 62 },
-//     ...
-//   ],
-//   top_merchants: [
-//     { id: '...', name: 'REWE', total: 41200, visit_count: 14 },
-//     ...
-//   ]
+//   period: {
+//     start: "2025-01-01",
+//     end: "2025-01-31",
+//     label: "Januar 2025"
+//   },
+//   current: {
+//     total_spent: 84732,        // cents
+//     receipt_count: 23,
+//     categories: [...],
+//     top_merchants: [...]
+//   },
+//   comparison: {                 // Vorperiode (wenn angefragt)
+//     period: {
+//       start: "2024-12-01",
+//       end: "2024-12-31",
+//       label: "Dezember 2024"
+//     },
+//     total_spent: 75621,
+//     receipt_count: 19,
+//     percentage_change: 12.05    // +12% vs. Vorperiode
+//   }
 // }
+```
+
+### Preset Period Helper (Client-side)
+```typescript
+type PeriodPreset =
+  | 'this_week'
+  | 'this_month'
+  | 'this_quarter'
+  | 'this_year'
+  | 'last_30_days'
+  | 'last_60_days'
+  | 'last_90_days'
+  | 'custom'
+
+function getDateRange(preset: PeriodPreset, customRange?: { start: Date, end: Date }) {
+  // Returns { start: Date, end: Date } für API-Call
+}
 ```
 
 ### Supabase Function
@@ -175,12 +240,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## Checklist vor Abschluss
 
-- [x] **User Stories komplett**: 5 User Stories definiert
-- [x] **Acceptance Criteria konkret**: 7 Kategorien
+- [x] **User Stories komplett**: 5 User Stories definiert (US-4 erweitert)
+- [x] **Acceptance Criteria konkret**: 8 Kategorien (AC-4 erweitert, AC-4a neu)
 - [x] **Edge Cases identifiziert**: 4 Edge Cases
 - [x] **Feature-ID vergeben**: PROJ-7
 - [x] **Status gesetzt**: 🔵 Planned
-- [ ] **User Review**: Warte auf User-Approval
+- [x] **User Review**: Approved (02.02.2025)
+
+## Changelog
+
+### v1.1 (02.02.2025)
+- ✅ **ERWEITERT**: US-4 um Rolling Periods (30/60/90 Tage) und Custom Range
+- ✅ **ERWEITERT**: AC-4 um Jahr, Rolling Periods, Custom Datepicker, URL-Parameter
+- ✅ **NEU**: AC-4a Vorperioden-Vergleich (automatisch basierend auf gewähltem Zeitraum)
+- ✅ **NEU**: UI Mockup für Custom Range Picker
+- ✅ **NEU**: Erweiterte API mit `p_start_date`, `p_end_date`, `p_include_comparison`
+- ✅ **NEU**: PeriodPreset Type Definition für Client-side Helper
 
 ## Tech-Design (Solution Architect)
 

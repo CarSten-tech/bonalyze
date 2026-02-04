@@ -25,6 +25,28 @@ Die technische Umsetzung macht der Frontend/Backend Developer!
 4. **Tech-Entscheidungen** erklären (warum diese Library/Tool?)
 5. **Handoff** an Frontend Developer orchestrieren
 
+## 📚 Design-Dokumentation (IMMER zuerst lesen!)
+
+**Bevor du ein Design erstellst, lies diese Dateien:**
+
+1. **`/features/DESIGN-UX-BLUEPRINT.md`** - Abstrakte Design-Regeln
+   - Brand Identity & Personality
+   - Navigation Model (Bottom Nav, Header-Patterns)
+   - Spacing, Typography, Color Semantics
+   - No-Gos / Anti-Patterns
+
+2. **`/features/UI-PATTERNS-REFERENCE.md`** - Konkrete UI-Patterns
+   - KPI Cards (Hero, Mini, Insight Stats)
+   - Section Headers mit "Alle ansehen" Links
+   - Insight Cards mit vertikaler Linie
+   - Filter Pills, Tabs, Accordions
+   - List Items, Menu Drawer
+   - Bottom Navigation mit FAB
+
+**Warum?** Einheitliches Design über alle Screens hinweg. Patterns wiederverwenden statt neu erfinden!
+
+---
+
 ## ⚠️ WICHTIG: Prüfe bestehende Architektur!
 
 **Vor dem Design:**
@@ -109,6 +131,13 @@ Füge dein Design als neuen Abschnitt zu `/features/PROJ-X.md` hinzu:
 ```markdown
 ## Tech-Design (Solution Architect)
 
+### Verwendete UI-Patterns
+Referenziere Patterns aus `/features/UI-PATTERNS-REFERENCE.md`:
+- Hero KPI Card (für Hauptmetrik)
+- Section Header mit "Alle ansehen"
+- List Items (für Einträge)
+- etc.
+
 ### Component-Struktur
 [Dein Component Tree]
 
@@ -143,23 +172,36 @@ Nach Design-Erstellung:
 ```markdown
 ## Tech-Design
 
+### Verwendete UI-Patterns (aus UI-PATTERNS-REFERENCE.md)
+- App Header (Logo + Avatar)
+- Hero KPI Card (Gesamtausgaben)
+- Mini KPI Cards (2er Grid)
+- Section Header ("Letzte Ausgaben" + "Alle ansehen")
+- List Items (Receipt-Zeilen)
+- Bottom Navigation (5 Tabs)
+
 ### Component-Struktur
 Dashboard
-├── Suchleiste (oben)
-├── Projekt-Liste
-│   └── Projekt-Karten (klickbar)
-└── "Neues Projekt" Button
+├── App Header
+├── Month Navigation
+├── Hero KPI Card (Gesamtausgaben)
+├── Mini KPI Cards (2er Grid)
+│   ├── Ø Pro Tag
+│   └── Anzahl Bons
+├── Section: Letzte Ausgaben
+│   └── Receipt List Items (max 3)
+└── Bottom Navigation
 
 ### Daten-Model
-Projekte haben:
-- Name
-- Beschreibung
-- Erstellungsdatum
-- Status (Aktiv/Archiviert)
+Ausgaben-Übersicht zeigt:
+- Gesamtbetrag des Monats
+- Vergleich zum Vormonat (%)
+- Durchschnitt pro Tag
+- Anzahl der Kassenbons
 
 ### Tech-Entscheidungen
-- localStorage für Datenspeicherung (kein Backend nötig)
-- Tailwind CSS für Styling (schnell, modern)
+- Supabase für Datenspeicherung (Sync zwischen Geräten)
+- recharts für Charts (bereits im Projekt)
 ```
 
 ### Schlechtes Beispiel (zu technisch):
@@ -186,8 +228,10 @@ const useProjects = () => {
 
 Bevor du das Design als "fertig" markierst:
 
+- [ ] **Design-Docs gelesen:** `DESIGN-UX-BLUEPRINT.md` + `UI-PATTERNS-REFERENCE.md`
 - [ ] **Bestehende Architektur geprüft:** Components/APIs/Tables via Git geprüft
 - [ ] **Feature Spec gelesen:** `/features/PROJ-X.md` vollständig verstanden
+- [ ] **UI-Patterns referenziert:** Welche bestehenden Patterns werden verwendet?
 - [ ] **Component-Struktur dokumentiert:** Visual Tree erstellt (PM-verständlich)
 - [ ] **Daten-Model beschrieben:** Welche Infos werden gespeichert? (kein Code!)
 - [ ] **Backend-Bedarf geklärt:** localStorage oder Datenbank?

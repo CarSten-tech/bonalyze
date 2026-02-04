@@ -2,76 +2,205 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================================
+   BONALYZE DESIGN TOKENS
+   Based on: DESIGN-UX-BLUEPRINT.md
+   Theme: "Intelligent Household Finance Companion"
+   Feel: Apple-Adjacent - Clean geometry + warm personal accents
+   ============================================================================= */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    /* -------------------------------------------------------------------------
+       COLOR PALETTE
+       Primary: Muted Teal (trustworthy + modern)
+       Neutrals: Light grays, near-black text
+       ------------------------------------------------------------------------- */
+
+    /* Base Neutrals */
+    --background: 0 0% 98%;           /* Very light gray - not pure white */
+    --foreground: 220 13% 13%;        /* Near-black - not pure black */
+
+    /* Card Surface */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 220 13% 13%;
+
+    /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Primary Action - Muted Teal */
+    --primary: 174 42% 40%;           /* Muted teal - main accent */
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 220 13% 26%;
+
+    /* Muted Text & Backgrounds */
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;   /* Medium gray for secondary text */
+
+    /* Accent (Interactive Highlights) */
+    --accent: 174 42% 95%;            /* Light teal for hover states */
+    --accent-foreground: 174 42% 25%;
+
+    /* Destructive */
+    --destructive: 0 55% 50%;         /* Muted red - not alarm-red */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 174 42% 40%;              /* Focus ring matches primary */
+
+    /* -------------------------------------------------------------------------
+       SEMANTIC COLORS
+       Success = Muted green (down/good for spending)
+       Warning = Warm amber
+       Error = Muted red
+       Info = Calm blue
+       ------------------------------------------------------------------------- */
+    --success: 152 45% 42%;           /* Muted green */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;            /* Warm amber */
+    --warning-foreground: 38 92% 15%;
+    --error: 0 55% 50%;               /* Muted red */
+    --error-foreground: 0 0% 100%;
+    --info: 210 60% 50%;              /* Calm blue */
+    --info-foreground: 0 0% 100%;
+
+    /* -------------------------------------------------------------------------
+       CATEGORY COLORS (for charts)
+       Distinct but muted colors that work together
+       ------------------------------------------------------------------------- */
+    --chart-1: 152 45% 50%;           /* Sage green - Lebensmittel */
+    --chart-2: 210 45% 55%;           /* Dusty blue - Haushalt */
+    --chart-3: 25 65% 55%;            /* Warm terra - Getraenke */
+    --chart-4: 280 35% 55%;           /* Soft plum - Sonstiges */
+    --chart-5: 45 70% 55%;            /* Warm gold - additional */
+
+    /* -------------------------------------------------------------------------
+       NAVIGATION
+       Bottom nav specific colors
+       ------------------------------------------------------------------------- */
+    --nav-background: 0 0% 100%;
+    --nav-foreground: 220 9% 46%;
+    --nav-active: 174 42% 40%;        /* Active tab = primary teal */
+    --nav-border: 220 13% 92%;
+
+    /* -------------------------------------------------------------------------
+       CORNER RADIUS
+       sm: badges, tags (4-6px)
+       md: buttons, inputs (8px)
+       lg: cards, containers (12px)
+       xl: bottom sheets (16px)
+       ------------------------------------------------------------------------- */
+    --radius: 0.5rem;                 /* 8px base = md */
+    --radius-sm: 0.25rem;             /* 4px */
+    --radius-md: 0.5rem;              /* 8px */
+    --radius-lg: 0.75rem;             /* 12px */
+    --radius-xl: 1rem;                /* 16px */
+
+    /* -------------------------------------------------------------------------
+       SPACING (8pt Grid)
+       xs: 4px - Icon-to-label gaps
+       sm: 8px - Inside compact elements
+       md: 16px - Standard padding
+       lg: 24px - Section separators
+       xl: 32px - Major section breaks
+       ------------------------------------------------------------------------- */
+    --space-xs: 0.25rem;              /* 4px */
+    --space-sm: 0.5rem;               /* 8px */
+    --space-md: 1rem;                 /* 16px */
+    --space-lg: 1.5rem;               /* 24px */
+    --space-xl: 2rem;                 /* 32px */
+
+    /* -------------------------------------------------------------------------
+       iOS SAFE AREAS
+       Status bar: 44pt
+       Header: 56pt
+       Bottom nav: 84pt (including home indicator safe area)
+       ------------------------------------------------------------------------- */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --header-height: 3.5rem;          /* 56px */
+    --bottom-nav-height: 5.25rem;     /* 84px including safe area */
+
+    /* -------------------------------------------------------------------------
+       TYPOGRAPHY
+       System fonts for native iOS feel
+       ------------------------------------------------------------------------- */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+
+    /* Font sizes with line heights */
+    --text-xs: 0.6875rem;             /* 11px - badges, captions */
+    --text-sm: 0.8125rem;             /* 13px - secondary info */
+    --text-base: 1rem;                /* 16px - body text */
+    --text-lg: 1.25rem;               /* 20px - section headers */
+    --text-xl: 1.75rem;               /* 28px - KPI numbers */
+    --text-2xl: 2rem;                 /* 32px - large KPIs */
+
+    /* Sidebar (keeping shadcn defaults) */
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-foreground: 220 13% 26%;
+    --sidebar-primary: 174 42% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 174 42% 95%;
+    --sidebar-accent-foreground: 174 42% 25%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 174 42% 40%;
   }
 
+  /* Dark Mode (prepared for PROJ-12, MVP = light only) */
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 220 13% 8%;
+    --foreground: 220 13% 95%;
+    --card: 220 13% 10%;
+    --card-foreground: 220 13% 95%;
+    --popover: 220 13% 10%;
+    --popover-foreground: 220 13% 95%;
+    --primary: 174 50% 45%;
+    --primary-foreground: 220 13% 8%;
+    --secondary: 220 13% 15%;
+    --secondary-foreground: 220 13% 85%;
+    --muted: 220 13% 15%;
+    --muted-foreground: 220 9% 55%;
+    --accent: 174 42% 15%;
+    --accent-foreground: 174 42% 85%;
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 18%;
+    --input: 220 13% 18%;
+    --ring: 174 50% 45%;
+
+    --success: 152 45% 45%;
+    --warning: 38 92% 55%;
+    --error: 0 55% 45%;
+    --info: 210 60% 55%;
+
+    --chart-1: 152 50% 55%;
+    --chart-2: 210 50% 60%;
+    --chart-3: 25 70% 60%;
+    --chart-4: 280 40% 60%;
+    --chart-5: 45 75% 60%;
+
+    --nav-background: 220 13% 10%;
+    --nav-foreground: 220 9% 55%;
+    --nav-active: 174 50% 45%;
+    --nav-border: 220 13% 18%;
+
+    --sidebar-background: 220 13% 8%;
+    --sidebar-foreground: 220 13% 85%;
+    --sidebar-primary: 174 50% 45%;
+    --sidebar-primary-foreground: 220 13% 8%;
+    --sidebar-accent: 174 42% 15%;
+    --sidebar-accent-foreground: 174 42% 85%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 174 50% 45%;
   }
 }
 
@@ -79,7 +208,105 @@
   * {
     @apply border-border;
   }
+
+  html {
+    /* Use system font stack */
+    font-family: var(--font-sans);
+    /* Prevent text size adjustment on iOS */
+    -webkit-text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
+    /* Use font smoothing for cleaner text */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* =============================================================================
+   UTILITY CLASSES
+   ============================================================================= */
+
+@layer utilities {
+  /* Safe area utilities for iOS */
+  .safe-top {
+    padding-top: var(--safe-top);
+  }
+  .safe-bottom {
+    padding-bottom: var(--safe-bottom);
+  }
+  .safe-left {
+    padding-left: var(--safe-left);
+  }
+  .safe-right {
+    padding-right: var(--safe-right);
+  }
+  .safe-all {
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+
+  /* Touch target minimum (44px for iOS) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Tabular figures for money alignment */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* German currency formatting helper */
+  .currency {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* Monospace for amounts */
+  .font-mono-amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* =============================================================================
+   COMPONENT OVERRIDES
+   App-specific styling for shadcn/ui components
+   ============================================================================= */
+
+@layer components {
+  /* Toast positioning - above bottom nav */
+  [data-sonner-toaster] {
+    --offset: calc(var(--bottom-nav-height) + var(--space-md)) !important;
+  }
+
+  /* Card with default border and subtle hover */
+  .card-interactive {
+    @apply transition-shadow duration-200;
+  }
+  .card-interactive:hover {
+    @apply shadow-sm;
+  }
+
+  /* Button with proper touch target */
+  .btn-touch {
+    @apply touch-target flex items-center justify-center;
   }
 }

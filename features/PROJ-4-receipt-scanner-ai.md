@@ -29,6 +29,15 @@ Kern-Feature von Bonalyze: User fotografiert Kassenbon, Gemini Flash 1.5 extrahi
 - Als **User** möchte ich **Hinweise zur Foto-Qualität bekommen**, um **bessere Scans zu machen**
 - Als **User** möchte ich **das Foto neu aufnehmen können**, wenn **es unscharf ist**
 
+### US-5: Multi-Foto-Scan (NEU)
+- Als **User** möchte ich **lange Kassenbons in mehreren Fotos erfassen**, um **den kompletten Bon zu digitalisieren**
+- Als **User** möchte ich **sehen dass mehrere Fotos zusammengeführt werden**, um **zu verstehen was passiert**
+- Als **User** möchte ich **einzelne Fotos aus dem Multi-Scan entfernen können**, wenn **eines unscharf ist**
+
+### US-6: Duplikat-Warnung (NEU)
+- Als **User** möchte ich **gewarnt werden wenn ich einen Bon doppelt scanne**, um **Duplikate zu vermeiden**
+- Als **User** möchte ich **die Warnung ignorieren können**, wenn **es tatsächlich zwei separate Bons sind**
+
 ## Acceptance Criteria
 
 ### AC-1: Kamera-Integration
@@ -72,6 +81,24 @@ Kern-Feature von Bonalyze: User fotografiert Kassenbon, Gemini Flash 1.5 extrahi
 - [ ] Timeout → "Verarbeitung dauert zu lange. Bitte erneut versuchen."
 - [ ] Leeres Bild → Validierung vor Upload
 
+### AC-7: Multi-Foto-Scan (NEU)
+- [ ] "Weiteres Foto hinzufügen" Button nach erstem Scan
+- [ ] Alle Fotos werden als Batch an Gemini gesendet
+- [ ] AI erhält erweiterten Prompt: "Diese Bilder zeigen denselben Kassenbon"
+- [ ] AI merged die Daten intelligent (keine Duplikate, richtige Reihenfolge)
+- [ ] Vorschau zeigt Thumbnails aller Fotos
+- [ ] Einzelne Fotos können per Swipe/X entfernt werden
+- [ ] Maximum: 5 Fotos pro Bon (Kostenschutz)
+- [ ] Loading-State zeigt: "Analysiere 3 Bilder..."
+
+### AC-8: Duplikat-Erkennung (NEU)
+- [ ] Vor dem Speichern: Check auf bestehende Bons mit gleichem Store + Datum + Total (±5%)
+- [ ] Warnung-Dialog bei potenziellem Duplikat: "Ähnlicher Bon gefunden"
+- [ ] Dialog zeigt: Datum, Store, Betrag des existierenden Bons
+- [ ] User-Optionen: "Trotzdem speichern" oder "Abbrechen"
+- [ ] Bei "Trotzdem speichern": Normal fortfahren
+- [ ] Check passiert server-side (Supabase Query)
+
 ## Edge Cases
 
 ### EC-1: Unscharfes Foto
@@ -84,10 +111,9 @@ Kern-Feature von Bonalyze: User fotografiert Kassenbon, Gemini Flash 1.5 extrahi
 - **Lösung**: Gemini erkennt "kein Kassenbon" und gibt Fehler zurück
 - **UI**: "Das sieht nicht wie ein Kassenbon aus. Bitte Kassenbon fotografieren."
 
-### EC-3: Langer Kassenbon
+### EC-3: Langer Kassenbon (Multi-Foto-Scan) ✅ ERWEITERT
 - **Was passiert, wenn** der Bon nicht auf ein Foto passt?
-- **Lösung**: MVP: User muss scrollen/zoomen für besten Ausschnitt
-- **Future**: Multi-Foto-Scan mit Merge
+- **Lösung**: Multi-Foto-Scan mit AI-Merge (siehe US-5 und AC-7)
 
 ### EC-4: Fremdsprache auf Bon
 - **Was passiert, wenn** der Bon in anderer Sprache ist (Urlaub)?
@@ -104,10 +130,10 @@ Kern-Feature von Bonalyze: User fotografiert Kassenbon, Gemini Flash 1.5 extrahi
 - **Lösung**: Als separate Line Items erfassen
 - **Prompt**: "Erfasse auch Rabatte und Pfand als separate Positionen"
 
-### EC-7: Duplikat-Erkennung
+### EC-7: Duplikat-Erkennung ✅ IMPLEMENTIERT
 - **Was passiert, wenn** User denselben Bon zweimal scannt?
-- **Lösung (MVP)**: Kein Check, User muss selbst aufpassen
-- **Future**: Hash-basierte Duplikat-Warnung
+- **Lösung**: Check auf Store + Datum + Total (±5%) vor Speichern
+- **UI**: Warnung-Dialog mit Option "Trotzdem speichern" oder "Abbrechen"
 
 ### EC-8: Network-Fehler während Upload
 - **Was passiert, wenn** die Verbindung während des Uploads abbricht?
@@ -176,6 +202,25 @@ Regeln:
 - confidence: Schätzung 0-1 wie sicher du bist
 ```
 
+### Multi-Foto Prompt (NEU)
+```
+Analysiere diese [N] Bilder desselben Kassenbons. Die Bilder zeigen verschiedene Abschnitte eines langen Bons.
+
+WICHTIG:
+1. Erkenne überlappende Bereiche und vermeide Duplikate
+2. Sortiere Items in der richtigen Reihenfolge (wie auf dem Bon)
+3. Der Header (Store, Datum) ist typisch auf dem ersten Bild
+4. Die Summe ist typisch auf dem letzten Bild
+5. Merged die Items aus allen Bildern
+
+Antworte NUR mit validem JSON im gleichen Format wie oben, plus:
+{
+  ...
+  "images_processed": 3,
+  "merge_confidence": 0.85
+}
+```
+
 ### Response Schema (Zod)
 ```typescript
 const ReceiptAIResponseSchema = z.object({
@@ -231,6 +276,62 @@ Body: {
   "success": false,
   "error": "NO_RECEIPT_DETECTED",
   "message": "Das sieht nicht wie ein Kassenbon aus."
+}
+```
+
+### POST /api/receipts/scan-multi (NEU)
+```typescript
+// Request - Multi-Foto-Scan
+Content-Type: multipart/form-data
+Body: {
+  images: File[],        // 2-5 Bilder
+  household_id: string
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "draft_id": "uuid",
+    "image_urls": ["https://...", "https://..."],
+    "ai_result": {
+      "merchant": "REWE",
+      "date": "2025-01-28",
+      "items": [...],      // Merged items from all images
+      "total": 123.47,
+      "confidence": 0.88,
+      "images_processed": 3
+    }
+  }
+}
+```
+
+### POST /api/receipts/check-duplicate (NEU)
+```typescript
+// Request - Duplikat-Check
+{
+  "household_id": "uuid",
+  "merchant_name": "REWE",
+  "date": "2025-01-28",
+  "total_cents": 4732
+}
+
+// Response 200 - Potentielles Duplikat gefunden
+{
+  "is_duplicate": true,
+  "existing_receipt": {
+    "id": "uuid",
+    "merchant_name": "REWE",
+    "date": "2025-01-28",
+    "total_cents": 4732,
+    "scanned_at": "2025-01-28T14:30:00Z"
+  }
+}
+
+// Response 200 - Kein Duplikat
+{
+  "is_duplicate": false,
+  "existing_receipt": null
 }
 ```
 
@@ -315,6 +416,48 @@ Body: {
 └─────────────────────────────┘
 ```
 
+#### 5. Multi-Foto Vorschau (NEU)
+```
+┌─────────────────────────────┐
+│  ×          Multi-Scan      │
+├─────────────────────────────┤
+│                             │
+│  Fotos für diesen Bon:      │
+│                             │
+│  ┌─────┐ ┌─────┐ ┌─────┐    │
+│  │ 📷1 │ │ 📷2 │ │ +   │    │
+│  │  ×  │ │  ×  │ │ Foto│    │
+│  └─────┘ └─────┘ └─────┘    │
+│                             │
+│  💡 Max. 5 Fotos            │
+│                             │
+│  [ Alle analysieren → ]     │
+│                             │
+└─────────────────────────────┘
+```
+
+#### 6. Duplikat-Warnung Dialog (NEU)
+```
+┌─────────────────────────────┐
+│                             │
+│           ⚠️                │
+│                             │
+│   Ähnlicher Bon gefunden    │
+│                             │
+│  ┌───────────────────────┐  │
+│  │ REWE · 28.01.2025     │  │
+│  │ €47,32                │  │
+│  │ Vor 2 Stunden gescannt│  │
+│  └───────────────────────┘  │
+│                             │
+│   Ist das ein Duplikat?     │
+│                             │
+│  [ Trotzdem speichern ]     │
+│                             │
+│  [     Abbrechen      ]     │
+└─────────────────────────────┘
+```
+
 ## Implementation Notes
 
 ### Kamera-Integration (React)
@@ -389,13 +532,25 @@ export async function extractReceiptData(imageUrl: string) {
 ## Checklist vor Abschluss
 
 - [x] **Fragen gestellt**: AI-Flow (Foto + Korrektur) geklärt
-- [x] **User Stories komplett**: 4 User Stories definiert
-- [x] **Acceptance Criteria konkret**: 6 Kategorien mit testbaren Kriterien
-- [x] **Edge Cases identifiziert**: 8 Edge Cases dokumentiert
+- [x] **User Stories komplett**: 6 User Stories definiert (inkl. Multi-Foto + Duplikat)
+- [x] **Acceptance Criteria konkret**: 8 Kategorien mit testbaren Kriterien
+- [x] **Edge Cases identifiziert**: 8 Edge Cases dokumentiert (EC-3, EC-7 jetzt implementiert)
 - [x] **Feature-ID vergeben**: PROJ-4
 - [x] **File gespeichert**: `/features/PROJ-4-receipt-scanner-ai.md`
 - [x] **Status gesetzt**: 🔵 Planned
-- [ ] **User Review**: Warte auf User-Approval
+- [x] **User Review**: Approved (02.02.2025)
+
+## Changelog
+
+### v1.1 (02.02.2025)
+- ✅ **NEU**: US-5 Multi-Foto-Scan (lange Kassenbons in mehreren Fotos)
+- ✅ **NEU**: US-6 Duplikat-Warnung (Store + Datum + Total Check)
+- ✅ **NEU**: AC-7 Multi-Foto-Scan Acceptance Criteria
+- ✅ **NEU**: AC-8 Duplikat-Erkennung Acceptance Criteria
+- ✅ **NEU**: API Endpoints `/api/receipts/scan-multi` und `/api/receipts/check-duplicate`
+- ✅ **NEU**: Multi-Foto Gemini Prompt
+- ✅ **NEU**: UI Screens für Multi-Foto Vorschau und Duplikat-Dialog
+- ✅ **UPDATED**: EC-3 und EC-7 von "Future" zu "Implementiert"
 
 ## Next Steps
 1. **User-Review**: Spec durchlesen und approven

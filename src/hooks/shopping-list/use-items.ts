@@ -1,0 +1,170 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
+import type { Database } from '@/lib/database.types'
+
+export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
+
+export function useShoppingItems(listId: string | null) {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  const queryKey = ['shopping_list_items', listId]
+
+  // Fetch items
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (!listId) return []
+      const { data, error } = await supabase
+        .from('shopping_list_items')
+        .select('*')
+        .eq('shopping_list_id', listId)
+        .order('created_at', { ascending: true }) // Order by creation for stability
+      
+      if (error) throw error
+      return data as ShoppingListItem[]
+    },
+    enabled: !!listId,
+  })
+
+  // Helper types for Mutations
+  type AddItemInput = {
+      product_name: string
+      quantity?: number
+      unit?: string
+  }
+
+  // Add Item Mutation
+  const addItem = useMutation({
+    mutationFn: async (input: AddItemInput) => {
+        if (!listId) throw new Error("No list selected")
+        
+        // 1. Try to link product
+        const { data: product } = await supabase
+            .from('products')
+            .select('id')
+            .eq('name', input.product_name.trim())
+            .maybeSingle()
+
+        // 2. Insert item
+        const { data, error } = await supabase
+            .from('shopping_list_items')
+            .insert({
+                shopping_list_id: listId,
+                product_name: input.product_name.trim(),
+                quantity: input.quantity || 1,
+                unit: input.unit || null,
+                product_id: product?.id || null,
+                is_checked: false
+            })
+            .select()
+            .single()
+        
+        if (error) throw error
+        return data as ShoppingListItem
+    },
+    onMutate: async (newItemInput) => {
+        // Cancel persistent queries
+        await queryClient.cancelQueries({ queryKey })
+        
+        // Snapshot
+        const previousItems = queryClient.getQueryData<ShoppingListItem[]>(queryKey)
+        
+        // Optimistic Item
+        const optimisticItem: ShoppingListItem = {
+            id: crypto.randomUUID(), // Temp ID
+            shopping_list_id: listId!,
+            product_name: newItemInput.product_name,
+            quantity: newItemInput.quantity || 1,
+            unit: newItemInput.unit || null,
+            product_id: null, // Unknown yet
+            is_checked: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            priority: null
+        }
+
+        // Update Cache
+        queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => [...(old || []), optimisticItem])
+
+        return { previousItems, optimisticId: optimisticItem.id }
+    },
+    onError: (err, newTodo, context) => {
+        queryClient.setQueryData(queryKey, context?.previousItems)
+    },
+    onSuccess: (savedItem, variables, context) => {
+        // Replace optimistic with real
+        // OR better: Invalidate to be safe against duplicates
+        // But invalidation causes network request.
+        // Let's manually replace to be fast.
+        queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+             if (!old) return [savedItem]
+             return old.map(item => item.id === context?.optimisticId ? savedItem : item)
+        })
+    }
+  })
+
+  // Update Item (Check/Uncheck)
+  const updateItem = useMutation({
+      mutationFn: async ({ id, updates }: { id: string, updates: Partial<ShoppingListItem> }) => {
+          const { data, error } = await supabase
+              .from('shopping_list_items')
+              .update(updates)
+              .eq('id', id)
+              .select()
+              .single()
+          if (error) throw error
+          return data as ShoppingListItem
+      },
+      onMutate: async ({ id, updates }) => {
+          await queryClient.cancelQueries({ queryKey })
+          const previousItems = queryClient.getQueryData<ShoppingListItem[]>(queryKey)
+          
+          queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+              return old?.map(item => item.id === id ? { ...item, ...updates } : item)
+          })
+          
+          return { previousItems }
+      },
+      onError: (err, vars, context) => {
+           queryClient.setQueryData(queryKey, context?.previousItems)
+      },
+      onSuccess: (savedItem) => {
+           // Update with server response (e.g. updated_at)
+           queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+               return old?.map(item => item.id === savedItem.id ? savedItem : item)
+           })
+      }
+  })
+
+  // Delete Item
+  const deleteItem = useMutation({
+      mutationFn: async (id: string) => {
+          const { error } = await supabase.from('shopping_list_items').delete().eq('id', id)
+          if (error) throw error
+          return id
+      },
+      onMutate: async (id) => {
+          await queryClient.cancelQueries({ queryKey })
+          const previousItems = queryClient.getQueryData<ShoppingListItem[]>(queryKey)
+          
+          queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+              return old?.filter(item => item.id !== id)
+          })
+          
+          return { previousItems }
+      },
+      onError: (err, vars, context) => {
+           queryClient.setQueryData(queryKey, context?.previousItems)
+      }
+  })
+
+  return {
+      items: query.data || [],
+      isLoading: query.isLoading,
+      addItem,
+      updateItem,
+      deleteItem
+  }
+}
