@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 
-export function useShoppingListRealtime(householdId: string, currentListId: string | null) {
+export function useShoppingListRealtime(householdId: string | null, currentListId: string | null) {
   const supabase = createClient()
   const queryClient = useQueryClient()
 

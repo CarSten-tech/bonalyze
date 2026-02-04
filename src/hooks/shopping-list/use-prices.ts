@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 
-export function useProductPrices(householdId: string) {
+export function useProductPrices(householdId: string | null) {
   const supabase = createClient()
 
   const query = useQuery({

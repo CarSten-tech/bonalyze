@@ -8,7 +8,7 @@ import { useShoppingListRealtime } from './shopping-list/use-realtime'
 import { useProductPrices } from './shopping-list/use-prices'
 
 interface UseShoppingListProps {
-  householdId: string
+  householdId: string | null
 }
 
 export type { ShoppingListItem } // Re-export for consumers
