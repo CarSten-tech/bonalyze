@@ -332,6 +332,8 @@ export type Database = {
           id: string
           name: string
           unit: string | null
+          last_price_cents: number | null
+          price_updated_at: string | null
           updated_at: string
         }
         Insert: {
@@ -342,6 +344,8 @@ export type Database = {
           id?: string
           name: string
           unit?: string | null
+          last_price_cents?: number | null
+          price_updated_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -352,6 +356,8 @@ export type Database = {
           id?: string
           name?: string
           unit?: string | null
+          last_price_cents?: number | null
+          price_updated_at?: string | null
           updated_at?: string
         }
         Relationships: [

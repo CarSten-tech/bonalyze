@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/database.types'
 
 export type ShoppingList = Database['public']['Tables']['shopping_lists']['Row']
 

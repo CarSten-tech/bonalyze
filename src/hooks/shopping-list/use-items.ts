@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/database.types'
 
 export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
 
@@ -81,8 +81,7 @@ export function useShoppingItems(listId: string | null) {
             product_id: null, // Unknown yet
             is_checked: false,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            priority: null
+            updated_at: new Date().toISOString()
         }
 
         // Update Cache
