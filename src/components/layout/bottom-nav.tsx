@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { MenuSheet } from "./menu-sheet"
 
 /**
  * Bottom Navigation Component
@@ -16,7 +17,7 @@ import { useState } from "react"
  * 2. AUSGABEN (/receipts) - Receipt list
  * 3. Camera (center FAB) - Opens action sheet for camera/gallery
  * 4. LISTE (/list) - Shopping list
- * 5. MENU (/settings) - Settings and more
+ * 5. MENU - Opens slide-in sheet from right
  */
 
 interface NavItem {
@@ -30,7 +31,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/receipts", icon: Receipt, label: "AUSGABEN" },
   // Camera button is handled separately (center position)
   { href: "/dashboard/list", icon: ShoppingCart, label: "LISTE" },
-  { href: "/settings", icon: Menu, label: "MENÜ" },
+  // MENÜ is handled separately (opens sheet)
 ]
 
 interface BottomNavProps {
@@ -40,7 +41,8 @@ interface BottomNavProps {
 
 export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProps) {
   const pathname = usePathname()
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [cameraSheetOpen, setCameraSheetOpen] = useState(false)
+  const [menuSheetOpen, setMenuSheetOpen] = useState(false)
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -56,96 +58,127 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
   }
 
   const handleCameraClick = () => {
-    setSheetOpen(false)
+    setCameraSheetOpen(false)
     onScanFromCamera?.()
   }
 
   const handleGalleryClick = () => {
-    setSheetOpen(false)
+    setCameraSheetOpen(false)
     onScanFromGallery?.()
   }
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200"
-      style={{ paddingBottom: "var(--safe-bottom-nav)" }}
-    >
-      <div className="flex items-center justify-around h-12 max-w-lg mx-auto px-2">
-        {/* First two nav items */}
-        {navItems.slice(0, 2).map((item) => (
-          <NavLink
-            key={item.href}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            isActive={isActive(item.href)}
-          />
-        ))}
+    <>
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200"
+        style={{ paddingBottom: "var(--safe-bottom-nav)" }}
+      >
+        <div className="flex items-center justify-around h-12 max-w-lg mx-auto px-2">
+          {/* First two nav items (HOME, AUSGABEN) */}
+          {navItems.slice(0, 2).map((item) => (
+            <NavLink
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              isActive={isActive(item.href)}
+            />
+          ))}
 
-        {/* Center Camera FAB Button */}
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "flex flex-col items-center justify-center",
-                "min-w-touch min-h-touch",
-                "-mt-6" // Elevate above the nav bar
-              )}
-              aria-label="Kassenbon scannen"
-            >
-              <span
+          {/* Center Camera FAB Button */}
+          <Sheet open={cameraSheetOpen} onOpenChange={setCameraSheetOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
                 className={cn(
-                  "flex items-center justify-center",
-                  "w-14 h-14 rounded-full",
-                  "bg-slate-800 text-white",
-                  "shadow-lg shadow-slate-900/25",
-                  "transition-transform active:scale-95"
+                  "flex flex-col items-center justify-center",
+                  "min-w-touch min-h-touch",
+                  "-mt-6" // Elevate above the nav bar
                 )}
+                aria-label="Kassenbon scannen"
               >
-                <Camera className="w-6 h-6" strokeWidth={2} />
-              </span>
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-2xl">
-            <SheetTitle className="text-lg font-semibold mb-4">
-              Kassenbon erfassen
-            </SheetTitle>
-            <div className="flex flex-col gap-3 pb-4">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full justify-start gap-3 h-14 rounded-xl"
-                onClick={handleCameraClick}
-              >
-                <Camera className="w-5 h-5" />
-                <span>Foto aufnehmen</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full justify-start gap-3 h-14 rounded-xl"
-                onClick={handleGalleryClick}
-              >
-                <Image className="w-5 h-5" />
-                <span>Aus Galerie waehlen</span>
-              </Button>
-            </div>
-          </SheetContent>
-        </Sheet>
+                <span
+                  className={cn(
+                    "flex items-center justify-center",
+                    "w-14 h-14 rounded-full",
+                    "bg-slate-800 text-white",
+                    "shadow-lg shadow-slate-900/25",
+                    "transition-transform active:scale-95"
+                  )}
+                >
+                  <Camera className="w-6 h-6" strokeWidth={2} />
+                </span>
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-2xl">
+              <SheetTitle className="text-lg font-semibold mb-4">
+                Kassenbon erfassen
+              </SheetTitle>
+              <div className="flex flex-col gap-3 pb-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  onClick={handleCameraClick}
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Foto aufnehmen</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  onClick={handleGalleryClick}
+                >
+                  <Image className="w-5 h-5" />
+                  <span>Aus Galerie waehlen</span>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
 
-        {/* Last two nav items */}
-        {navItems.slice(2).map((item) => (
-          <NavLink
-            key={item.href}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            isActive={isActive(item.href)}
-          />
-        ))}
-      </div>
-    </nav>
+          {/* LISTE nav item */}
+          {navItems.slice(2).map((item) => (
+            <NavLink
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              isActive={isActive(item.href)}
+            />
+          ))}
+
+          {/* MENÜ Button - opens slide-in sheet */}
+          <button
+            type="button"
+            onClick={() => setMenuSheetOpen(true)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1",
+              "min-w-[60px] min-h-touch",
+              "transition-colors"
+            )}
+          >
+            <Menu
+              className={cn(
+                "w-6 h-6 transition-colors",
+                menuSheetOpen ? "text-primary" : "text-slate-400"
+              )}
+            />
+            <span
+              className={cn(
+                "text-[10px] font-medium tracking-wide transition-colors",
+                menuSheetOpen ? "text-primary" : "text-slate-400"
+              )}
+            >
+              MENÜ
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Menu Sheet (slides in from right) */}
+      <MenuSheet open={menuSheetOpen} onOpenChange={setMenuSheetOpen} />
+    </>
   )
 }
 
