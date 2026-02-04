@@ -20,7 +20,7 @@ export default function OfflinePage() {
             Du bist offline
           </h1>
           <p className="text-muted-foreground">
-            Bitte ueberpreufe deine Internetverbindung und versuche es erneut.
+            Bitte überprüfe deine Internetverbindung und versuche es erneut.
           </p>
         </div>
 
@@ -30,7 +30,7 @@ export default function OfflinePage() {
         </Button>
 
         <div className="text-sm text-muted-foreground pt-4">
-          <p>Einige Funktionen sind offline verfuegbar:</p>
+          <p>Einige Funktionen sind offline verfügbar:</p>
           <ul className="mt-2 space-y-1">
             <li>Gespeicherte Kassenbons ansehen</li>
             <li>Statistiken der letzten Sitzung</li>

@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
 
     setIsEmailSent(true)
     toast.success('E-Mail gesendet', {
-      description: 'Pruefe dein Postfach fuer den Reset-Link.',
+      description: 'Prüfe dein Postfach für den Reset-Link.',
     })
     setIsLoading(false)
   }

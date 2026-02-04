@@ -249,7 +249,7 @@ export default function InvitePage() {
             </div>
             <CardTitle>Einladung nicht gefunden</CardTitle>
             <CardDescription>
-              Dieser Einladungs-Link ist ungueltig oder wurde bereits geloescht
+              Dieser Einladungs-Link ist ungültig oder wurde bereits gelöscht
             </CardDescription>
           </CardHeader>
           <CardFooter>

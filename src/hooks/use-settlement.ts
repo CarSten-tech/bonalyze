@@ -196,7 +196,7 @@ export function useSettlement(
 
         // Check if it's a "table not found" error
         if (response.status === 501 || errorData.code === 'TABLE_NOT_FOUND') {
-          setError('Die Settlement-Funktion ist noch nicht verfuegbar. Backend-Migration erforderlich.')
+          setError('Die Settlement-Funktion ist noch nicht verfügbar. Backend-Migration erforderlich.')
           setSettlementTableReady(false)
           return false
         }
@@ -209,7 +209,7 @@ export function useSettlement(
     } catch (err) {
       console.error('Error marking settlement as settled:', err)
       // For now, show a user-friendly message since the API doesn't exist yet
-      setError('Diese Funktion ist noch nicht verfuegbar. Die Abrechnung wurde nicht gespeichert.')
+      setError('Diese Funktion ist noch nicht verfügbar. Die Abrechnung wurde nicht gespeichert.')
       return false
     } finally {
       setIsMarkingSettled(false)

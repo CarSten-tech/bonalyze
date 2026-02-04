@@ -27,7 +27,7 @@ export function VerifyContent() {
   const handleResend = async () => {
     if (!email) {
       toast.error('E-Mail-Adresse fehlt', {
-        description: 'Bitte gehe zurueck zur Anmeldeseite.',
+        description: 'Bitte gehe zurück zur Anmeldeseite.',
       })
       return
     }

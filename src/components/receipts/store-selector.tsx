@@ -86,7 +86,7 @@ export function StoreSelector({
             {selectedMerchant ? (
               <span className="truncate">{selectedMerchant.name}</span>
             ) : (
-              <span className="text-muted-foreground">Store auswaehlen...</span>
+              <span className="text-muted-foreground">Store auswählen...</span>
             )}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

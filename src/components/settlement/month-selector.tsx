@@ -38,7 +38,7 @@ export function MonthSelector({
       <SelectTrigger className={className}>
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <SelectValue placeholder="Monat waehlen" />
+          <SelectValue placeholder="Monat wählen" />
         </div>
       </SelectTrigger>
       <SelectContent>

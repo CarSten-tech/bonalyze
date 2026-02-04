@@ -94,7 +94,7 @@ function getEmptyStateContent(
       return {
         icon: <Wallet className="h-8 w-8 text-muted-foreground" />,
         title: 'Keine Daten',
-        description: 'Es sind keine Daten fuer die Abrechnung verfuegbar.',
+        description: 'Es sind keine Daten für die Abrechnung verfügbar.',
       }
   }
 }

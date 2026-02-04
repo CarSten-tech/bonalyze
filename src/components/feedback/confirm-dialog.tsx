@@ -145,7 +145,7 @@ export function DeleteReceiptDialog({
     <ConfirmDialog
       trigger={trigger}
       title="Kassenbon loeschen"
-      description="Dieser Kassenbon wird unwiderruflich geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden."
+      description="Dieser Kassenbon wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
       confirmLabel="Loeschen"
       destructive
       onConfirm={onConfirm}
@@ -198,7 +198,7 @@ export function MarkSettlementDoneDialog({
     <ConfirmDialog
       trigger={trigger}
       title="Abrechnung abschliessen"
-      description="Die Abrechnung wird als erledigt markiert. Alle offenen Betraege werden zurueckgesetzt."
+      description="Die Abrechnung wird als erledigt markiert. Alle offenen Beträge werden zurückgesetzt."
       confirmLabel="Abschliessen"
       onConfirm={onConfirm}
     />
@@ -214,7 +214,7 @@ export function DeleteAccountDialog({
     <ConfirmDialog
       trigger={trigger}
       title="Konto loeschen"
-      description="Dein Konto und alle damit verbundenen Daten werden unwiderruflich geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden."
+      description="Dein Konto und alle damit verbundenen Daten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
       confirmLabel="Konto loeschen"
       destructive
       onConfirm={onConfirm}

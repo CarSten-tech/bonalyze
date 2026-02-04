@@ -51,7 +51,7 @@ export default function SettlementPage() {
 
     if (success) {
       toast.success('Abrechnung gespeichert', {
-        description: `Die Abrechnung fuer ${selectedMonth.label} wurde als erledigt markiert.`,
+        description: `Die Abrechnung für ${selectedMonth.label} wurde als erledigt markiert.`,
       })
     } else {
       toast.error('Fehler', {
@@ -185,7 +185,7 @@ export default function SettlementPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Abrechnung abschliessen?</AlertDialogTitle>
               <AlertDialogDescription>
-                Damit bestaetigst du, dass alle Ueberweisungen fuer{' '}
+                Damit bestätigst du, dass alle Überweisungen für{' '}
                 {selectedMonth.label} durchgefuehrt wurden. Diese Abrechnung
                 wird in der Historie gespeichert.
               </AlertDialogDescription>

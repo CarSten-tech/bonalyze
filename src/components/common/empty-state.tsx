@@ -158,7 +158,7 @@ export function EmptyFilterResults({
       icon={FileX}
       title="Keine Ergebnisse"
       description="Es gibt keine Eintraege die deinen Filterkriterien entsprechen."
-      actionLabel="Filter zuruecksetzen"
+      actionLabel="Filter zurücksetzen"
       onAction={onAction}
       className={className}
     />

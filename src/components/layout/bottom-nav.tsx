@@ -131,7 +131,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
                   onClick={handleGalleryClick}
                 >
                   <Image className="w-5 h-5" />
-                  <span>Aus Galerie waehlen</span>
+                  <span>Aus Galerie wählen</span>
                 </Button>
               </div>
             </SheetContent>

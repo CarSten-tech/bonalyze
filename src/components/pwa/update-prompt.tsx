@@ -81,10 +81,10 @@ export function UpdatePrompt() {
 
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-sm text-foreground">
-              Update verfuegbar
+              Update verfügbar
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
-              Eine neue Version von Bonalyze ist verfuegbar.
+              Eine neue Version von Bonalyze ist verfügbar.
             </p>
 
             <div className="flex items-center gap-2 mt-3">

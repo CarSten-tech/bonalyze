@@ -26,7 +26,7 @@ export function DatePicker({
   date,
   onDateChange,
   maxDate = new Date(),
-  placeholder = 'Datum auswaehlen',
+  placeholder = 'Datum auswählen',
   className,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)

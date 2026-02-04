@@ -261,11 +261,11 @@ export default function HouseholdSettingsPage() {
       .eq('id', inviteId)
 
     if (error) {
-      toast.error('Einladung konnte nicht geloescht werden', {
+      toast.error('Einladung konnte nicht gelöscht werden', {
         description: error.message,
       })
     } else {
-      toast.success('Einladung geloescht')
+      toast.success('Einladung gelöscht')
       await loadInvites()
     }
     setActionLoading(null)
@@ -632,7 +632,7 @@ export default function HouseholdSettingsPage() {
         <CardHeader>
           <CardTitle className="text-lg text-destructive">Gefahrenzone</CardTitle>
           <CardDescription>
-            Irreversible Aktionen fuer diesen Haushalt
+            Irreversible Aktionen für diesen Haushalt
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -652,7 +652,7 @@ export default function HouseholdSettingsPage() {
                 <AlertDialogTitle>Haushalt verlassen?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {members.length === 1
-                    ? 'Du bist das letzte Mitglied. Der Haushalt wird geloescht, wenn du ihn verlaesst.'
+                    ? 'Du bist das letzte Mitglied. Der Haushalt wird gelöscht, wenn du ihn verlässt.'
                     : 'Moechtest du diesen Haushalt wirklich verlassen? Du kannst nur ueber eine neue Einladung wieder beitreten.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>

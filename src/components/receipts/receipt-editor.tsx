@@ -417,7 +417,7 @@ export function ReceiptEditor({
               date={date}
               onDateChange={setDate}
               maxDate={new Date()}
-              placeholder="Datum auswaehlen"
+              placeholder="Datum auswählen"
             />
           </div>
 
