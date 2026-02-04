@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
   LayoutGrid, 
@@ -12,8 +11,7 @@ import {
   Settings, 
   LogOut,
   Loader2,
-  ChevronRight,
-  X
+  ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -24,9 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
-  SheetClose,
 } from '@/components/ui/sheet'
 
 // App version
@@ -121,19 +117,8 @@ export function MenuSheet({ open, onOpenChange }: MenuSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[85vw] max-w-md flex flex-col p-0">
-        {/* Close button area */}
-        <SheetHeader className="p-4 pb-0">
-          <div className="flex justify-end">
-            <SheetClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <X className="h-5 w-5" />
-                <span className="sr-only">Schließen</span>
-              </Button>
-            </SheetClose>
-          </div>
-          <SheetTitle className="sr-only">Menü</SheetTitle>
-        </SheetHeader>
+      <SheetContent side="right" className="w-[85vw] max-w-md flex flex-col p-0 pt-12">
+        <SheetTitle className="sr-only">Menü</SheetTitle>
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
