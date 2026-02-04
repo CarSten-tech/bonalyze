@@ -53,8 +53,8 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
 
   // --- Actions Wrappers (to match old API) ---
 
-  const addItem = (input: { product_name: string, quantity?: number, unit?: string }) => {
-    addItemMutation.mutate(input)
+  const addItem = async (input: { product_name: string, quantity?: number, unit?: string }) => {
+    await addItemMutation.mutateAsync(input)
   }
 
   const checkItem = (id: string) => {
