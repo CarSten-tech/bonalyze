@@ -127,7 +127,8 @@
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
     --header-height: 3.5rem;          /* 56px */
-    --bottom-nav-height: calc(3rem + var(--safe-bottom));     /* 48px + safe area */
+    --safe-bottom-nav: max(0px, calc(var(--safe-bottom) - 15px)); /* Compact safe area */
+    --bottom-nav-height: calc(3rem + var(--safe-bottom-nav));      /* 48px + compact safe area */
 
     /* -------------------------------------------------------------------------
        TYPOGRAPHY
