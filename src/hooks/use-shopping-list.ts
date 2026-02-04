@@ -76,12 +76,14 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     })
   }
 
-  const handleCreateList = (name: string) => {
-     createList.mutate(name, {
-         onSuccess: (newList) => {
-             setCurrentListId(newList.id)
-         }
-     })
+  const handleCreateList = async (name: string) => {
+     try {
+       const newList = await createList.mutateAsync(name)
+       setCurrentListId(newList.id)
+       return newList
+     } catch {
+       return null
+     }
   }
 
   // State for internal selection
