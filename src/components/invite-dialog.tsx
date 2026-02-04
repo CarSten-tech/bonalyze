@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Copy, Check, Mail } from 'lucide-react'
+import { Loader2, Copy, Check, Mail, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { createClient } from '@/lib/supabase'
@@ -238,6 +238,7 @@ export function InviteDialog({ open, onOpenChange, onInviteSent }: InviteDialogP
                   variant="outline"
                   size="icon"
                   onClick={handleCopy}
+                  title="Link kopieren"
                 >
                   {copied ? (
                     <Check className="h-4 w-4 text-green-500" />
@@ -250,8 +251,37 @@ export function InviteDialog({ open, onOpenChange, onInviteSent }: InviteDialogP
                 Teile diesen Link mit der eingeladenen Person. Der Link ist 7 Tage gueltig.
               </p>
             </div>
-            <DialogFooter>
-              <Button onClick={handleClose}>Fertig</Button>
+            
+            {/* Share + Done Buttons */}
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                  onClick={async () => {
+                    try {
+                      await navigator.share({
+                        title: `Einladung zu ${currentHousehold?.name}`,
+                        text: `Du wurdest eingeladen, dem Haushalt "${currentHousehold?.name}" auf Bonalyze beizutreten!`,
+                        url: inviteLink,
+                      })
+                      toast.success('Link geteilt')
+                    } catch (err) {
+                      // User cancelled or share failed - ignore
+                      if ((err as Error).name !== 'AbortError') {
+                        handleCopy()
+                      }
+                    }
+                  }}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Teilen
+                </Button>
+              )}
+              <Button onClick={handleClose} className="w-full sm:w-auto">
+                Fertig
+              </Button>
             </DialogFooter>
           </div>
         )}
