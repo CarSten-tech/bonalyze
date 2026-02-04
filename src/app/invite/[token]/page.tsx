@@ -83,15 +83,25 @@ export default function InvitePage() {
         return
       }
 
+      // Check if we got household data (might be blocked by RLS)
+      const householdData = Array.isArray(inviteData.households)
+        ? inviteData.households[0]
+        : inviteData.households
+
+      if (!householdData) {
+        // Household data not accessible - likely RLS issue
+        console.error('Household data not accessible for invite')
+        setStatus('not_found')
+        return
+      }
+
       // Transform data
       const transformedInvite: InviteData = {
         id: inviteData.id,
         email: inviteData.email,
         expires_at: inviteData.expires_at,
         accepted_at: inviteData.accepted_at,
-        household: Array.isArray(inviteData.households)
-          ? inviteData.households[0]
-          : inviteData.households,
+        household: householdData,
         inviter: Array.isArray(inviteData.profiles)
           ? inviteData.profiles[0]
           : inviteData.profiles,
