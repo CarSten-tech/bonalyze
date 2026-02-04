@@ -137,7 +137,7 @@ export function BudgetSettings() {
             <div className="grid gap-2">
               <Label>Zeitraum</Label>
               <Select
-                disabled={!isAdmin || isSaving}
+                disabled={isSaving}
                 onValueChange={(value) => form.setValue("period_type", value as "monthly" | "weekly")}
                 defaultValue={form.getValues("period_type")}
               >
