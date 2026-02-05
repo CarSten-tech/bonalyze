@@ -65,7 +65,7 @@ export function WarrantyWidget() {
           setExpiringItem({
              id: verifiedData.id,
              product_name: verifiedData.product_name,
-             warranty_end_date: verifiedData.warranty_end_date
+             warranty_end_date: verifiedData.warranty_end_date || ''
           })
         } else {
           setExpiringItem(null)

@@ -473,6 +473,7 @@ export type Database = {
           is_warranty_item?: boolean
           warranty_end_date?: string | null
           warranty_period_months?: number | null
+          expiry_acknowledged?: boolean
         }
         Update: {
           category_id?: string | null
@@ -488,6 +489,7 @@ export type Database = {
           is_warranty_item?: boolean
           warranty_end_date?: string | null
           warranty_period_months?: number | null
+          expiry_acknowledged?: boolean
         }
         Relationships: [
           {
