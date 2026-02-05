@@ -11,7 +11,6 @@ import {
   Settings, 
   LogOut,
   Loader2,
-  Loader2,
   ChevronRight,
   Shield
 } from 'lucide-react'
