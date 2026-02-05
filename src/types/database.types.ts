@@ -323,6 +323,47 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          related_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          related_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          related_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null
@@ -413,6 +454,9 @@ export type Database = {
           receipt_id: string
           unit: string | null
           updated_at: string
+          is_warranty_item: boolean | null
+          warranty_end_date: string | null
+          warranty_period_months: number | null
         }
         Insert: {
           category_id?: string | null
@@ -425,6 +469,9 @@ export type Database = {
           receipt_id: string
           unit?: string | null
           updated_at?: string
+          is_warranty_item?: boolean
+          warranty_end_date?: string | null
+          warranty_period_months?: number | null
         }
         Update: {
           category_id?: string | null
@@ -437,6 +484,9 @@ export type Database = {
           receipt_id?: string
           unit?: string | null
           updated_at?: string
+          is_warranty_item?: boolean
+          warranty_end_date?: string | null
+          warranty_period_months?: number | null
         }
         Relationships: [
           {
