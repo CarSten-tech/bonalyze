@@ -163,7 +163,10 @@ export default function WarrantyDetailPage() {
              </Badge>
            ) : (
              <Badge variant="secondary" className="bg-green-500 text-white hover:bg-green-600 border-0 shadow-sm">
-               Aktiv: Noch {Math.floor(daysLeft / 30)} Monate
+               {daysLeft < 30 
+                 ? `Aktiv: Noch ${daysLeft} Tage`
+                 : `Aktiv: Noch ${Math.floor(daysLeft / 30)} Monate`
+               }
              </Badge>
            )}
         </div>
