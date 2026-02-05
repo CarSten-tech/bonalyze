@@ -77,11 +77,21 @@ export function usePushNotifications() {
         return
       }
 
-      const registration = await navigator.serviceWorker.ready
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<ServiceWorkerRegistration | null>((_, reject) => 
+            setTimeout(() => reject(new Error('SW_TIMEOUT')), 2000)
+        )
+      ]) .catch(err => null)
+
+      if (!registration) {
+        throw new Error('Service Worker nicht bereit. Bitte App neu laden.')
+      }
+
       const vapidPublicKey = await getVapidPublicKey()
       
       if (!vapidPublicKey) {
-        throw new Error('VAPID Public Key not found')
+        throw new Error('VAPID Public Key nicht gefunden')
       }
 
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey)
