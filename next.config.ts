@@ -12,6 +12,7 @@ if (process.env.NODE_ENV === "production") {
   const withPWA = require("next-pwa")({
     dest: "public",
     register: true,
+    importScripts: ["/push-sw.js"],
     skipWaiting: true,
     runtimeCaching: [
       {
