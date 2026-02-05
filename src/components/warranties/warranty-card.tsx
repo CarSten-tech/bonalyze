@@ -46,15 +46,28 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
   return (
     <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl overflow-hidden mb-4">
       <CardContent className="p-4">
-        {/* Header Tags */}
-        <div className="flex items-start justify-between mb-3">
-          {item.is_ai_detected && (
-            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 h-6 px-2.5 text-[10px] font-semibold tracking-wider uppercase">
-              KI-ERKANNT
-            </Badge>
-          )}
-          {/* Thumbnail Placeholder - in real app would be item image */}
-          <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 ml-4 overflow-hidden border border-slate-100">
+        {/* Top Section: Info & Image */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex-1 flex flex-col gap-2 pr-4 min-w-0">
+            {item.is_ai_detected && (
+              <div>
+                 <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 h-6 px-2.5 text-[10px] font-semibold tracking-wider uppercase">
+                  KI-ERKANNT
+                </Badge>
+              </div>
+            )}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                {item.product_name}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Kaufdatum: {format(purchaseDate, 'dd.MM.yyyy')} • {item.merchant_name || 'Unbekannt'}
+              </p>
+            </div>
+          </div>
+
+          {/* Thumbnail */}
+          <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
              {item.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover opacity-80" />
@@ -62,16 +75,6 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
                 <Shield className="w-8 h-8 text-slate-300" />
              )}
           </div>
-        </div>
-
-        {/* Product Info - Negative margin to float left of image */}
-        <div className="mt-[-4.5rem] mr-20 mb-4"> 
-          <h3 className="text-lg font-bold text-slate-900 leading-tight mb-1">
-            {item.product_name}
-          </h3>
-          <p className="text-xs text-slate-500">
-            Kaufdatum: {format(purchaseDate, 'dd.MM.yyyy')} • {item.merchant_name || 'Unbekannt'}
-          </p>
         </div>
 
         {/* Status Bar */}
