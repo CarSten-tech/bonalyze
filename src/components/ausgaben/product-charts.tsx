@@ -86,7 +86,13 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                     >
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="#f1f5f9" />
-                        <XAxis type="number" hide />
+                        <XAxis 
+                            type="number" 
+                            tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(val) => formatCurrency(val, { inCents: true })}
+                        />
                         <YAxis 
                             dataKey="name" 
                             type="category" 
@@ -132,9 +138,13 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                             tickLine={false}
                             minTickGap={30}
                         />
-                         <YAxis 
+                        <YAxis 
                             domain={['auto', 'auto']}
-                            hide
+                            tick={{ fontSize: 12, fill: '#94a3b8' }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(val) => formatCurrency(val, { inCents: true })}
+                            width={50}
                         />
                         <Tooltip 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
