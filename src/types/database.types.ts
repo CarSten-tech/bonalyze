@@ -725,6 +725,33 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth_keys: Json
+          created_at: string
+          endpoint: string
+          id: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_keys: Json
+          created_at?: string
+          endpoint: string
+          id?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_keys?: Json
+          created_at?: string
+          endpoint?: string
+          id?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -13,6 +13,12 @@ interface SettingsLink {
 
 const settingsLinks: SettingsLink[] = [
   { 
+    href: '/settings/profile', 
+    icon: Home, 
+    label: 'Profil-Einstellungen',
+    description: 'Benachrichtigungen & Persönliches'
+  },
+  { 
     href: '/settings/household', 
     icon: Home, 
     label: 'Haushalt-Einstellungen',
