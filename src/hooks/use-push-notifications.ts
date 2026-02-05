@@ -102,7 +102,26 @@ export function usePushNotifications() {
       ]) .catch(err => null)
 
       if (!registration) {
-        throw new Error('Service Worker nicht bereit. Bitte App neu laden.')
+         console.log('subscribeToPush: Service Worker not ready, attempting manual registration...')
+         try {
+            const reg = await navigator.serviceWorker.register('/sw.js')
+            console.log('subscribeToPush: Manual registration successful', reg)
+            
+            // Wait for it to be ready, but with another timeout
+            registration = await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise<ServiceWorkerRegistration | null>((_, reject) => 
+                    setTimeout(() => reject(new Error('SW_v2_TIMEOUT')), 2000)
+                )
+            ]) .catch(err => null)
+
+            if (!registration) {
+                 throw new Error('Service Worker konnte auch nach manuellem Versuch nicht geladen werden.')
+            }
+         } catch (err) {
+            console.error('subscribeToPush: Manual SW registration failed:', err)
+            throw new Error('Service Worker Registrierung fehlgeschlagen. Bitte Seite neu laden.')
+         }
       }
 
       const vapidPublicKey = await getVapidPublicKey()
