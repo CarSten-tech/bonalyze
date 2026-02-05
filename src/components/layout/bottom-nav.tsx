@@ -28,7 +28,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", icon: Home, label: "HOME" },
-  { href: "/dashboard/receipts", icon: Receipt, label: "AUSGABEN" },
+  { href: "/dashboard/ausgaben", icon: Receipt, label: "AUSGABEN" },
   // Camera button is handled separately (center position)
   { href: "/dashboard/list", icon: ShoppingCart, label: "LISTE" },
   // MENÜ is handled separately (opens sheet)
@@ -48,8 +48,8 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
     if (href === "/dashboard") {
       return pathname === "/" || pathname === "/dashboard"
     }
-    if (href === "/dashboard/receipts") {
-      return pathname.startsWith("/dashboard/receipts")
+    if (href === "/dashboard/ausgaben") {
+      return pathname.startsWith("/dashboard/ausgaben")
     }
     if (href === "/dashboard/list") {
       return pathname.startsWith("/dashboard/list")
