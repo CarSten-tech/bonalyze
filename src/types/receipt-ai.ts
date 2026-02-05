@@ -8,6 +8,7 @@ export const ReceiptItemAISchema = z.object({
   total_price: z.number(),
   category: z.string().optional(),
   subcategory: z.string().optional(),
+  is_warranty_candidate: z.boolean().default(false).optional(),
 })
 
 export const ReceiptAIResponseSchema = z.object({

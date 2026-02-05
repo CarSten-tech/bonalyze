@@ -16,6 +16,7 @@ Analysiere diesen Kassenbon und extrahiere folgende Informationen als JSON:
    - Gesamtpreis für diese Position
    - Kategorie (Hauptkategorie)
    - Unterkategorie (Subcategory)
+   - is_warranty_candidate (boolean): true wenn es sich um Elektronik, Haushaltsgeräte oder teure Werkzeuge handelt (z.B. Toaster, Smartphone, Bohrmaschine). Sonst false.
 4. Gesamtsumme des Einkaufs
 
 **KATEGORISIERUNG**: Ordne JEDEM Artikel EXAKT eine Hauptkategorie und Unterkategorie aus dieser Liste zu:
@@ -32,6 +33,12 @@ ERLAUBTE KATEGORIEN:
 
 WICHTIG: Erfinde KEINE neuen Kategorien! Nutze nur die obige Liste.
 
+**WARRANTY CHECK**: Setze \`is_warranty_candidate\` auf true für:
+- Alle Elektrogeräte (Toaster, Föhn, TV, Laptop, Kabel, Kopfhörer)
+- Teure Haushaltswaren (> 50 EUR)
+- Werkzeuge
+- NICHT für: Lebensmittel, Verbrauchsgüter, billigen Kleinkram
+
 Antworte NUR mit validem JSON in diesem Format:
 {
   "merchant": "REWE",
@@ -43,7 +50,17 @@ Antworte NUR mit validem JSON in diesem Format:
       "unit_price": 1.29,
       "total_price": 2.58,
       "category": "Lebensmittel",
-      "subcategory": "Milchprodukte & Eier"
+      "subcategory": "Milchprodukte & Eier",
+      "is_warranty_candidate": false
+    },
+    {
+      "name": "Philips Haartrockner",
+      "quantity": 1,
+      "unit_price": 39.99,
+      "total_price": 39.99,
+      "category": "Haushalt",
+      "subcategory": "Elektro & Technik",
+      "is_warranty_candidate": true
     },
     {
       "name": "Spülmittel 500ml",
@@ -51,7 +68,8 @@ Antworte NUR mit validem JSON in diesem Format:
       "unit_price": 1.99,
       "total_price": 1.99,
       "category": "Haushalt",
-      "subcategory": "Reinigung & Putzmittel"
+      "subcategory": "Reinigung & Putzmittel",
+      "is_warranty_candidate": false
     }
   ],
   "subtotal": 23.47,

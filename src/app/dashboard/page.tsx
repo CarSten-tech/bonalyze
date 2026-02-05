@@ -29,6 +29,7 @@ import {
   ReceiptListItemSkeleton,
 } from '@/components/dashboard'
 import { BudgetWidget } from "@/components/dashboard/budget-widget"
+import { WarrantyWidget } from "@/components/dashboard/warranty-widget"
 import { formatCurrency } from '@/components/common/currency'
 
 interface RecentReceipt {
@@ -271,6 +272,9 @@ export default function DashboardPage() {
             />
             <BudgetWidget currentDate={selectedDate} />
           </div>
+
+          {/* Warranty Vault Widget */}
+          <WarrantyWidget />
 
           {/* 4. Smart Insights Section */}
           <section className="space-y-3">

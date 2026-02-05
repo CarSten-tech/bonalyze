@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Receipt, ShoppingCart, Menu, Camera, Image } from "lucide-react"
+import { Home, Receipt, ShoppingCart, Menu, Camera, Image, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", icon: Home, label: "HOME" },
   { href: "/dashboard/receipts", icon: Receipt, label: "AUSGABEN" },
   // Camera button is handled separately (center position)
-  { href: "/dashboard/list", icon: ShoppingCart, label: "LISTE" },
+  { href: "/dashboard/warranties", icon: Shield, label: "SAFE" },
   // MENÜ is handled separately (opens sheet)
 ]
 
@@ -51,8 +51,8 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
     if (href === "/dashboard/receipts") {
       return pathname.startsWith("/dashboard/receipts")
     }
-    if (href === "/dashboard/list") {
-      return pathname.startsWith("/dashboard/list")
+    if (href === "/dashboard/warranties") {
+      return pathname.startsWith("/dashboard/warranties")
     }
     return pathname.startsWith(href)
   }

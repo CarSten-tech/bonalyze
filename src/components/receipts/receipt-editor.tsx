@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { addYears } from 'date-fns'
 
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -156,6 +157,8 @@ export function ReceiptEditor({
         confidence: aiResult.confidence,
         category: item.category,
         subcategory: item.subcategory,
+        isWarranty: item.is_warranty_candidate,
+        warrantyEndDate: item.is_warranty_candidate ? addYears(new Date(), 2) : undefined,
       }))
       setItems(scannedItems)
     }
@@ -180,7 +183,7 @@ export function ReceiptEditor({
   const updateItem = (
     id: string,
     field: keyof ReceiptItemDraft,
-    value: string | number
+    value: string | number | boolean | Date
   ) => {
     setItems(
       items.map((item) =>
@@ -340,6 +343,9 @@ export function ReceiptEditor({
         category_id: item.subcategory 
           ? categoryLookup.get(item.subcategory) || fallbackCategoryId
           : fallbackCategoryId,
+        is_warranty_item: item.isWarranty || false,
+        warranty_end_date: item.isWarranty && item.warrantyEndDate ? item.warrantyEndDate.toISOString().split('T')[0] : null,
+        warranty_period_months: item.isWarranty ? 24 : null,
       }))
 
       const { error: itemsError } = await supabase
@@ -355,11 +361,18 @@ export function ReceiptEditor({
 
       toast.success('Kassenbon wurde gespeichert')
       
-      // Check budget alerts asynchronously
+      // Async background tasks
       try {
+         // 1. Budget Alerts
          await checkBudgetAlerts(householdId)
+         
+         // 2. New Receipt Notification
+         // Dynamically import to keep client bundle clean/avoid server action issues if any
+         const { sendReceiptNotification } = await import('@/app/actions/notifications')
+         await sendReceiptNotification(receipt.id)
+
       } catch (err) {
-         console.error("Failed to check budget alerts:", err)
+         console.error("Failed to trigger background tasks:", err)
       }
 
       router.push(`/dashboard/receipts/${receipt.id}`)

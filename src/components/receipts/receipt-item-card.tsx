@@ -1,12 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Trash2, AlertTriangle, GripVertical } from 'lucide-react'
+import { Trash2, AlertTriangle, GripVertical, Shield, ShieldAlert, Calendar } from 'lucide-react'
+import { addYears } from 'date-fns'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar as CalendarComponent } from '@/components/ui/calendar'
+import { format } from 'date-fns'
+import { de } from 'date-fns/locale'
 import {
   Tooltip,
   TooltipContent,
@@ -23,12 +28,14 @@ export interface ReceiptItemDraft {
   confidence?: number
   category?: string
   subcategory?: string
+  isWarranty?: boolean
+  warrantyEndDate?: Date
 }
 
 interface ReceiptItemCardProps {
   item: ReceiptItemDraft
   index: number
-  onUpdate: (id: string, field: keyof ReceiptItemDraft, value: string | number) => void
+  onUpdate: (id: string, field: keyof ReceiptItemDraft, value: string | number | boolean | Date) => void
   onDelete: (id: string) => void
   canDelete: boolean
   className?: string
@@ -144,6 +151,55 @@ export function ReceiptItemCard({
             isLowConfidence && 'border-yellow-500/50 focus-visible:ring-yellow-500'
           )}
         />
+      </div>
+
+      {/* Warranty Toggle & Date */}
+      <div className="flex items-center gap-3 mb-3">
+        <Button
+          variant={item.isWarranty ? "default" : "outline"}
+          size="sm"
+          className={cn(
+            "h-8 gap-2 transition-all",
+            item.isWarranty ? "bg-blue-600 hover:bg-blue-700" : "text-muted-foreground"
+          )}
+          onClick={() => {
+            const newValue = !item.isWarranty
+            onUpdate(item.id, 'isWarranty', newValue)
+            // Set default warranty end date (2 years) if enabled and not set
+            if (newValue && !item.warrantyEndDate) {
+              onUpdate(item.id, 'warrantyEndDate', addYears(new Date(), 2))
+            }
+          }}
+        >
+          {item.isWarranty ? <Shield className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+          {item.isWarranty ? "Garantie aktiv" : "Garantie?"}
+        </Button>
+
+        {item.isWarranty && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-8 justify-start text-left font-normal w-[140px]",
+                  !item.warrantyEndDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-3.5 w-3.5" />
+                {item.warrantyEndDate ? format(item.warrantyEndDate, 'dd.MM.yyyy') : <span>Läuft ab...</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={item.warrantyEndDate}
+                onSelect={(date) => onUpdate(item.id, 'warrantyEndDate', date || '')}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       {/* Category Selector */}

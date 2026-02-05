@@ -156,43 +156,38 @@ export async function checkBudgetAlerts(householdId: string) {
   // Check global threshold (e.g. 80%, 100%)
   const percentage = (usedAmount / budget.total_amount_cents) * 100
   
-  if (percentage >= 100) {
-    // Check if we already sent an alert for this period and type '100_percent'
-    const supabase = await createClient()
-    const { data: existing } = await supabase
-      .from("budget_alerts")
-      .select("id")
-      .eq("household_id", householdId)
-      .eq("alert_type", "100_percent")
-      .eq("period_start", period.start.toISOString())
-      .single()
+// Helper to trigger alert
+  const triggerAlert = async (type: string, percent: number) => {
+      const supabase = await createClient()
+      const { data: existing } = await supabase
+        .from("budget_alerts")
+        .select("id")
+        .eq("household_id", householdId)
+        .eq("alert_type", type)
+        .eq("period_start", period.start.toISOString())
+        .single() // Use single() usually, but maybe() is safer if not found. But logic below handles null.
 
-    if (!existing) {
-      await supabase.from("budget_alerts").insert({
-        household_id: householdId,
-        alert_type: "100_percent",
-        period_start: period.start.toISOString(),
-      })
-      // Here we would confirm triggering a push notification or email
-      console.log(`Budget alert: 100% reached for household ${householdId}`)
-    }
-  } else if (percentage >= 80) {
-     const supabase = await createClient()
-     const { data: existing } = await supabase
-      .from("budget_alerts")
-      .select("id")
-      .eq("household_id", householdId)
-      .eq("alert_type", "80_percent")
-      .eq("period_start", period.start.toISOString())
-      .single()
-
-    if (!existing) {
-      await supabase.from("budget_alerts").insert({
-        household_id: householdId,
-        alert_type: "80_percent",
-        period_start: period.start.toISOString(),
-      })
-      console.log(`Budget alert: 80% reached for household ${householdId}`)
-    }
+      if (!existing) {
+        await supabase.from("budget_alerts").insert({
+          household_id: householdId,
+          alert_type: type,
+          period_start: period.start.toISOString(),
+        })
+        
+        // Import dynamically to avoid circular dependencies if any, though here it's fine
+        const { sendBudgetNotification } = await import('./notifications')
+        await sendBudgetNotification(householdId, type, percent)
+        
+        console.log(`Budget alert triggered: ${type} for household ${householdId}`)
+      }
   }
+
+  // Check thresholds
+  // 10% remaining = 90% used
+  if (percentage >= 100) await triggerAlert('exceeded_100', percentage)
+  else if (percentage >= 90) await triggerAlert('warning_10_remaining', percentage)
+  else if (percentage >= 75) await triggerAlert('warning_25_remaining', percentage)
+  else if (percentage >= 50) await triggerAlert('warning_50_remaining', percentage)
+  
+  // Backward compatibility or other checks can remain if needed
 }

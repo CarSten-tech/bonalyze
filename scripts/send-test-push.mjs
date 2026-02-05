@@ -33,6 +33,10 @@ webpush.setVapidDetails(
   vapidPrivateKey
 );
 
+console.log(`🔑 Using Keys from .env.local:`);
+console.log(`   Public:  ${vapidPublicKey.substring(0, 15)}...${vapidPublicKey.substring(vapidPublicKey.length - 5)}`);
+console.log(`   Private: ${vapidPrivateKey.substring(0, 5)}...`);
+
 async function sendTest() {
   console.log('🔍 Fetching latest subscription...');
   
@@ -67,7 +71,7 @@ async function sendTest() {
     const payload = JSON.stringify({
       title: 'Bonalyze Test',
       body: '🔔 Dies ist eine Test-Nachricht vom Server!',
-      icon: '/icons/icon-192x192.png', // Adjust path if needed
+      icon: '/icons/icon-192.png',
       data: {
         url: '/dashboard'
       }

@@ -10,6 +10,7 @@ import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { InstallBanner, UpdatePrompt } from '@/components/pwa'
 import { Button } from '@/components/ui/button'
+import { NotificationBell } from '@/components/layout/notification-bell'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -84,6 +85,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
       {/* Mobile-first Header */}
       <header className="sticky top-0 z-40 bg-background safe-top">
         <div className="flex h-14 items-center justify-between px-4">
+
           {/* Left: Bonalyze Logo */}
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
@@ -92,10 +94,10 @@ function DashboardContent({ children }: DashboardLayoutProps) {
             <span className="text-lg font-semibold">Bonalyze</span>
           </Link>
 
-          {/* Right: Search Button */}
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
-            <Search className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          {/* Right: Notification Bell */}
+          <div className="flex items-center gap-2">
+             <NotificationBell />
+          </div>
         </div>
       </header>
 
