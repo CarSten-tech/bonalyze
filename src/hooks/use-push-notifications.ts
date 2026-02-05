@@ -122,9 +122,9 @@ export function usePushNotifications() {
         throw new Error(result.error)
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error subscribing:', error)
-      toast.error('Fehler beim Aktivieren der Benachrichtigungen.')
+      toast.error(`Fehler beim Aktivieren: ${error.message || 'Unbekannter Fehler'}`)
     } finally {
       setLoading(false)
     }

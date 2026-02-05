@@ -22,8 +22,11 @@ export async function saveSubscription(subscription: PushSubscriptionData, userA
   } = await supabase.auth.getUser()
 
   if (!user) {
+    console.error('saveSubscription: User not authenticated')
     throw new Error('User not authenticated')
   }
+
+  console.log('saveSubscription: Saving for user', user.id)
 
   const { error } = await supabase
     .from('push_subscriptions')
