@@ -3,6 +3,7 @@
 import { format, differenceInMonths, differenceInDays, parseISO, addMonths } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Shield, ShieldAlert, Timer, ChevronRight, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -44,76 +45,78 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
   const isExpired = daysLeft < 0
 
   return (
-    <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl overflow-hidden mb-4">
-      <CardContent className="p-4">
-        {/* Top Section: Info & Image */}
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex-1 flex flex-col gap-2 pr-4 min-w-0">
-            {item.is_ai_detected && (
+    <Link href={`/dashboard/warranties/${item.id}`} className="block mb-4">
+      <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl overflow-hidden hover:shadow-elevation-2 transition-shadow">
+        <CardContent className="p-4">
+          {/* Top Section: Info & Image */}
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex-1 flex flex-col gap-2 pr-4 min-w-0">
+              {item.is_ai_detected && (
+                <div>
+                   <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 h-6 px-2.5 text-[10px] font-semibold tracking-wider uppercase">
+                    KI-ERKANNT
+                  </Badge>
+                </div>
+              )}
               <div>
-                 <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 h-6 px-2.5 text-[10px] font-semibold tracking-wider uppercase">
-                  KI-ERKANNT
-                </Badge>
+                <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                  {item.product_name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Kaufdatum: {format(purchaseDate, 'dd.MM.yyyy')} • {item.merchant_name || 'Unbekannt'}
+                </p>
               </div>
-            )}
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 leading-tight">
-                {item.product_name}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Kaufdatum: {format(purchaseDate, 'dd.MM.yyyy')} • {item.merchant_name || 'Unbekannt'}
-              </p>
+            </div>
+
+            {/* Thumbnail */}
+            <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
+               {item.image_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover opacity-80" />
+               ) : (
+                  <Shield className="w-8 h-8 text-slate-300" />
+               )}
             </div>
           </div>
 
-          {/* Thumbnail */}
-          <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
-             {item.image_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover opacity-80" />
-             ) : (
-                <Shield className="w-8 h-8 text-slate-300" />
-             )}
+          {/* Status Bar */}
+          <div className="space-y-2 mb-4 mt-6">
+            <div className="flex justify-between items-center text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              <span>Garantie-Status</span>
+              <span className={isExpiringSoon ? "text-destructive" : "text-primary"}>
+                {isExpired ? 'ABGELAUFEN' : `${Math.round(percentRemaining)}% Verbleibend`}
+              </span>
+            </div>
+            <Progress 
+              value={percentRemaining} 
+              className="h-2 bg-slate-100" 
+              indicatorClassName={cn(
+                "transition-all duration-500",
+                isExpiringSoon ? "bg-destructive" : "bg-primary" // Green/Blue for safe, Red for danger
+              )} 
+            />
           </div>
-        </div>
 
-        {/* Status Bar */}
-        <div className="space-y-2 mb-4 mt-6">
-          <div className="flex justify-between items-center text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-            <span>Garantie-Status</span>
-            <span className={isExpiringSoon ? "text-destructive" : "text-primary"}>
-              {isExpired ? 'ABGELAUFEN' : `${Math.round(percentRemaining)}% Verbleibend`}
-            </span>
-          </div>
-          <Progress 
-            value={percentRemaining} 
-            className="h-2 bg-slate-100" 
-            indicatorClassName={cn(
-              "transition-all duration-500",
-              isExpiringSoon ? "bg-destructive" : "bg-primary" // Green/Blue for safe, Red for danger
-            )} 
-          />
-        </div>
+          {/* Action / Badge */}
+          {isExpired ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 shadow-sm border border-slate-200/50">
+               <ShieldAlert className="w-3.5 h-3.5" />
+               <span className="text-sm font-semibold">Garantie abgelaufen</span>
+            </div>
+          ) : isExpiringSoon ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-destructive shadow-sm border border-red-100">
+               <span className="text-sm font-semibold">Läuft in {daysLeft} Tagen ab</span>
+               <AlertTriangle className="w-3.5 h-3.5 fill-destructive" />
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 text-slate-700 shadow-sm border border-slate-200/50">
+               <span className="text-sm font-semibold">Noch {monthsLeft} Monate</span>
+               <Timer className="w-3.5 h-3.5 text-primary" />
+            </div>
+          )}
 
-        {/* Action / Badge */}
-        {isExpired ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 shadow-sm border border-slate-200/50">
-             <ShieldAlert className="w-3.5 h-3.5" />
-             <span className="text-sm font-semibold">Garantie abgelaufen</span>
-          </div>
-        ) : isExpiringSoon ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-destructive shadow-sm border border-red-100">
-             <span className="text-sm font-semibold">Läuft in {daysLeft} Tagen ab</span>
-             <AlertTriangle className="w-3.5 h-3.5 fill-destructive" />
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 text-slate-700 shadow-sm border border-slate-200/50">
-             <span className="text-sm font-semibold">Noch {monthsLeft} Monate</span>
-             <Timer className="w-3.5 h-3.5 text-primary" />
-          </div>
-        )}
-
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
