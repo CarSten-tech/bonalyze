@@ -27,9 +27,16 @@ export function usePushNotifications() {
         ]) .catch(err => null)
 
         if (!registration) {
-            console.log('Service Worker not ready (Development Mode?)')
-            setLoading(false)
-            return
+             console.log('Service Worker not ready, attempting manual registration...')
+             try {
+                const reg = await navigator.serviceWorker.register('/sw.js')
+                await navigator.serviceWorker.ready
+                return // Retry immediately handled by react state or user click
+             } catch (err) {
+                console.error('Manual SW registration failed:', err)
+                setLoading(false)
+                return
+             }
         }
 
         const sub = await registration.pushManager.getSubscription()
