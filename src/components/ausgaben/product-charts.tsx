@@ -122,7 +122,7 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
                         <Bar 
                             dataKey="price" 
                             radius={[0, 4, 4, 0]} 
-                            background={{ fill: '#F8FAFC', radius: [0, 4, 4, 0] }} // Light background track 
+                            background={{ fill: '#F8FAFC' }} // Light background track 
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.fillColor} />
