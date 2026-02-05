@@ -52,6 +52,16 @@ export function usePushNotifications() {
     }
 
     checkSubscription()
+
+    // Failsafe: Force loading to false after 4 seconds to prevent UI hang
+    const timer = setTimeout(() => {
+        setLoading((l) => {
+            if (l) console.warn('Push loading timed out. Forcing UI enable.')
+            return false
+        })
+    }, 4000)
+
+    return () => clearTimeout(timer)
   }, [])
 
   const urlBase64ToUint8Array = (base64String: string) => {
@@ -159,6 +169,13 @@ export function usePushNotifications() {
     isSubscribed,
     subscribeToPush,
     unsubscribeFromPush,
-    loading
+    loading,
+    debugInfo: {
+      hasServiceWorker: 'serviceWorker' in navigator,
+      hasPushManager: 'PushManager' in window,
+      permission: typeof Notification !== 'undefined' ? Notification.permission : 'unknown',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      isSecure: typeof window !== 'undefined' ? window.isSecureContext : 'unknown'
+    }
   }
 }
