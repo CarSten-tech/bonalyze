@@ -17,7 +17,21 @@ export function usePushNotifications() {
 
     const checkSubscription = async () => {
       try {
-        const registration = await navigator.serviceWorker.ready
+        // In dev mode, SW might not be registered. ready promise never resolves.
+        // We race a timeout to prevent infinite loading.
+        const registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<ServiceWorkerRegistration | null>((_, reject) => 
+                setTimeout(() => reject(new Error('SW_TIMEOUT')), 2000)
+            )
+        ]) .catch(err => null)
+
+        if (!registration) {
+            console.log('Service Worker not ready (Development Mode?)')
+            setLoading(false)
+            return
+        }
+
         const sub = await registration.pushManager.getSubscription()
         if (sub) {
           setSubscription(sub)
