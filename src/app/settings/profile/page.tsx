@@ -7,7 +7,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { Bell } from 'lucide-react'
 
 export default function ProfileSettingsPage() {
-  const { isSubscribed, subscribeToPush, unsubscribeFromPush, loading, debugInfo } = usePushNotifications()
+  const { isSubscribed, subscribeToPush, unsubscribeFromPush, loading } = usePushNotifications()
 
   const handleToggle = (checked: boolean) => {
     if (checked) {
@@ -55,13 +55,6 @@ export default function ProfileSettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      <div className="rounded-lg border bg-muted/50 p-4 text-xs font-mono text-muted-foreground">
-        <p className="font-bold mb-2">Debug Info:</p>
-        <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-        <p className="mt-2">Loading: {loading ? 'YES' : 'NO'}</p>
-        <p>Subscribed: {isSubscribed ? 'YES' : 'NO'}</p>
-      </div>
     </div>
   )
 }

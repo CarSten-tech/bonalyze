@@ -94,7 +94,7 @@ export function usePushNotifications() {
         return
       }
 
-      const registration = await Promise.race([
+      let registration = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise<ServiceWorkerRegistration | null>((_, reject) => 
             setTimeout(() => reject(new Error('SW_TIMEOUT')), 2000)
@@ -188,13 +188,6 @@ export function usePushNotifications() {
     isSubscribed,
     subscribeToPush,
     unsubscribeFromPush,
-    loading,
-    debugInfo: {
-      hasServiceWorker: 'serviceWorker' in navigator,
-      hasPushManager: 'PushManager' in window,
-      permission: typeof Notification !== 'undefined' ? Notification.permission : 'unknown',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      isSecure: typeof window !== 'undefined' ? window.isSecureContext : 'unknown'
-    }
+    loading
   }
 }
