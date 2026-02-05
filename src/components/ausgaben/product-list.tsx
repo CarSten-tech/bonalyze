@@ -34,9 +34,14 @@ export function ProductList({ items, isLoading }: ProductListProps) {
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <div 
+        <button 
           key={item.id} 
-          className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm flex items-center justify-between"
+          onClick={() => {
+              // We need to use window location or passed router, 
+              // but cleaner is to modify component to accept onProductClick or use useRouter
+              window.location.href = `/dashboard/ausgaben/produkt/${encodeURIComponent(item.productName)}`
+          }}
+          className="w-full bg-white rounded-xl p-4 border border-slate-100 shadow-sm flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
         >
           <div className="flex items-center gap-4 overflow-hidden">
             {/* Date Box */}
@@ -71,7 +76,7 @@ export function ProductList({ items, isLoading }: ProductListProps) {
           <div className="font-bold text-foreground whitespace-nowrap pl-2">
             {formatCurrency(item.price, { inCents: true })}
           </div>
-        </div>
+        </button>
       ))}
     </div>
   )
