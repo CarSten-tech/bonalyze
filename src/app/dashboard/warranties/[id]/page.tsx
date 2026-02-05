@@ -53,7 +53,7 @@ export default function WarrantyDetailPage() {
             merchants (name)
           )
         `)
-        .eq('id', params.id)
+        .eq('id', params.id as string)
         .single()
       
       if (error) {
