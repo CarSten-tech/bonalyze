@@ -11,7 +11,9 @@ import {
   Settings, 
   LogOut,
   Loader2,
-  ChevronRight
+  Loader2,
+  ChevronRight,
+  Shield
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -40,6 +42,7 @@ const menuGroups: MenuItem[][] = [
     { href: '/settings/budget', icon: Target, label: 'Budget-Ziele' },
     { href: '/settings/export', icon: FileDown, label: 'Export (PDF/Excel)' },
     { href: '/settings/payment-methods', icon: CreditCard, label: 'Zahlungsmethoden' },
+    { href: '/dashboard/warranties', icon: Shield, label: 'Garantie-Safe' },
   ],
   [
     { href: '/settings/help', icon: HelpCircle, label: 'Hilfe & Support' },

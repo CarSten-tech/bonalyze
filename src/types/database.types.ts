@@ -457,6 +457,7 @@ export type Database = {
           is_warranty_item: boolean | null
           warranty_end_date: string | null
           warranty_period_months: number | null
+          expiry_acknowledged: boolean | null
         }
         Insert: {
           category_id?: string | null

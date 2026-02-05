@@ -1,120 +1,131 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Shield, ShieldAlert, ChevronRight } from 'lucide-react'
-import { differenceInDays, parseISO, format } from 'date-fns'
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { ShieldAlert, Check } from 'lucide-react'
+import { differenceInDays, parseISO, addDays } from 'date-fns'
 import { createClient } from '@/lib/supabase'
 import { useHousehold } from '@/contexts/household-context'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 interface WarrantyItem {
   id: string
   product_name: string
   warranty_end_date: string
-  receipts: {
-    merchants: {
-      name: string
-    } | null
-    date: string
-  } | null
 }
 
 export function WarrantyWidget() {
   const { currentHousehold } = useHousehold()
-  const [items, setItems] = useState<WarrantyItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [expiringItem, setExpiringItem] = useState<WarrantyItem | null>(null)
 
   useEffect(() => {
-    async function loadWarranties() {
-      if (!currentHousehold) {
-        setItems([])
-        setLoading(false)
-        return
-      }
+    if (!currentHousehold) return
 
+    const checkExpiring = async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('receipt_items')
-        .select(`
-          id,
-          product_name,
-          warranty_end_date,
-          receipts!inner (
-            household_id,
-            date,
-            merchants (name)
-          )
-        `)
-        .eq('is_warranty_item', true)
-        .eq('receipts.household_id', currentHousehold.id)
-        .gte('warranty_end_date', new Date().toISOString()) // Only active
-        .order('warranty_end_date', { ascending: true })
-        .limit(3)
+      const now = new Date()
+      const thirtyDaysFromNow = addDays(now, 30)
 
-      if (data) {
-        const typedData = data as unknown as WarrantyItem[]
-        setItems(typedData)
-      } else if (error) {
-         console.error("Error loading warranties:", error)
+      // Find FIRST expiring item that hasn't been acknowledged
+      const { data } = await supabase
+        .from('receipt_items')
+        .select('id, product_name, warranty_end_date')
+        .eq('is_warranty_item', true)
+        .eq('expiry_acknowledged', false) // Only show if not dismissed
+        //.eq('receipts.household_id', currentHousehold.id) // Inner join filtering is complex in JS client without join
+        // Simplified query: get candidate items then filter by household in memory or use proper RPC/foreign table filter
+        // For simplicity & speed in standard client:
+        .lte('warranty_end_date', thirtyDaysFromNow.toISOString())
+        .gte('warranty_end_date', now.toISOString())
+        .order('warranty_end_date', { ascending: true })
+        .limit(20) // Fetch a few to filter by household
+
+      if (data && data.length > 0) {
+        // We need to verify household ownership since we removed the inner join filter for simplicity above
+        // or re-add it properly. Let's do the inner join properly.
+        const { data: verifiedData } = await supabase
+          .from('receipt_items')
+          .select(`
+            id,
+            product_name,
+            warranty_end_date,
+            receipts!inner ( household_id )
+          `)
+          .eq('is_warranty_item', true)
+          .eq('expiry_acknowledged', false)
+          .eq('receipts.household_id', currentHousehold.id)
+          .lte('warranty_end_date', thirtyDaysFromNow.toISOString())
+          .gte('warranty_end_date', now.toISOString())
+          .order('warranty_end_date', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (verifiedData) {
+          setExpiringItem({
+             id: verifiedData.id,
+             product_name: verifiedData.product_name,
+             warranty_end_date: verifiedData.warranty_end_date
+          })
+        } else {
+          setExpiringItem(null)
+        }
       }
-      setLoading(false)
     }
 
-    loadWarranties()
+    checkExpiring()
   }, [currentHousehold])
 
-  if (loading) {
-    return <Skeleton className="h-[200px] w-full rounded-xl" />
+  const handleDismiss = async () => {
+    if (!expiringItem) return
+    
+    // Optimistic UI
+    const itemToDismiss = expiringItem
+    setExpiringItem(null)
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('receipt_items')
+      .update({ expiry_acknowledged: true })
+      .eq('id', itemToDismiss.id)
+
+    if (error) {
+      toast.error('Konnte Alarm nicht ausblenden')
+      setExpiringItem(itemToDismiss) // Revert
+    } else {
+      toast.success('Alarm ausgeblendet')
+    }
   }
 
-  if (items.length === 0) return null
+  if (!expiringItem) return null
+
+  const daysLeft = differenceInDays(parseISO(expiringItem.warranty_end_date), new Date())
 
   return (
-    <Card className="rounded-2xl border-0 shadow-elevation-1 overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
-        <div className="flex items-center gap-2">
-           <Shield className="h-5 w-5 text-blue-600" />
-           <CardTitle className="text-base font-semibold text-blue-900 dark:text-blue-100">Warranty Vault</CardTitle>
+    <Card className="rounded-2xl border-l-4 border-l-destructive shadow-sm bg-red-50/50 mb-6">
+      <CardContent className="p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <ShieldAlert className="h-5 w-5 text-destructive" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">
+              Garantie läuft ab: {expiringItem.product_name}
+            </h3>
+            <p className="text-xs text-destructive font-medium">
+              Nur noch {daysLeft} Tage gültig
+            </p>
+          </div>
         </div>
-        <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-600 hover:text-blue-700">
-           ALLE <ChevronRight className="ml-1 h-3 w-3" />
+        <Button 
+           size="icon" 
+           variant="ghost" 
+           className="h-8 w-8 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-full"
+           onClick={handleDismiss}
+           title="Gesehen / Ausblenden"
+        >
+          <Check className="h-5 w-5" />
         </Button>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {items.map((item) => {
-            const endDate = parseISO(item.warranty_end_date)
-            const daysLeft = differenceInDays(endDate, new Date())
-            const isExpiringSoon = daysLeft < 30
-
-            return (
-              <div key={item.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                <div className="space-y-1">
-                  <p className="font-medium text-sm line-clamp-1">{item.product_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.receipts?.merchants?.name} • {item.receipts?.date && format(parseISO(item.receipts.date), 'dd.MM.yyyy')}
-                  </p>
-                </div>
-                <div className="text-right">
-                  {isExpiringSoon ? (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <ShieldAlert className="h-3 w-3" />
-                      {daysLeft} Tage
-                    </Badge>
-                  ) : (
-                     <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
-                        {Math.floor(daysLeft / 30)} Mon.
-                     </Badge>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
       </CardContent>
     </Card>
   )
