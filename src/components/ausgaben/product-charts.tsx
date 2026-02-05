@@ -45,7 +45,7 @@ export function StoreDistributionChart({ storeStats }: { storeStats: StoreStat[]
               ))}
             </Pie>
             <Tooltip 
-                formatter={(value: number) => [`${value}x`, 'Käufe']}
+                formatter={(value: any) => [`${value}x`, 'Käufe']}
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
             />
           </PieChart>
@@ -96,7 +96,7 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
                             tickLine={false}
                         />
                         <Tooltip 
-                            formatter={(value: number) => [formatCurrency(value, { inCents: true }), 'Ø Preis']}
+                            formatter={(value: any) => [formatCurrency(value, { inCents: true }), 'Ø Preis']}
                             cursor={{ fill: 'transparent' }}
                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
@@ -138,7 +138,7 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                         />
                         <Tooltip 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            formatter={(value: number, name: string, props: any) => [
+                            formatter={(value: any, name: any, props: any) => [
                                 formatCurrency(value, { inCents: true }), 
                                 props.payload.merchantName
                             ]}
