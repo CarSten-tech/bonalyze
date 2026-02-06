@@ -27,6 +27,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [activeFilter, setActiveFilter] = React.useState<'original' | 'grayscale' | 'bw'>('original')
+  const [activeHandleIndex, setActiveHandleIndex] = React.useState<number | null>(null)
 
   // Load image
   React.useEffect(() => {
@@ -208,73 +209,80 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       {/* Editor Area */}
       <div 
         ref={containerRef} 
-        className="flex-1 relative overflow-hidden bg-gray-900 m-4 rounded-lg border border-gray-700"
+        className="flex-1 relative overflow-hidden bg-black m-0"
+        style={{ touchAction: 'none' }}
       >
-        {/* Background Image (Static, but scaled by CSS "contain") */}
-        {/* Actually, best is to render it absolutely centered */}
+        {/* Render Image Centered */}
+        {/* We use specific sizing to ensure 1:1 mapping is easy to calculate if needed, 
+            but here we just let CSS 'contain' do it and map via ratios in helper functions */}
         {image && (
           <img
             src={imageSrc}
             alt="Source"
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain pointer-events-none opacity-50"
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain select-none pointer-events-none"
+            style={{ maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100% - 32px)' }} // Add some padding
           />
         )}
         
-        {/* SVG Overlay for Connections */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md">
-          <line 
-            x1={toScreen(corners[0]).x} y1={toScreen(corners[0]).y} 
-            x2={toScreen(corners[1]).x} y2={toScreen(corners[1]).y} 
-            stroke="#FFFFFF" strokeWidth="2"
-          />
-          <line 
-            x1={toScreen(corners[1]).x} y1={toScreen(corners[1]).y} 
-            x2={toScreen(corners[2]).x} y2={toScreen(corners[2]).y} 
-            stroke="#FFFFFF" strokeWidth="2"
-          />
-          <line 
-            x1={toScreen(corners[2]).x} y1={toScreen(corners[2]).y} 
-            x2={toScreen(corners[3]).x} y2={toScreen(corners[3]).y} 
-            stroke="#FFFFFF" strokeWidth="2"
-          />
-          <line 
-            x1={toScreen(corners[3]).x} y1={toScreen(corners[3]).y} 
-            x2={toScreen(corners[0]).x} y2={toScreen(corners[0]).y} 
-            stroke="#FFFFFF" strokeWidth="2"
+        {/* SVG Selection Overlay */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+          <path 
+            d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
 
         {/* Draggable Handles */}
         {corners.map((pt, i) => {
           const screenPt = toScreen(pt)
+          const isDragging = activeHandleIndex === i
+          
           return (
-            <motion.div
-              key={i}
-              drag
-              dragMomentum={false}
-              dragElastic={0}
-              onDrag={(_, info) => {
-                // Info.point is screen absolute. Convert to container relative.
-                const rect = containerRef.current?.getBoundingClientRect()
-                if (rect) {
-                  const x = info.point.x - rect.left
-                  const y = info.point.y - rect.top
-                  updateCorner(i, { x, y })
-                }
-              }}
-              // Position absolute based on current state
-              style={{
-                position: 'absolute',
-                left: 0, 
-                top: 0,
-                x: screenPt.x - 16, // center - offset half size
-                y: screenPt.y - 16,
-                touchAction: 'none'
-              }}
-              className="w-8 h-8 rounded-full border-2 border-primary bg-white shadow-xl z-10 cursor-move flex items-center justify-center"
-            >
-              <div className="w-2 h-2 rounded-full bg-primary" />
-            </motion.div>
+            <React.Fragment key={i}>
+              <motion.div
+                drag
+                dragMomentum={false}
+                dragElastic={0}
+                onDragStart={() => setActiveHandleIndex(i)}
+                onDragEnd={() => setActiveHandleIndex(null)}
+                onDrag={(_, info) => {
+                   const rect = containerRef.current?.getBoundingClientRect()
+                   if (rect) {
+                     const x = info.point.x - rect.left
+                     const y = info.point.y - rect.top
+                     updateCorner(i, { x, y })
+                   }
+                }}
+                style={{
+                  position: 'absolute',
+                  left: 0, 
+                  top: 0,
+                  x: screenPt.x - 24, // larger hit area
+                  y: screenPt.y - 24,
+                }}
+                className="w-12 h-12 z-20 cursor-move flex items-center justify-center outline-none touch-none"
+              >
+                {/* Visible Handle (White Dot) */}
+                <div className={`w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/20 ${isDragging ? 'scale-125' : ''} transition-transform`} />
+              </motion.div>
+
+              {/* Magnifier Glass (Only when dragging this handle) */}
+              {isDragging && image && (
+                 <Magnifier 
+                    imageSrc={imageSrc} 
+                    x={pt.x} 
+                    y={pt.y} 
+                    imgWidth={imageSize.width}
+                    imgHeight={imageSize.height}
+                    screenX={screenPt.x}
+                    screenY={screenPt.y}
+                 />
+              )}
+            </React.Fragment>
           )
         })}
       </div>
@@ -316,4 +324,71 @@ function FilterButton({ icon, label, active, onClick }: any) {
       <span className="text-xs">{label}</span>
     </button>
   )
+}
+
+interface MagnifierProps {
+    imageSrc: string
+    x: number // Image coordinate X
+    y: number // Image coordinate Y
+    imgWidth: number
+    imgHeight: number
+    screenX: number
+    screenY: number
+}
+
+function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: MagnifierProps) {
+    // Zoom level
+    const ZOOM = 2.0
+    const SIZE = 96 // Size of magnifier window (pixels)
+    
+    // We want to show the area around (x,y) from the image.
+    // We can use background-position to offset.
+    
+    // Calculate background position
+    // If we want to center (x,y) in the window:
+    // BG Size = imgWidth * ZOOM
+    // Offset X = - (x * ZOOM - SIZE/2)
+    
+    const bgAbsWidth = imgWidth * ZOOM
+    const bgAbsHeight = imgHeight * ZOOM
+    
+    const bgPosX = - (x * ZOOM - SIZE/2)
+    const bgPosY = - (y * ZOOM - SIZE/2)
+    
+    // Position the magnifier above the finger, pushed explicitly away to not be covered
+    const offsetTop = -80
+    
+    return (
+        <div 
+            className="pointer-events-none fixed z-50 rounded-full border-[3px] border-white shadow-xl overflow-hidden bg-black"
+            style={{
+                width: SIZE,
+                height: SIZE,
+                // We use fixed positioning based on screen coordinates of the handle handles element
+                // NOTE: 'screenX' passed here is actually relative to the container!
+                // To display 'fixed' correctly, we would need the container's screen rect.
+                // OR we can make this absolute positioned within the container!
+                position: 'absolute', 
+                left: screenX - SIZE/2, 
+                top: screenY - SIZE - 24, // pushed up
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            }}
+        >
+            <div 
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: `url(${imageSrc})`,
+                    backgroundSize: `${bgAbsWidth}px ${bgAbsHeight}px`,
+                    backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+                    backgroundRepeat: 'no-repeat'
+                }}
+            />
+            {/* Crosshair */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-70">
+                <div className="w-full h-[1px] bg-sky-400/50" />
+                <div className="h-full w-[1px] absolute bg-sky-400/50" />
+            </div>
+        </div>
+    )
 }
