@@ -109,7 +109,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
       )}
 
       {/* Main Content - with padding for bottom nav */}
-      <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
+      <main className={`flex-1 overflow-y-auto px-4 pb-24 ${isDetailPage ? 'pt-2' : 'py-6'}`}>
         {children}
       </main>
 

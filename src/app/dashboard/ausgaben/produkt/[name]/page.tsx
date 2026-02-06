@@ -50,7 +50,7 @@ export default function ProductPage({ params }: ProductPageProps) {
   const decodedName = decodeURIComponent(productName)
 
   return (
-    <div className="pb-24 px-4 pt-6 space-y-6 max-w-2xl mx-auto">
+    <div className="pb-24 px-4 pt-2 space-y-6 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <Button 
