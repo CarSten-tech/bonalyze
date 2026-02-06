@@ -190,15 +190,29 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
   const capture = React.useCallback(() => {
     try {
-      // Use hidden canvas to get full resolution image if possible, 
-      // or just webcam screenshot. Webcam screenshot is safer for consistent results.
-      // BUT we want MAX resolution.
+      const video = webcamRef.current?.video
+      if (!video) return
+
+      // Manual Capture for Max Resolution
+      // react-webcam's getScreenshot() sometimes defaults to lower res or display res.
+      // We want the intrinsic resolution of the video stream (e.g. 4K or 1080p).
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
       
-      const imageSrc = webcamRef.current?.getScreenshot()
-      if (imageSrc) {
-        onCapture(imageSrc, detectedCorners)
-      } else {
-        console.error("Screenshot returned null")
+      if (ctx) {
+          ctx.drawImage(video, 0, 0)
+          // High quality JPEG
+          const imageSrc = canvas.toDataURL('image/jpeg', 0.95)
+          
+          if (imageSrc && imageSrc !== 'data:,') {
+             // For debugging height
+             console.log(`Captured resolution: ${canvas.width}x${canvas.height}`)
+             onCapture(imageSrc, detectedCorners)
+          } else {
+             console.error("Capture failed: empty image")
+          }
       }
     } catch (e) {
       console.error("Capture error", e)
