@@ -143,8 +143,8 @@ export function ReceiptEditor({
     }
 
     // Store AI total for comparison
-    if (aiResult.total) {
-      setAiTotalCents(Math.round(aiResult.total * 100))
+    if (aiResult.amounts?.total) {
+      setAiTotalCents(Math.round(aiResult.amounts.total * 100))
     }
 
     // Set items from AI
