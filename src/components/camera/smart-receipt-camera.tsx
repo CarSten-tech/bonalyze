@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { CameraView } from './camera-view'
 import { CropEditor } from './crop-editor'
+import { detectDocumentEdges } from '@/lib/image-processing'
 interface SmartReceiptCameraProps {
   onCapture: (file: File) => void
   onClose: () => void
