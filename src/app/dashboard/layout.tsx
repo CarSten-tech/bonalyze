@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase'
 import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
@@ -81,25 +81,33 @@ function DashboardContent({ children }: DashboardLayoutProps) {
 
 
   return (
+  // Determine if we should show the global header
+  // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
+  const pathname = usePathname() // Need to import this
+  const isDetailPage = pathname.includes('/ausgaben/kategorie/') || pathname.includes('/ausgaben/produkt/')
+
+  return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Mobile-first Header */}
-      <header className="sticky top-0 z-40 bg-background safe-top">
-        <div className="flex h-14 items-center justify-between px-4">
-
-          {/* Left: Bonalyze Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <span className="text-primary-foreground font-bold text-lg">B</span>
+      {/* Mobile-first Header - Only on main pages */}
+      {!isDetailPage && (
+        <header className="sticky top-0 z-40 bg-background safe-top">
+            <div className="flex h-14 items-center justify-between px-4">
+    
+            {/* Left: Bonalyze Logo */}
+            <Link href="/dashboard" className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                <span className="text-primary-foreground font-bold text-lg">B</span>
+                </div>
+                <span className="text-lg font-semibold">Bonalyze</span>
+            </Link>
+    
+            {/* Right: Notification Bell */}
+            <div className="flex items-center gap-2">
+                <NotificationBell />
             </div>
-            <span className="text-lg font-semibold">Bonalyze</span>
-          </Link>
-
-          {/* Right: Notification Bell */}
-          <div className="flex items-center gap-2">
-             <NotificationBell />
-          </div>
-        </div>
-      </header>
+            </div>
+        </header>
+      )}
 
       {/* Main Content - with padding for bottom nav */}
       <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
