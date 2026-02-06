@@ -9,7 +9,7 @@ export interface Point {
  */
 export async function applyPerspectiveWarp(
   imageSource: string | HTMLImageElement,
-  corners: [Point, Point, Point, Point], // TL, TR, BR, BL
+  corners: [Point, Point, Point, Point], // User provided corners
   outputWidth?: number,
   outputHeight?: number
 ): Promise<Blob> {
@@ -19,68 +19,93 @@ export async function applyPerspectiveWarp(
     
     img.onload = () => {
       try {
-        let w = outputWidth || Math.max(
-          distance(corners[0], corners[1]), 
-          distance(corners[3], corners[2])
-        )
-        let h = outputHeight || Math.max(
-          distance(corners[0], corners[3]), 
-          distance(corners[1], corners[2])
-        )
+        // ------------------------------------------------------------------
+        // Step A: Robust Sort (TL, TR, BR, BL)
+        // ------------------------------------------------------------------
+        const sortedCorners = sortPoints(corners)
+        const [tl, tr, br, bl] = sortedCorners
 
-        // Safeguard
-        if (!w || Number.isNaN(w) || w <= 0) w = img.width
-        if (!h || Number.isNaN(h) || h <= 0) h = img.height
+        // ------------------------------------------------------------------
+        // Step B: Dimensions & Aspect Ratio Logic
+        // ------------------------------------------------------------------
+        // Calculate widths and heights
+        const widthTop = distance(tl, tr)
+        const widthBottom = distance(bl, br)
+        const heightLeft = distance(tl, bl)
+        const heightRight = distance(tr, br)
+
+        const maxWidth = Math.max(widthTop, widthBottom)
+        const maxHeight = Math.max(heightLeft, heightRight)
+
+        // Strict Aspect Ratio Handling (Step C)
+        // If original image is Portrait (h > w), we WANT output to be Portrait.
+        // Even if user selected a "wider" crop (unlikely for receipt), 
+        // we usually want to maintain the paper flow. 
+        // Actually, the user instruction is: 
+        // "Wenn dstHeight > dstWidth, müssen die Zielpunkte sein: [0,0], [w,0], [w,h], [0,h]. Drehe das Bild nicht automatisch."
+        // Meaning: Do not swap width/height based on corner distances if it violates natural orientation?
         
-        w = Math.floor(w)
-        h = Math.floor(h)
+        // Let's take the logic: "If original height > width, target must be height > width".
+        // But detecting "original" orientation from corners:
+        // If the detected shape is tall, we output tall.
+        
+        let finalWidth = outputWidth || maxWidth
+        let finalHeight = outputHeight || maxHeight
+
+        // Enforce Orientation matching input image? 
+        // User said: "Wenn das Originalbild im Hochformat war (height > width), muss das Ziel-Canvas auch Hochformat sein!"
+        if (img.height > img.width) {
+            // Original is Portrait
+            if (finalWidth > finalHeight) {
+                // Computed dimensions are Landscape (e.g. slight rotation or perspective distortion)
+                // FORCE Portrait orientation for the output canvas to prevent 90deg rotation behavior
+                // Swap
+                const temp = finalWidth
+                finalWidth = finalHeight
+                finalHeight = temp
+            }
+        } 
+        
+        // Ensure integers
+        finalWidth = Math.floor(finalWidth)
+        finalHeight = Math.floor(finalHeight)
 
         // -----------------------------------------------------
-        // 1. OpenCV Method (High Quality & Fast)
+        // 1. OpenCV Method (High Quality)
         // -----------------------------------------------------
         if (window.cv && window.cv.Mat) {
            const cv = window.cv
            
-           // Create Mats
            let src = cv.imread(img)
            let dst = new cv.Mat()
            
-           // Source Points (The corners from user)
-           // cv.matFromArray(rows, cols, type, array)
-           // Order: TL, TR, BR, BL ... Wait, perspectiveTransform needs consistent order?
-           // Actually, getPerspectiveTransform expects matched pairs. 
-           // Let's assume input corners are ordered TL, TR, BR, BL (Standard)
-           
+           // Source Points: The user's corners (Sorted)
            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-              corners[0].x, corners[0].y, 
-              corners[1].x, corners[1].y, 
-              corners[2].x, corners[2].y, 
-              corners[3].x, corners[3].y
+              tl.x, tl.y, 
+              tr.x, tr.y, 
+              br.x, br.y, 
+              bl.x, bl.y
            ])
 
-           // Dest Points (The rect [0,0] -> [w,h])
+           // Dest Points: The rectangle 0,0 -> w,h
+           // Correct Order for: [TopLeft, TopRight, BottomRight, BottomLeft]
+           // This maps the user's TL to 0,0, TR to w,0, etc.
            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
               0, 0, 
-              w, 0, 
-              w, h, 
-              0, h
+              finalWidth, 0, 
+              finalWidth, finalHeight, 
+              0, finalHeight
            ])
            
-           // Get Matrix
            let M = cv.getPerspectiveTransform(srcTri, dstTri)
-           let dsize = new cv.Size(w, h)
+           let dsize = new cv.Size(finalWidth, finalHeight)
            
-           // Warp
            cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar())
            
            // Output
-           // cv.imshow needs a canvas
            const canvas = document.createElement('canvas')
-           // cv.imshow(canvas, dst) -- this resizes canvas to dst size? usually yes
-           // Let's manually copy if needed, but imshow is standard for opencv.js
-           cv.imshow(canvas, dst)
+           cv.imshow(canvas, dst) // writes to canvas, resizing it to dst size
            
-           // Cleanup
            src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
            
            canvas.toBlob((blob) => {
@@ -92,65 +117,72 @@ export async function applyPerspectiveWarp(
         }
 
         // -----------------------------------------------------
-        // 2. Fallback JS Method (Slow or Approximation)
+        // 2. Fallback JS Method
         // -----------------------------------------------------
+        // Use the same sorted logic
         const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
+        canvas.width = finalWidth
+        canvas.height = finalHeight
         const ctx = canvas.getContext('2d')
+        if (!ctx) return reject('No ctx')
 
-        if (!ctx) {
-          reject(new Error('Could not get 2D context'))
-          return
-        }
-        
         const srcData = getImageData(img)
-        const dstData = ctx.createImageData(w, h)
+        const dstData = ctx.createImageData(finalWidth, finalHeight)
         
         const H = computeHomography(
-          [0, 0], [w, 0], [w, h], [0, h],
-          [corners[0].x, corners[0].y], 
-          [corners[1].x, corners[1].y], 
-          [corners[2].x, corners[2].y], 
-          [corners[3].x, corners[3].y]
+          // Target (Rect)
+          [0, 0], [finalWidth, 0], [finalWidth, finalHeight], [0, finalHeight],
+          // Source (Quad) - must match order
+          [tl.x, tl.y], [tr.x, tr.y], [br.x, br.y], [bl.x, bl.y]
         )
 
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const [u, v, w_] = applyMatrix(H, x, y, 1)
-            const srcX = u / w_
-            const srcY = v / w_
+        // Inverse mapping
+        for (let y = 0; y < finalHeight; y++) {
+          for (let x = 0; x < finalWidth; x++) {
+             // ... pixel logic ...
+             // (Copy existing implementation details but use H)
+             const [u, v, w_] = applyMatrix(H, x, y, 1)
+             const srcX = u / w_
+             const srcY = v / w_
 
-            if (srcX >= 0 && srcX < img.width - 1 && srcY >= 0 && srcY < img.height - 1) {
-              const pixel = sampleBilinear(srcData, srcX, srcY, img.width)
-              const dstIdx = (y * w + x) * 4
-              dstData.data[dstIdx] = pixel[0]
-              dstData.data[dstIdx + 1] = pixel[1]
-              dstData.data[dstIdx + 2] = pixel[2]
-              dstData.data[dstIdx + 3] = 255
-            }
+             if (srcX >= 0 && srcX < img.width - 1 && srcY >= 0 && srcY < img.height - 1) {
+               const pixel = sampleBilinear(srcData, srcX, srcY, img.width)
+               const dstIdx = (y * finalWidth + x) * 4
+               dstData.data[dstIdx] = pixel[0]
+               dstData.data[dstIdx + 1] = pixel[1]
+               dstData.data[dstIdx + 2] = pixel[2]
+               dstData.data[dstIdx + 3] = 255
+             }
           }
         }
         
         ctx.putImageData(dstData, 0, 0)
-        
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob)
-          else reject(new Error('Conversion to blob failed'))
-        }, 'image/jpeg', 0.95)
+        canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.95)
 
       } catch (err) {
         reject(err)
       }
     }
-    
-    img.onerror = reject
-    if (typeof imageSource === 'string') {
-      img.src = imageSource
-    } else {
-      img.src = imageSource.src
-    }
+    img.src = typeof imageSource === 'string' ? imageSource : imageSource.src
   })
+}
+
+// ------------------------------------------------------------------
+// Helper: Sort Points Clockwise (TL, TR, BR, BL)
+// ------------------------------------------------------------------
+export function sortPoints(pts: Point[]): [Point, Point, Point, Point] {
+    // Sort by Y-coordinate first
+    // Top 2 are TL/TR, Bottom 2 are BL/BR
+    const sortedY = [...pts].sort((a,b) => a.y - b.y)
+    
+    const top = sortedY.slice(0, 2).sort((a,b) => a.x - b.x) // TL, TR
+    const bottom = sortedY.slice(2, 4).sort((a,b) => a.x - b.x) // BL, BR -- wait, strictly BL is left, BR is right
+
+    // TL, TR, BR, BL order? 
+    // OpenCV usually expects: TL, TR, BR, BL.
+    // My list above: top[0]=TL, top[1]=TR, bottom[1]=BR, bottom[0]=BL
+    
+    return [top[0], top[1], bottom[1], bottom[0]]
 }
 
 /**

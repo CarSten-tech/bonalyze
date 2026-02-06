@@ -16,9 +16,14 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
   const [detectedCorners, setDetectedCorners] = React.useState<{x:number, y:number}[] | undefined>(undefined)
 
   const handleCapture = (imageSrc: string, corners?: {x:number, y:number}[]) => {
+    // Capture state immediately
     setCapturedImage(imageSrc)
     setDetectedCorners(corners)
+    
+    // Switch to editing mode (Crop)
     setMode('EDIT')
+    // CRITICAL: Do NOT call onCapture(file) here. 
+    // The flow is: Camera -> Capture -> Edit/Crop -> Complete -> Upload
   }
 
   const handleEditComplete = (blob: Blob) => {
