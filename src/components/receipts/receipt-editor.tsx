@@ -154,7 +154,7 @@ export function ReceiptEditor({
         productName: item.name,
         quantity: item.quantity || 1,
         priceCents: Math.round((item.total_price / (item.quantity || 1)) * 100),
-        confidence: aiResult.confidence,
+        confidence: aiResult.meta?.confidence || 0.5,
         category: item.category,
         subcategory: item.subcategory,
         isWarranty: item.is_warranty_candidate,
