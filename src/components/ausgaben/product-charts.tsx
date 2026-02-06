@@ -12,6 +12,7 @@ import { formatCurrency } from '@/components/common/currency'
 import { format, subDays, subMonths, subYears, isAfter, startOfDay } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { TrendingUp, PieChart as PieChartIcon } from 'lucide-react'
 
 interface ProductChartsProps {
   priceHistory: PricePoint[]
@@ -20,6 +21,15 @@ interface ProductChartsProps {
 
 const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'] // Blue, Green, Amber, Red, Purple
 
+function EmptyChartState({ message, icon: Icon }: { message: string, icon?: any }) {
+    return (
+        <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+            {Icon && <Icon className="w-8 h-8 mb-2 opacity-50" />}
+            <p className="text-sm font-medium">{message}</p>
+        </div>
+    )
+}
+
 export function StoreDistributionChart({ storeStats }: { storeStats: StoreStat[] }) {
   const data = storeStats.map((s, i) => ({
     name: s.merchantName,
@@ -27,43 +37,55 @@ export function StoreDistributionChart({ storeStats }: { storeStats: StoreStat[]
     color: COLORS[i % COLORS.length]
   }))
 
+  const hasEnoughData = storeStats.length >= 2
+
   return (
     <Card className="rounded-2xl border-slate-100 shadow-sm">
       <CardHeader>
         <CardTitle className="text-base font-semibold">Käufe nach Geschäft</CardTitle>
         <CardDescription>Wo kaufst du am häufigsten?</CardDescription>
       </CardHeader>
-      <CardContent className="h-[250px] flex items-center justify-center">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              innerRadius={60}
-              outerRadius={80}
-              paddingAngle={5}
-              dataKey="value"
-            >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-              ))}
-            </Pie>
-            <Tooltip 
-                cursor={{ fill: 'transparent' }}
-                formatter={(value: any) => [`${value}x`, 'Käufe']}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        {/* Simple Legend */}
-        <div className="flex flex-col gap-2 ml-4 text-sm">
-            {data.slice(0, 4).map((entry, i) => (
-                <div key={i} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                    <span className="font-medium">{entry.name}</span>
-                    <span className="text-muted-foreground">{entry.value}x</span>
+      <CardContent className="h-[250px]">
+        {hasEnoughData ? (
+             <div className="flex items-center justify-center h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie
+                    data={data}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    >
+                    {data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                    ))}
+                    </Pie>
+                    <Tooltip 
+                        cursor={{ fill: 'transparent' }}
+                        formatter={(value: any) => [`${value}x`, 'Käufe']}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                </PieChart>
+                </ResponsiveContainer>
+                {/* Simple Legend */}
+                <div className="flex flex-col gap-2 ml-4 text-sm">
+                    {data.slice(0, 4).map((entry, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="font-medium">{entry.name}</span>
+                            <span className="text-muted-foreground">{entry.value}x</span>
+                        </div>
+                    ))}
                 </div>
-            ))}
-        </div>
+            </div>
+        ) : (
+            <EmptyChartState 
+                message="Scanne mehr Bons von verschiedenen Geschäften, um hier eine Verteilung zu sehen." 
+                icon={PieChartIcon}
+            />
+        )}
+       
       </CardContent>
     </Card>
   )
@@ -81,15 +103,16 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
         fillColor: s.avgPrice <= cheapestPrice * 1.01 ? '#10B981' : '#2563EB'
     }))
 
+     const hasEnoughData = storeStats.length >= 2
+
     return (
         <Card className="rounded-2xl border-slate-100 shadow-sm">
             <CardHeader>
                 <CardTitle className="text-base font-semibold">Ø Preis pro Geschäft</CardTitle>
-                 {/* <CardDescription>Wo ist es durchschnittlich am günstigsten?</CardDescription> */}
-                 {/* CardDescription removed to cleaner look if desired, or keep it short */}
             </CardHeader>
             <CardContent className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+                {hasEnoughData ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         layout="vertical"
                         data={data}
@@ -130,6 +153,13 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
+                ) : (
+                    <EmptyChartState 
+                        message="Kaufe dieses Produkt in verschiedenen Geschäften, um Preise zu vergleichen." 
+                        icon={TrendingUp}
+                    />
+                )}
+                
             </CardContent>
         </Card>
     )
@@ -166,6 +196,10 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                 timestamp: new Date(p.date).getTime()
             }))
     }, [priceHistory, range])
+    
+    // Check if we have at least 2 distinct dates/prices to make a line meaningful
+    // Or just > 1 data point generally
+    const hasEnoughData = filteredData.length >= 2
 
     return (
         <Card className="rounded-2xl border-slate-100 shadow-sm">
@@ -189,7 +223,8 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                 </div>
             </CardHeader>
             <CardContent className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+                {hasEnoughData ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={filteredData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis 
@@ -201,7 +236,10 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                             interval="preserveStartEnd"
                         />
                         <YAxis 
-                            domain={['auto', 'auto']}
+                            // Start at 0 or at least give a buffer.
+                            // 'dataMin - 20%' is not valid recharts syntax directly in domain for calculated percentage in that way without custom function.
+                            // Cleaner: use a function or [0, 'auto']
+                            domain={[0, 'auto']} 
                             tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                             axisLine={false}
                             tickLine={false}
@@ -226,6 +264,13 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                         />
                     </LineChart>
                 </ResponsiveContainer>
+                ) : (
+                    <EmptyChartState 
+                        message="Scanne mehr Bons über einen längeren Zeitraum, um den Preisverlauf zu sehen." 
+                        icon={TrendingUp}
+                    />
+                )}
+                
             </CardContent>
         </Card>
     )

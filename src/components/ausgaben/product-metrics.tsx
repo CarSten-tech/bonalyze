@@ -25,7 +25,9 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                         <ShoppingCart className="w-5 h-5" />
                     </div>
                     <span className="text-2xl font-bold text-slate-800">{data.totalCount}</span>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Käufe</span>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {data.totalCount === 1 ? 'Kauf' : 'Käufe'}
+                    </span>
                 </div>
 
                 {/* Right: Favorite Store */}
@@ -34,7 +36,9 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                     {data.favoriteStore ? (
                         <>
                             <span className="font-bold text-lg text-slate-800">{data.favoriteStore.merchantName}</span>
-                            <span className="text-xs text-muted-foreground">{data.favoriteStore.count} Käufe</span>
+                            <span className="text-xs text-muted-foreground">
+                                {data.favoriteStore.count} {data.favoriteStore.count === 1 ? 'Kauf' : 'Käufe'}
+                            </span>
                         </>
                     ) : (
                         <span>-</span>
@@ -66,8 +70,8 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
          </CardContent>
       </Card>
 
-      {/* Cheapest Store Recommendation */}
-      {data.cheapestStore && (
+      {/* Cheapest Store Recommendation - Only show if we have more than 1 store, otherwise it's redundant with avg price */}
+      {data.cheapestStore && data.storeStats.length > 1 && (
         <Card className="rounded-2xl border-slate-100 shadow-sm col-span-1 md:col-span-2">
             <CardContent className="p-4 flex items-center gap-4">
                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">
