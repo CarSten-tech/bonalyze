@@ -224,15 +224,37 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
           />
         )}
         
-        {/* SVG Selection Overlay */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+        {/* Dimmed Overlay (Outside Crop) */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ overflow: 'visible' }}>
+          <defs>
+            <mask id="crop-mask">
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <path 
+                d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
+                fill="black"
+              />
+            </mask>
+          </defs>
+          
+          {/* Darken everything EXCEPT the crop area */}
+          <rect 
+            x="0" 
+            y="0" 
+            width="100%" 
+            height="100%" 
+            fill="rgba(0, 0, 0, 0.6)" 
+            mask="url(#crop-mask)" 
+          />
+          
+          {/* White Border Line */}
           <path 
             d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
             fill="none"
             stroke="white"
-            strokeWidth="2"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="drop-shadow-md"
           />
         </svg>
 
