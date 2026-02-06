@@ -28,12 +28,18 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
     if (!finalCorners || finalCorners.length !== 4) {
        try {
           console.log("Auto-detecting corners on high-res capture...")
-          // Convert array of objects to tuple as expected by type system if needed, 
-          // but detectDocumentEdges returns Point[] (length 4).
-          // We need to verify the return type matches.
-          // image-processing.ts: detectDocumentEdges returns Promise<[Point, Point, Point, Point]>
-          const detected = await detectDocumentEdges(imageSrc)
-          finalCorners = detected
+          
+          // Timeout Wrapper to prevent hanging
+          const detectPromise = detectDocumentEdges(imageSrc)
+          const timeoutPromise = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 2500))
+          
+          const detected = await Promise.race([detectPromise, timeoutPromise])
+          
+          if (detected) {
+             finalCorners = detected
+          } else {
+             console.warn("Auto-Detect timed out")
+          }
        } catch (e) {
           console.warn("Auto-Detect fehlgeschlagen", e)
        }
