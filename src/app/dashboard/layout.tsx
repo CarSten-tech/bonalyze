@@ -84,11 +84,12 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
   const pathname = usePathname() // Need to import this
   const isDetailPage = pathname.includes('/ausgaben/kategorie/') || pathname.includes('/ausgaben/produkt/')
+  const isCameraPage = pathname.includes('/dashboard/receipts/new')
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Mobile-first Header - Only on main pages */}
-      {!isDetailPage && (
+      {!isDetailPage && !isCameraPage && (
         <header className="sticky top-0 z-40 bg-background safe-top">
             <div className="flex h-14 items-center justify-between px-4">
     
@@ -109,15 +110,17 @@ function DashboardContent({ children }: DashboardLayoutProps) {
       )}
 
       {/* Main Content - with padding for bottom nav */}
-      <main className={`flex-1 overflow-y-auto px-4 pb-24 ${isDetailPage ? 'pt-2' : 'py-6'}`}>
+      <main className={`flex-1 overflow-y-auto ${isCameraPage ? 'p-0 pb-0 overflow-hidden' : `px-4 pb-24 ${isDetailPage ? 'pt-2' : 'py-6'}`}`}>
         {children}
       </main>
 
       {/* Bottom Navigation */}
-      <BottomNav
-        onScanFromCamera={handleScanFromCamera}
-        onScanFromGallery={handleScanFromGallery}
-      />
+      {!isCameraPage && (
+        <BottomNav
+            onScanFromCamera={handleScanFromCamera}
+            onScanFromGallery={handleScanFromGallery}
+        />
+      )}
 
       {/* PWA Prompts */}
       <InstallBanner />
