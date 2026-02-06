@@ -80,7 +80,6 @@ function DashboardContent({ children }: DashboardLayoutProps) {
 
 
 
-  return (
   // Determine if we should show the global header
   // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
   const pathname = usePathname() // Need to import this
