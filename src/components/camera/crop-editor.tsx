@@ -198,18 +198,30 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
          </div>
       )}
 
+      {/* Debug Overlay */}
+      {process.env.NODE_ENV === 'development' && (
+          <div className="absolute top-20 left-4 z-[60] bg-black/50 text-white text-[10px] p-1 pointer-events-none font-mono">
+              Img: {imageSize.width}x{imageSize.height}<br/>
+              Cont: {Math.round(containerSize.width)}x{Math.round(containerSize.height)}<br/>
+              Corners: {corners.map(c => `(${Math.round(c.x)},${Math.round(c.y)})`).join(' ')}
+          </div>
+      )}
+
       {/* Editor Area */}
       <div className="flex-1 relative w-full h-full overflow-hidden bg-gray-900/50">
-        <div ref={containerRef} className="absolute inset-0 w-full h-full">
+        <div ref={containerRef} className="absolute inset-0 w-full h-full touch-none">
           {/* Image */}
-          <img
-            src={imageSrc}
-            alt="Source"
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full object-contain select-none pointer-events-none"
-          />
+          {image && (
+            <img
+              src={imageSrc}
+              alt="Source"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full object-contain select-none pointer-events-none"
+            />
+          )}
           
           {/* SVG Overlay & Handles */}
-          {containerSize.width > 0 && imageSize.width > 0 && (
+          {/* Always try to render if we have basic dims */}
+          {(containerSize.width > 0 && imageSize.width > 0) && (
             <>
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-40" style={{ overflow: 'visible' }}>
                 <defs>
@@ -228,7 +240,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                 {/* Darken outside area */}
                 <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cropMask)" />
                 
-                {/* Border Warning: Red if shape is invalid/weird? No, keep simple white */}
+                {/* Border Line */}
                 <path 
                     d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
                     fill="none"
@@ -243,38 +255,75 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
               {/* Handles */}
               {corners.map((pt, i) => {
                 const screenPt = toScreen(pt)
+                
+                // Manual Pointer Events implementation
+                const handlePointerDown = (e: React.PointerEvent) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setActiveHandleIndex(i)
+                    
+                    const startX = e.clientX
+                    const startY = e.clientY
+                    const startPoint = corners[i] // Image coordinates
+                    
+                    // We need to map Delta Screen -> Delta Image
+                    // Calculate scale factor once
+                    const imgRatio = imageSize.width / imageSize.height
+                    const containerRatio = containerSize.width / containerSize.height
+                    let displayWidth
+                    if (containerRatio > imgRatio) {
+                         // Container wider, fit height
+                         const displayHeight = containerSize.height
+                         displayWidth = displayHeight * imgRatio
+                    } else {
+                         displayWidth = containerSize.width
+                    }
+                    const scale = displayWidth / imageSize.width
+
+                    const onPointerMove = (moveEvent: PointerEvent) => {
+                        const dx = (moveEvent.clientX - startX) / scale
+                        const dy = (moveEvent.clientY - startY) / scale
+                        
+                        const newPt = {
+                            x: Math.max(0, Math.min(startPoint.x + dx, imageSize.width)),
+                            y: Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
+                        }
+                        
+                        setCorners(prev => {
+                            const next: [Point, Point, Point, Point] = [...prev]
+                            next[i] = newPt
+                            return next
+                        })
+                    }
+                    
+                    const onPointerUp = () => {
+                        window.removeEventListener('pointermove', onPointerMove)
+                        window.removeEventListener('pointerup', onPointerUp)
+                        setActiveHandleIndex(null)
+                    }
+                    
+                    window.addEventListener('pointermove', onPointerMove)
+                    window.addEventListener('pointerup', onPointerUp)
+                }
+
                 return (
                   <React.Fragment key={i}>
-                    <motion.div
-                      drag
-                      dragMomentum={false}
-                      dragElastic={0}
-                      onDragStart={() => setActiveHandleIndex(i)}
-                      onDragEnd={() => setActiveHandleIndex(null)}
-                      onDrag={(_, info) => {
-                        const rect = containerRef.current?.getBoundingClientRect()
-                        if (rect) {
-                           // Use touches if available for better accuracy? Frame motion handles it.
-                           // info.point is page coordinates.
-                           // We need client coordinates relative to container.
-                           // But container is fixed/absolute?
-                           // info.point.x - rect.left is correct.
-                           const x = info.point.x - rect.left
-                           const y = info.point.y - rect.top
-                           updateCorner(i, { x, y })
-                        }
-                      }}
+                    <div
+                      onPointerDown={handlePointerDown}
                       style={{
                         position: 'absolute',
                         left: 0, top: 0,
-                        x: screenPt.x - 24, 
-                        y: screenPt.y - 24,
+                        transform: `translate(${screenPt.x - 24}px, ${screenPt.y - 24}px)`,
+                        width: '48px',
+                        height: '48px',
+                        zIndex: 50,
+                        touchAction: 'none'
                       }}
-                      className="w-12 h-12 z-50 cursor-none flex items-center justify-center outline-none touch-none"
+                      className="cursor-none flex items-center justify-center outline-none"
                     >
                       {/* Big touch target, visible dot */}
-                      <div className="w-6 h-6 bg-white rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.3)] ring-4 ring-white/30 backdrop-blur-sm transition-transform active:scale-125" />
-                    </motion.div>
+                      <div className="w-6 h-6 bg-white rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.3)] ring-4 ring-white/30 backdrop-blur-sm transition-transform active:scale-125 pointer-events-none" />
+                    </div>
                     
                      {/* Magnifier */}
                     {activeHandleIndex === i && (
