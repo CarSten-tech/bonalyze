@@ -16,9 +16,7 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
 
   const [detectedCorners, setDetectedCorners] = React.useState<{x:number, y:number}[] | undefined>(undefined)
 
-import { detectDocumentEdges } from '@/lib/image-processing'
 
-// ...
 
   const handleCapture = async (imageSrc: string, corners?: {x:number, y:number}[]) => {
     // Capture state immediately
