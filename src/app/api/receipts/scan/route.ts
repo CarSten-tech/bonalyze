@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
 
     // Call Gemini AI
     const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
 
     // Convert image to base64 for Gemini
     const base64Image = buffer.toString('base64')
