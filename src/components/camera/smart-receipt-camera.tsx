@@ -18,66 +18,48 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
 
 
 
-  const handleCapture = async (imageSrc: string, corners?: {x:number, y:number}[]) => {
-    // Capture state immediately
-    setCapturedImage(imageSrc)
-    
-    let finalCorners = corners
-    
-    // Fallback Logic if no corners from live detection
-    if (!finalCorners || finalCorners.length !== 4) {
+  // Effect: Run detection in background when image is captured
+  React.useEffect(() => {
+    if (!capturedImage || mode !== 'EDIT') return
+
+    const runDetection = async () => {
+       console.log("Starting background edge detection...")
        try {
-          console.log("Auto-detecting corners on high-res capture...")
-          
-          // Timeout Wrapper to prevent hanging
-          const detectPromise = detectDocumentEdges(imageSrc)
-          const timeoutPromise = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 2500))
+          // Timeout race just in case, but now it won't block UI
+          const detectPromise = detectDocumentEdges(capturedImage)
+          const timeoutPromise = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 3000))
           
           const detected = await Promise.race([detectPromise, timeoutPromise])
           
           if (detected) {
-             finalCorners = detected
+            console.log("Edge detection success", detected)
+            setDetectedCorners(detected)
           } else {
-             console.warn("Auto-Detect timed out")
+            console.warn("Edge detection timed out")
           }
        } catch (e) {
-          console.warn("Auto-Detect fehlgeschlagen", e)
+          console.warn("Edge detection failed", e)
        }
     }
 
-    // Final Safety Fallback (Manually create rectangle)
-    if (!finalCorners || finalCorners.length !== 4) {
-        // We need image dimensions. simple heuristic default:
-        // Assume portrait 1080x1920-ish ratio or just use percentage 
-        // We can't know absolute pixels easily without loading image. 
-        // But the CropEditor will default if corners are NOT passed.
-        // Wait, the user wants us to pass explicit points.
-        
-        // Let's force load to get dimensions? No, that's slow.
-        // Let's pass 'undefined' and let Editor handle it? 
-        // The user SPECIFICALLY asked for this logic HERE.
-        // "Oder nimm echte Bildbreite wenn verfügbar" -> We don't have it easily synchronously.
-        // But detectDocumentEdges loads the image.
-        
-        // If we really failed detection, we just pass undefined and rely on CropEditor's fallback.
-        // But the user code said: if (!points) points = [pad, pad...]
-        // I will let CropEditor handle the final "image size unknown" fallback 
-        // BUT I will ensure finalCorners is technically sound if I can.
-        
-        // Actually, detectDocumentEdges (my implementation) ALREADY returns a fallback 
-        // if detection fails! (See lines 384 in image-processing.ts).
-        // So finalCorners should be populated unless something crashed hard.
-        
-        // But just in case:
-        if (!finalCorners) {
-            // We pass undefined, CropEditor defaults to 10% padding
-        }
+    // Only run if we don't have corners yet (or provided from outside)
+    if (!detectedCorners) {
+       runDetection()
     }
-    
-    setDetectedCorners(finalCorners)
-    
-    // Switch to editing mode (Crop)
+  }, [capturedImage, mode]) // Re-run if image changes
+
+  const handleCapture = async (imageSrc: string, corners?: {x:number, y:number}[]) => {
+    // 1. Immediate UI Switch
+    console.log("Capture triggered, switching to Editor")
+    setCapturedImage(imageSrc)
     setMode('EDIT')
+    
+    // If live corners were passed, use them immediately
+    if (corners && corners.length === 4) {
+        setDetectedCorners(corners)
+    } else {
+        setDetectedCorners(undefined) // Trigger effect
+    }
   }
 
   const handleEditComplete = (blob: Blob) => {

@@ -31,7 +31,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   const [showFilters, setShowFilters] = React.useState(false)
   const [activeHandleIndex, setActiveHandleIndex] = React.useState<number | null>(null)
 
-  // Load image
+  // Load image & Update corners
   React.useEffect(() => {
     const img = new Image()
     img.src = imageSrc
@@ -39,10 +39,12 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       setImage(img)
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
       
+      // If we have corners (either initial or late-arriving), apply them
       if (initialCorners && initialCorners.length === 4) {
           setCorners(initialCorners as [Point, Point, Point, Point])
       } else {
-          // Fallback Default
+          // Only set default fallback if we haven't set corners yet OR if it's the very first load
+          // But here we re-run on imageSrc change.
           const w = img.naturalWidth
           const h = img.naturalHeight
           const padX = w * 0.15
@@ -55,7 +57,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
           ])
       }
     }
-  }, [imageSrc])
+  }, [imageSrc, initialCorners]) // React to updates in corners!
 
   // Measure container (Robust)
   React.useLayoutEffect(() => {
