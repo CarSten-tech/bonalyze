@@ -203,7 +203,7 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
 
     return (
         <Card className="rounded-2xl border-slate-100 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 gap-4 sm:gap-0">
                 <CardTitle className="text-base font-semibold text-slate-500 uppercase tracking-widest">Preisverlauf</CardTitle>
                 <div className="flex bg-slate-100/50 p-1 rounded-lg">
                     {(['30T', '3M', '6M', '1J', 'Alle'] as TimeRange[]).map((r) => (
