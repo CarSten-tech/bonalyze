@@ -302,56 +302,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
         </div>
       </div>
 
-        {/* Draggable Handles */}
-        {corners.map((pt, i) => {
-          const screenPt = toScreen(pt)
-          const isDragging = activeHandleIndex === i
-          
-          return (
-            <React.Fragment key={i}>
-              <motion.div
-                drag
-                dragMomentum={false}
-                dragElastic={0}
-                onDragStart={() => setActiveHandleIndex(i)}
-                onDragEnd={() => setActiveHandleIndex(null)}
-                onDrag={(_, info) => {
-                   const rect = containerRef.current?.getBoundingClientRect()
-                   if (rect) {
-                     const x = info.point.x - rect.left
-                     const y = info.point.y - rect.top
-                     updateCorner(i, { x, y })
-                   }
-                }}
-                style={{
-                  position: 'absolute',
-                  left: 0, 
-                  top: 0,
-                  x: screenPt.x - 24, // larger hit area
-                  y: screenPt.y - 24,
-                }}
-                className="w-12 h-12 z-20 cursor-move flex items-center justify-center outline-none touch-none"
-              >
-                {/* Visible Handle (White Dot) */}
-                <div className={`w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/20 ${isDragging ? 'scale-125' : ''} transition-transform`} />
-              </motion.div>
 
-              {/* Magnifier Glass (Only when dragging this handle) */}
-              {isDragging && image && (
-                 <Magnifier 
-                    imageSrc={imageSrc} 
-                    x={pt.x} 
-                    y={pt.y} 
-                    imgWidth={imageSize.width}
-                    imgHeight={imageSize.height}
-                    screenX={screenPt.x}
-                    screenY={screenPt.y}
-                 />
-              )}
-            </React.Fragment>
-          )
-        })}
-      </div>
 
       {/* Filter Toolbar */}
       <div className="flex justify-around items-center p-4 bg-gray-900 border-t border-gray-800">
