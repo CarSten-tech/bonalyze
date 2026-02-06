@@ -357,41 +357,35 @@ interface MagnifierProps {
 }
 
 function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: MagnifierProps) {
-    // Zoom level
-    const ZOOM = 2.0
-    const SIZE = 96 // Size of magnifier window (pixels)
-    
-    // We want to show the area around (x,y) from the image.
-    // We can use background-position to offset.
-    
-    // Calculate background position
-    // If we want to center (x,y) in the window:
-    // BG Size = imgWidth * ZOOM
-    // Offset X = - (x * ZOOM - SIZE/2)
+    // Zoom level matching "Microsoft Lens" feels (approx 3x)
+    const ZOOM = 3.0
+    const SIZE = 120 // Larger view area
     
     const bgAbsWidth = imgWidth * ZOOM
     const bgAbsHeight = imgHeight * ZOOM
     
+    // We want the touched point (x,y) to be in the CENTER of the magnifier window
     const bgPosX = - (x * ZOOM - SIZE/2)
     const bgPosY = - (y * ZOOM - SIZE/2)
     
-    // Position the magnifier above the finger, pushed explicitly away to not be covered
-    const offsetTop = -80
+    // Offset logic: "Lupe_Y = Finger_Y - 100px"
+    // We position the magnifier absolute relative to the container.
+    // screenX/screenY are the center coordinates of the handle.
+    // We want the BOTTOM of the magnifier to be some distance above the finger?
+    // Or center of magnifier is 100px above?
+    // "etwa 80-100 Pixel darüber" usually means the bottom edge is clear of the finger.
+    const OFFSET_Y = 100 
     
     return (
         <div 
-            className="pointer-events-none fixed z-50 rounded-full border-[3px] border-white shadow-xl overflow-hidden bg-black"
+            className="pointer-events-none fixed z-50 rounded-full border-[4px] border-white shadow-2xl overflow-hidden bg-black"
             style={{
                 width: SIZE,
                 height: SIZE,
-                // We use fixed positioning based on screen coordinates of the handle handles element
-                // NOTE: 'screenX' passed here is actually relative to the container!
-                // To display 'fixed' correctly, we would need the container's screen rect.
-                // OR we can make this absolute positioned within the container!
                 position: 'absolute', 
                 left: screenX - SIZE/2, 
-                top: screenY - SIZE - 24, // pushed up
-                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                top: screenY - OFFSET_Y - (SIZE/2), // Center of loupe is offset up by 100 + half size
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             }}
         >
             <div 
@@ -404,10 +398,10 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
                     backgroundRepeat: 'no-repeat'
                 }}
             />
-            {/* Crosshair */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-70">
-                <div className="w-full h-[1px] bg-sky-400/50" />
-                <div className="h-full w-[1px] absolute bg-sky-400/50" />
+            {/* Fine Crosshair */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-80">
+                <div className="w-full h-[1px] bg-red-400/80 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                <div className="h-full w-[1px] absolute bg-red-400/80 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
             </div>
         </div>
     )

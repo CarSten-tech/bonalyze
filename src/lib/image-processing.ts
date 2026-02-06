@@ -210,6 +210,39 @@ export async function applyFilter(
       }
 
       ctx.drawImage(img, 0, 0)
+      
+      // -----------------------------------------------------
+      // OpenCV Method (High Quality Adaptive Threshold)
+      // -----------------------------------------------------
+      if (type === 'bw' && window.cv && window.cv.Mat) {
+         try {
+             const cv = window.cv
+             let src = cv.imread(canvas)
+             let dst = new cv.Mat()
+             
+             cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0)
+             
+             // Adaptive Thresholding: nice "Scan" look (Bleach background)
+             // block size 21 or 25 usually good for documents
+             // C = 10 or 15
+             cv.adaptiveThreshold(src, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15)
+             
+             cv.imshow(canvas, dst)
+             src.delete(); dst.delete()
+             
+             canvas.toBlob((b) => {
+                 if (b) resolve(b)
+                 else reject(new Error('Filter blob failed'))
+             }, 'image/jpeg', 0.9)
+             return
+         } catch(e) {
+             console.warn("OpenCV filter failed, falling back to JS", e)
+         }
+      }
+
+      // -----------------------------------------------------
+      // Fallback JS Method
+      // -----------------------------------------------------
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = imgData.data
 
@@ -226,9 +259,7 @@ export async function applyFilter(
           data[i + 1] = gray
           data[i + 2] = gray
         } else if (type === 'bw') {
-          // Simple local thresholding could be better, but doing global for speed now
-          // or a sophisticated adaptive threshold.
-          // Let's do a slightly adaptive approach or just high contrast.
+          // Fallback Binarization if OpenCV missing
           const threshold = 128
           const val = gray > threshold ? 255 : 0
           data[i] = val
