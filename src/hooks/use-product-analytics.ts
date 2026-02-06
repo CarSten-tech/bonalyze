@@ -18,6 +18,8 @@ export interface StoreStat {
 
 export interface ProductAnalyticsData {
   productName: string
+  categoryName?: string
+  categorySlug?: string
   totalCount: number
   totalSpend: number
   avgPrice: number
@@ -65,6 +67,10 @@ export function useProductAnalytics(productName: string) {
               name,
               logo_url
             )
+          ),
+          categories (
+            name,
+            slug
           )
         `)
         .eq('receipts.household_id', currentHousehold.id)
@@ -95,7 +101,16 @@ export function useProductAnalytics(productName: string) {
         lastPrice: number
       }>()
 
+      let categoryName: string | undefined
+      let categorySlug: string | undefined
+
       items.forEach((item: any) => {
+        // Extract category from the first item found (assuming valuable info is consistent)
+        if (!categoryName && item.categories) {
+            categoryName = item.categories.name
+            categorySlug = item.categories.slug
+        }
+
         const price = item.price_cents
         const qty = item.quantity || 1
         const date = item.receipts.date
@@ -160,6 +175,8 @@ export function useProductAnalytics(productName: string) {
 
       setData({
         productName: decodedName,
+        categoryName,
+        categorySlug,
         totalCount,
         totalSpend,
         avgPrice,

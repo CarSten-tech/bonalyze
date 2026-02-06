@@ -73,6 +73,11 @@ export default function ProductPage({ params }: ProductPageProps) {
         <h1 className="text-2xl font-bold text-slate-900 leading-tight">
             {decodedName}
         </h1>
+        {data.categoryName && (
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 mb-1">
+                {data.categoryName}
+            </div>
+        )}
         <p className="text-sm text-slate-500">
             Produktinformationen und Statistiken
         </p>
