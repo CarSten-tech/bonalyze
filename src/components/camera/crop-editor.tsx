@@ -279,7 +279,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         x: screenPt.x - 24, // larger hit area (48px)
                         y: screenPt.y - 24,
                       }}
-                      className="w-12 h-12 z-20 cursor-move flex items-center justify-center outline-none touch-none"
+                      className="w-12 h-12 z-50 cursor-move flex items-center justify-center outline-none touch-none"
                     >
                       {/* Visible Handle (White Circle r=16 => 32px diameter) */}
                       <div className={`w-8 h-8 rounded-full bg-white shadow-lg ring-2 ring-black/10 ${isDragging ? 'scale-110' : ''} transition-transform`} />

@@ -3,87 +3,78 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createServerClient } from '@/lib/supabase-server'
 import { ReceiptAIResponseSchema } from '@/types/receipt-ai'
 
-const RECEIPT_PROMPT = `Du bist ein Experte für das Lesen deutscher Kassenbons und die Kategorisierung von Produkten.
+const RECEIPT_PROMPT = `
+ROLE:
+Du bist ein hochspezialisiertes KI-System für die Analyse deutscher Kassenbons (OCR-Correction & Semantic Extraction). Deine Aufgabe ist es, aus rohen, fehlerhaften Textdaten strukturierte, analytisch wertvolle Datensätze zu erstellen.
 
-Analysiere diesen Kassenbon und extrahiere folgende Informationen als JSON:
+INPUT CONTEXT:
+Du erhältst OCR-Text oder Bilddaten eines deutschen Kassenbons (Rewe, Lidl, dm, etc.). Die Daten sind oft unvollständig, enthalten Tippfehler ("land1" statt "Landliebe") oder Abkürzungen ("KFav").
 
-1. Store/Geschäft Name
-2. Datum des Einkaufs (Format: YYYY-MM-DD)
-3. Alle Artikel mit:
-   - Produktname (wie auf Bon gedruckt)
-   - Menge (default: 1)
-   - Einzelpreis in Euro
-   - Gesamtpreis für diese Position
-   - Kategorie (Hauptkategorie)
-   - Unterkategorie (Subcategory)
-   - is_warranty_candidate (boolean): true wenn es sich um Elektronik, Haushaltsgeräte oder teure Werkzeuge handelt (z.B. Toaster, Smartphone, Bohrmaschine). Sonst false.
-4. Gesamtsumme des Einkaufs
+INSTRUCTIONS:
 
-**KATEGORISIERUNG**: Ordne JEDEM Artikel EXAKT eine Hauptkategorie und Unterkategorie aus dieser Liste zu:
+1. **ANALYSE & KORREKTUR (Mental Step)**:
+   - Identifiziere den Händler und das Datum/Uhrzeit zuerst.
+   - Gehe Zeile für Zeile durch. Suche nach Mustern wie "Menge x Preis".
+   - KORRIGIERE OCR-Fehler aggressiv basierend auf deutschem Supermarkt-Kontext:
+     - "Spargel dl" -> "Spargel dtsch."
+     - "Bio Gurken Stck" -> "Bio Gurken Stück"
+     - "KFav." -> "Kaufland Favorites"
+     - "Land1." -> "Landliebe"
+   - Löse Abkürzungen auf, damit die Suche später funktioniert.
 
-ERLAUBTE KATEGORIEN:
-- Lebensmittel: Obst & Gemüse, Brot & Backwaren, Milchprodukte & Eier, Fleisch & Fisch, Wurstwaren, Getränke (alkoholfrei), Alkohol & Tabak, Süßigkeiten & Snacks, Tiefkühlkost, Fertiggerichte & Konserven, Grundnahrungsmittel, Vegan & Vegetarisch
-- Drogerie & Gesundheit: Körperpflege, Gesundheit & Medikamente, Kosmetik & Make-up, Hygieneartikel, Babybedarf
-- Haushalt: Reinigung & Putzmittel, Wäschepflege, Küche & Zubehör, Bad & WC, Schreibwaren & Büro, Wohnen & Deko, Garten & Pflanzen, Elektro & Technik
-- Tierbedarf: Tierfutter, Tierpflege & Zubehör
-- Freizeit & Lifestyle: Restaurants & Lieferdienste, Unterhaltung, Hobby & Basteln, Sport & Fitness, Zeitungen & Bücher
-- Kleidung & Schuhe: Damenmode, Herrenmode, Kindermode, Schuhe & Accessoires
-- Mobilität: Tanken & Laden, Öffentliche Verkehrsmittel, Fahrzeugpflege
-- Sonstiges (Fallback, wenn nichts passt)
+2. **EXTRAKTION & LOGIK**:
+   - **Mengen**: Suche explizit nach Multiplikatoren ("2 x", "3 Stk"). Wenn nichts steht, ist Menge = 1.
+   - **Preise**: Preise sind immer positiv. Rabatte ("-0,50") müssen entweder vom Artikelpreis abgezogen oder als negativer "Discount"-Artikel gelistet werden.
+   - **Pfand**: Pfand ("Leergut", "Pfand") gehört NICHT in die Artikelliste "items", sondern in das Feld "amounts.deposit".
+   - **Health-Tags**: Analysiere den Produktnamen auf Gesundheits-Indikatoren. Setze Tags: "bio", "vegan", "sugar_free", "processed" (für Fertigessen), "alcohol".
 
-WICHTIG: Erfinde KEINE neuen Kategorien! Nutze nur die obige Liste.
+3. **KATEGORISIERUNG**:
+   - Ordne JEDEN Artikel einer Haupt- und Unterkategorie zu.
+   - Nutze "Elektro & Technik" für ALLE Geräte (wichtig für Garantie!).
+   - Nutze "Pfand & Leergut" nur, wenn es nicht in "amounts.deposit" verschoben werden kann.
 
-**WARRANTY CHECK**: Setze \`is_warranty_candidate\` auf true für:
-- Alle Elektrogeräte (Toaster, Föhn, TV, Laptop, Kabel, Kopfhörer)
-- Teure Haushaltswaren (> 50 EUR)
-- Werkzeuge
-- NICHT für: Lebensmittel, Verbrauchsgüter, billigen Kleinkram
+4. **WARRANTY CHECK**:
+   - Setze "is_warranty_candidate": true NUR für langlebige Non-Food Artikel > 10€ (Elektronik, Pfannen, Werkzeug).
 
-Antworte NUR mit validem JSON in diesem Format:
+JSON OUTPUT STRUCTURE (Strict):
 {
-  "merchant": "REWE",
-  "date": "2025-01-28",
+  "merchant": "String (Korrigierter Name, z.B. 'Rewe City')",
+  "date": "YYYY-MM-DD",
+  "time": "HH:MM (oder null)",
   "items": [
     {
-      "name": "Bio Vollmilch 1L",
-      "quantity": 2,
-      "unit_price": 1.29,
-      "total_price": 2.58,
-      "category": "Lebensmittel",
-      "subcategory": "Milchprodukte & Eier",
-      "is_warranty_candidate": false
-    },
-    {
-      "name": "Philips Haartrockner",
-      "quantity": 1,
-      "unit_price": 39.99,
-      "total_price": 39.99,
-      "category": "Haushalt",
-      "subcategory": "Elektro & Technik",
-      "is_warranty_candidate": true
-    },
-    {
-      "name": "Spülmittel 500ml",
-      "quantity": 1,
-      "unit_price": 1.99,
-      "total_price": 1.99,
-      "category": "Haushalt",
-      "subcategory": "Reinigung & Putzmittel",
-      "is_warranty_candidate": false
+      "name": "String (Sauberer, lesbarer Produktname)",
+      "raw_name": "String (Original OCR Text für Debugging)",
+      "quantity": Number (Integer oder Decimal),
+      "unit_price": Number (Einzelpreis),
+      "total_price": Number (Zeilensumme),
+      "category": "String (Hauptkategorie)",
+      "subcategory": "String (Unterkategorie)",
+      "tags": ["String", "String"], // z.B. ["bio", "vegetarisch"]
+      "is_warranty_candidate": Boolean
     }
   ],
-  "subtotal": 23.47,
-  "total": 23.47,
-  "confidence": 0.92
+  "amounts": {
+    "total": Number (Endsumme Bon),
+    "tax": Number (MwSt Summe),
+    "deposit": Number (Summe aller Pfand-Zeilen, positiv)
+  },
+  "meta": {
+    "confidence": Number (0.0 - 1.0),
+    "health_score_impact": String ("positive" | "neutral" | "negative") // Schätzung für den ganzen Einkauf
+  }
 }
 
-Regeln:
-- Wenn etwas nicht lesbar ist, setze null
-- Preise immer als Dezimalzahl (z.B. 2.58, nicht "2,58")
-- Bei Rabatten: Negativer Preis
-- Bei Pfand: Als separater Artikel, Kategorie "Sonstiges"
-- confidence: Schätzung 0-1 wie sicher du bist
-- Kategorie und Subcategory MÜSSEN immer gesetzt sein!`
+CATEGORIES (Nutze nur diese):
+- Lebensmittel (Obst & Gemüse, Brot & Backwaren, Milch & Eier, Fleisch & Fisch, Getränke, Alkohol & Tabak, Süß & Salzig, Fertiggerichte, Grundnahrungsmittel)
+- Drogerie (Körperpflege, Haushalt & Putzen, Gesundheit, Baby, Tier)
+- Home & Living (Küche, Technik, Wohnen, Garten, Büro)
+- Fashion (Kleidung, Schuhe)
+- Mobilität (Tanken, Ticket)
+- Sonstiges
+
+WICHTIG: Antworte NUR mit dem JSON. Kein Markdown, kein Text.
+`;
 
 export async function POST(request: NextRequest) {
   const debug: Record<string, unknown> = { timestamp: new Date().toISOString() }
@@ -238,12 +229,21 @@ export async function POST(request: NextRequest) {
       const parsed = JSON.parse(jsonText)
       aiResult = ReceiptAIResponseSchema.parse(parsed)
     } catch (parseError) {
-      console.error('Parse error:', parseError, 'Response:', responseText)
+      console.error('AI Parse error:', parseError)
+      console.log('Raw AI Response:', responseText)
+      
+      const debugInfo = {
+         error: parseError instanceof Error ? parseError.message : String(parseError),
+         rawResponse: responseText,
+         parsedJson: jsonText
+      }
+      
       return NextResponse.json(
         {
           success: false,
           error: 'PARSE_FAILED',
-          message: 'Kassenbon konnte nicht analysiert werden. Bitte erneut versuchen.',
+          message: 'Kassenbon konnte nicht analysiert werden. (Format-Fehler)',
+          debug: debugInfo
         },
         { status: 422 }
       )
