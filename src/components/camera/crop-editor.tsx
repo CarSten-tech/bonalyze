@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Check, Loader2, RotateCcw, X, Wand2, Contrast, Image as ImageIcon } from 'lucide-react'
+import { toast } from "sonner"
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { applyPerspectiveWarp, applyFilter, detectDocumentEdges, type Point } from '@/lib/image-processing'
