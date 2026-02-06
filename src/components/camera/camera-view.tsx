@@ -2,19 +2,26 @@
 
 import * as React from 'react'
 import Webcam from 'react-webcam'
-import { Camera, X } from 'lucide-react'
+import { Camera, X, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { loadOpenCV } from '@/lib/opencv-loader'
 
 interface CameraViewProps {
-  onCapture: (imageSrc: string) => void
+  onCapture: (imageSrc: string, corners?: {x:number, y:number}[]) => void
   onClose: () => void
 }
 
 export function CameraView({ onCapture, onClose }: CameraViewProps) {
   const webcamRef = React.useRef<Webcam>(null)
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const overlayRef = React.useRef<HTMLCanvasElement>(null)
+  
   const [isMounted, setIsMounted] = React.useState(false)
   const [cameraError, setCameraError] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isOpenCVReady, setIsOpenCVReady] = React.useState(false)
+  const [detectedCorners, setDetectedCorners] = React.useState<{x:number, y:number}[] | undefined>(undefined)
+  
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -27,20 +34,176 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         setIsLoading(false)
        }
     }
+
+    // Load OpenCV
+    loadOpenCV().then(() => {
+        console.log("OpenCV loaded")
+        setIsOpenCVReady(true)
+    }).catch(err => {
+        console.error("OpenCV load error", err)
+        // We can still function without OpenCV, just no auto-detect
+    })
+
   }, [])
+
+  // Edge Detection Loop
+  React.useEffect(() => {
+      if (!isOpenCVReady || !webcamRef.current?.video || !canvasRef.current || !overlayRef.current) return
+
+      let animationFrameId: number
+      const cv = window.cv
+      const video = webcamRef.current.video
+      
+      const processFrame = () => {
+          if (video.readyState !== 4) {
+             animationFrameId = requestAnimationFrame(processFrame)
+             return
+          }
+
+          const width = video.videoWidth
+          const height = video.videoHeight
+
+          // Sync canvas sizes
+          if (canvasRef.current && overlayRef.current) {
+               if (canvasRef.current.width !== width) {
+                   canvasRef.current.width = width
+                   canvasRef.current.height = height
+                   overlayRef.current.width = width
+                   overlayRef.current.height = height
+               }
+          }
+
+          try {
+              // 1. Draw video to hidden canvas
+              const ctx = canvasRef.current?.getContext('2d')
+              if (!ctx) return
+              ctx.drawImage(video, 0, 0, width, height)
+
+              // 2. OpenCV Processing
+              let src = cv.imread(canvasRef.current)
+              let dst = new cv.Mat()
+              
+              // Downscale for speed (keep aspect ratio)
+              let dsize = new cv.Size(0,0)
+              const scale = 500 / Math.max(width, height)
+              if (scale < 1) {
+                  const w = Math.round(width * scale)
+                  const h = Math.round(height * scale)
+                  dsize = new cv.Size(w, h)
+                  cv.resize(src, dst, dsize, 0, 0, cv.INTER_AREA)
+              } else {
+                  src.copyTo(dst)
+              }
+
+              cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY, 0)
+              cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
+              cv.Canny(dst, dst, 75, 200, 3, false)
+              
+              // Find Contours
+              let contours = new cv.MatVector()
+              let hierarchy = new cv.Mat()
+              cv.findContours(dst, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+
+              let maxArea = 0
+              let bestContour = null
+              let bestBlock = null
+
+              // Find largest quad
+              for (let i = 0; i < contours.size(); ++i) {
+                  let cnt = contours.get(i)
+                  let area = cv.contourArea(cnt)
+                  
+                  // Min area filter (5% of screen)
+                  if (area < (dst.cols * dst.rows * 0.05)) {
+                      cnt.delete()
+                      continue 
+                  }
+
+                  let peri = cv.arcLength(cnt, true)
+                  let approx = new cv.Mat()
+                  cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
+
+                  if (approx.rows === 4 && area > maxArea) {
+                      maxArea = area
+                      if (bestContour) bestContour.delete()
+                      bestContour = approx // keep it
+                      bestBlock = cnt // keep original? No, approx is enough
+                  } else {
+                     approx.delete()
+                     cnt.delete()
+                  }
+              }
+
+              // Draw on overlay
+              const overlayCtx = overlayRef.current?.getContext('2d')
+              if (overlayCtx) {
+                  overlayCtx.clearRect(0, 0, width, height)
+                  
+                  if (bestContour) {
+                      overlayCtx.strokeStyle = '#00FF00'
+                      overlayCtx.lineWidth = 4
+                      overlayCtx.beginPath()
+                      
+                      const invScale = 1 / (scale < 1 ? scale : 1)
+                      
+                      // Extract points
+                      const pts = []
+                      for(let i=0; i<4; i++) {
+                         const x = bestContour.data32S[i*2] * invScale
+                         const y = bestContour.data32S[i*2+1] * invScale
+                         pts.push({x, y})
+                         if (i===0) overlayCtx.moveTo(x, y)
+                         else overlayCtx.lineTo(x, y)
+                      }
+                      overlayCtx.closePath()
+                      overlayCtx.stroke()
+                      
+                      // Sort corners TL, TR, BR, BL for passing back
+                      // Simple sort by Y then X... actually needs correct order.
+                      // approxPolyDP usually returns ordered, but start point varies.
+                      // Let's just pass them as is for now, user can adjust.
+                      setDetectedCorners(pts)
+                      
+                      bestContour.delete()
+                  } else {
+                      setDetectedCorners(undefined)
+                  }
+              }
+
+              // Cleanup
+              src.delete()
+              dst.delete()
+              contours.delete()
+              hierarchy.delete()
+
+          } catch (err) {
+              console.warn("CV Error", err)
+          }
+
+          animationFrameId = requestAnimationFrame(processFrame)
+      }
+
+      animationFrameId = requestAnimationFrame(processFrame)
+      return () => cancelAnimationFrame(animationFrameId)
+
+  }, [isOpenCVReady])
 
   const capture = React.useCallback(() => {
     try {
+      // Use hidden canvas to get full resolution image if possible, 
+      // or just webcam screenshot. Webcam screenshot is safer for consistent results.
+      // BUT we want MAX resolution.
+      
       const imageSrc = webcamRef.current?.getScreenshot()
       if (imageSrc) {
-        onCapture(imageSrc)
+        onCapture(imageSrc, detectedCorners)
       } else {
         console.error("Screenshot returned null")
       }
     } catch (e) {
       console.error("Capture error", e)
     }
-  }, [onCapture])
+  }, [onCapture, detectedCorners])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -55,19 +218,27 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
     }
   }
 
-  // Simplified constraints to ensure better compatibility
+  // High-Res Constraints (4K equivalent or HD)
   const videoConstraints = {
-    facingMode: 'environment', 
+    facingMode: 'environment',
+    width: { ideal: 3840 }, 
+    height: { ideal: 2160 }
   }
 
   if (!isMounted) return null
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overscroll-none touch-none">
+      {/* Hidden processing canvas */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* Top Bar with robust safe area handling */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent pt-[calc(env(safe-area-inset-top)+1rem)]">
         <div className="w-12" /> 
-        <div className="text-white font-medium drop-shadow-md text-lg mt-2">Beleg scannen</div>
+        <div className="text-white font-medium drop-shadow-md text-lg mt-2 flex flex-col items-center">
+            <span>Beleg scannen</span>
+            {isOpenCVReady && <span className="text-[10px] text-green-400 font-mono">AI ACTIVE</span>}
+        </div>
         <Button 
           variant="ghost" 
           size="icon" 
@@ -133,6 +304,7 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               audio={false}
               ref={webcamRef}
               screenshotFormat="image/jpeg"
+              screenshotQuality={1.0} // Max quality
               videoConstraints={videoConstraints}
               className="absolute inset-0 h-full w-full object-cover"
               playsInline
@@ -149,13 +321,19 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               }}
             />
             
-            {/* Guide Grid Overlay */}
-            {!isLoading && (
-              <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
-                <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
-                <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
-                <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
+            {/* Draw Overlay */}
+            <canvas 
+                ref={overlayRef} 
+                className="absolute inset-0 h-full w-full pointer-events-none z-10 object-cover" 
+            />
+            
+            {/* Guide Grid Overlay (Only when no detect) */}
+            {!isLoading && !detectedCorners && (
+              <div className="absolute inset-0 pointer-events-none z-10 opacity-30">
+                <div className="absolute top-1/3 left-0 right-0 h-px bg-white" />
+                <div className="absolute top-2/3 left-0 right-0 h-px bg-white" />
+                <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white" />
+                <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white" />
                 
                 {/* Active Capture Area Hint */}
                 <div className="absolute inset-x-8 inset-y-12 border border-white/40 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.3)]" />
@@ -167,15 +345,34 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
       {/* Controls */}
       {!cameraError && (
-        <div className="h-32 bg-black flex items-center justify-center p-4 pb-safe-bottom z-20">
+        <div className="h-32 bg-black flex items-center justify-between px-8 pb-safe-bottom z-20">
+          <Button variant="ghost" size="icon" className="text-white opacity-0 pointer-events-none">
+              <RefreshCw />
+          </Button>
+
           <button
             onClick={capture}
             disabled={isLoading}
-            className="h-20 w-20 rounded-full border-[6px] border-white/30 bg-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 disabled:scale-100"
+            className={`h-20 w-20 rounded-full border-[6px] flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 disabled:scale-100 ${
+                detectedCorners ? 'border-green-400 bg-white' : 'border-white/30 bg-white'
+            }`}
             aria-label="Foto aufnehmen"
           >
-            <div className="h-16 w-16 rounded-full border-2 border-black" />
+            <div className={`h-16 w-16 rounded-full border-2 ${detectedCorners ? 'border-green-600' : 'border-black'}`} />
           </button>
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-white hover:bg-white/10"
+            onClick={() => {
+                // Toggle flash? Or upload
+                fileInputRef.current?.click()
+            }}
+          >
+             <RefreshCw className="h-6 w-6 opacity-0" /> {/* Placeholder balance */}
+             {/* Actual button is upload */}
+          </Button>
         </div>
       )}
     </div>

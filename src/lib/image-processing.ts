@@ -19,7 +19,6 @@ export async function applyPerspectiveWarp(
     
     img.onload = () => {
       try {
-        // Defaults: If no output size specified, estimate based on average edge length
         let w = outputWidth || Math.max(
           distance(corners[0], corners[1]), 
           distance(corners[3], corners[2])
@@ -29,14 +28,72 @@ export async function applyPerspectiveWarp(
           distance(corners[1], corners[2])
         )
 
-        // Safeguard: Ensure positive integers
+        // Safeguard
         if (!w || Number.isNaN(w) || w <= 0) w = img.width
         if (!h || Number.isNaN(h) || h <= 0) h = img.height
         
         w = Math.floor(w)
         h = Math.floor(h)
 
-        // Create canvas
+        // -----------------------------------------------------
+        // 1. OpenCV Method (High Quality & Fast)
+        // -----------------------------------------------------
+        if (window.cv && window.cv.Mat) {
+           const cv = window.cv
+           
+           // Create Mats
+           let src = cv.imread(img)
+           let dst = new cv.Mat()
+           
+           // Source Points (The corners from user)
+           // cv.matFromArray(rows, cols, type, array)
+           // Order: TL, TR, BR, BL ... Wait, perspectiveTransform needs consistent order?
+           // Actually, getPerspectiveTransform expects matched pairs. 
+           // Let's assume input corners are ordered TL, TR, BR, BL (Standard)
+           
+           let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+              corners[0].x, corners[0].y, 
+              corners[1].x, corners[1].y, 
+              corners[2].x, corners[2].y, 
+              corners[3].x, corners[3].y
+           ])
+
+           // Dest Points (The rect [0,0] -> [w,h])
+           let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+              0, 0, 
+              w, 0, 
+              w, h, 
+              0, h
+           ])
+           
+           // Get Matrix
+           let M = cv.getPerspectiveTransform(srcTri, dstTri)
+           let dsize = new cv.Size(w, h)
+           
+           // Warp
+           cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar())
+           
+           // Output
+           // cv.imshow needs a canvas
+           const canvas = document.createElement('canvas')
+           // cv.imshow(canvas, dst) -- this resizes canvas to dst size? usually yes
+           // Let's manually copy if needed, but imshow is standard for opencv.js
+           cv.imshow(canvas, dst)
+           
+           // Cleanup
+           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+           
+           canvas.toBlob((blob) => {
+              if (blob) resolve(blob)
+              else reject(new Error('CV warp conversion failed'))
+           }, 'image/jpeg', 0.95)
+           
+           return
+        }
+
+        // -----------------------------------------------------
+        // 2. Fallback JS Method (Slow or Approximation)
+        // -----------------------------------------------------
         const canvas = document.createElement('canvas')
         canvas.width = w
         canvas.height = h
@@ -46,45 +103,9 @@ export async function applyPerspectiveWarp(
           reject(new Error('Could not get 2D context'))
           return
         }
-
-        // Simplification:
-        // True homography is complex in pure JS without OpenCV.
-        // For a receipt scanner MVP, we can treat this as a simple crop 
-        // if the perspective isn't too extreme, OR use a library.
-        // 
-        // HOWEVER, since the user asked for "Perspective Warp", we should try 
-        // a basic implementation or at least an affine transform approximation.
-        // For accurate homography in pure JS, it's quite verbose.
-        //
-        // Let's implement a "Cheap Homography" by drawing the image warped.
-        // Actually, for best results without heavy libs, we can just crop for now
-        // if the warp math is too heavy. 
-        //
-        // BUT, let's try to do it right using a simple homography helper.
-        
-        // 1. Calculate Homography Matrix
-        // Since we don't want to include 1000 lines of Matrix math code inline,
-        // we'll use a hack: Draw the image onto a temporary canvas, then mapping pixels? 
-        // No, that's too slow.
-        //
-        // ALTERNATIVE: Use the native geometric transformation if available? No.
-        
-        // Let's stick to a robust crop-and-rotate approach for MVP if perspective is minimal,
-        // BUT the user specifically asked for "Perspective Warp".
-        // 
-        // Let's implement a pixel-by-pixel mapping for "perfect" warp. 
-        // It's slow for large images on CPU.
-        //
-        // BETTER APPROACH FOR MVP:
-        // Use a library like `opencv.js`? The user said "If possible... or lightweight alternative".
-        // Since we didn't install OpenCV, let's write a compact pixel mapper.
         
         const srcData = getImageData(img)
         const dstData = ctx.createImageData(w, h)
-        
-        // Compute Homography Matrix H mapping destination (rectangle) to source (quadrilateral)
-        // Destination points: (0,0), (w,0), (w,h), (0,h)
-        // Source points: corners[0], corners[1], corners[2], corners[3]
         
         const H = computeHomography(
           [0, 0], [w, 0], [w, h], [0, h],
@@ -94,15 +115,12 @@ export async function applyPerspectiveWarp(
           [corners[3].x, corners[3].y]
         )
 
-        // Inverse mapping: For each pixel in dest, find relevant pixel in source
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
-            // Apply H to (x,y)
             const [u, v, w_] = applyMatrix(H, x, y, 1)
             const srcX = u / w_
             const srcY = v / w_
 
-            // Bilinear Interpolation
             if (srcX >= 0 && srcX < img.width - 1 && srcY >= 0 && srcY < img.height - 1) {
               const pixel = sampleBilinear(srcData, srcX, srcY, img.width)
               const dstIdx = (y * w + x) * 4

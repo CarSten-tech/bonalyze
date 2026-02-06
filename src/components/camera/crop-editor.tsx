@@ -8,11 +8,12 @@ import { applyPerspectiveWarp, applyFilter, detectDocumentEdges, type Point } fr
 
 interface CropEditorProps {
   imageSrc: string
+  initialCorners?: Point[] // From live detection
   onCancel: () => void
   onComplete: (blob: Blob) => void
 }
 
-export function CropEditor({ imageSrc, onCancel, onComplete }: CropEditorProps) {
+export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: CropEditorProps) {
   const [image, setImage] = React.useState<HTMLImageElement | null>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [corners, setCorners] = React.useState<[Point, Point, Point, Point]>([
@@ -35,28 +36,29 @@ export function CropEditor({ imageSrc, onCancel, onComplete }: CropEditorProps) 
       setImage(img)
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
       
-      try {
-          setIsProcessing(true) // Re-use processing state or add a new one for detection?
-          // Let's use a local state or just fire and forget if it's fast.
-          // Detection might take a moment, so let's show loading if possible, or just update when ready.
-          
-          const detectedCorners = await detectDocumentEdges(img)
-          setCorners(detectedCorners)
-      } catch (err) {
-          console.warn('Auto-detection failed, using defaults', err)
-          // Init corners with some padding (10% form edge)
-          const w = img.naturalWidth
-          const h = img.naturalHeight
-          const padX = w * 0.1
-          const padY = h * 0.1
-          setCorners([
-            { x: padX, y: padY },         // TL
-            { x: w - padX, y: padY },     // TR
-            { x: w - padX, y: h - padY }, // BR
-            { x: padX, y: h - padY },     // BL
-          ])
-      } finally {
-          setIsProcessing(false)
+      if (initialCorners && initialCorners.length === 4) {
+          // Use AI detected corners if available
+          setCorners(initialCorners as [Point, Point, Point, Point])
+      } else {
+          // Fallback to auto-detect (legacy) or default
+          try {
+              // Since we have OpenCV loaded potentially, we could use it here too!
+              // But strictly speaking, if live detect failed, this might fail too.
+              // Let's fallback to defaults for speed.
+              
+              const w = img.naturalWidth
+              const h = img.naturalHeight
+              const padX = w * 0.1
+              const padY = h * 0.1
+              setCorners([
+                { x: padX, y: padY },         // TL
+                { x: w - padX, y: padY },     // TR
+                { x: w - padX, y: h - padY }, // BR
+                { x: padX, y: h - padY },     // BL
+              ])
+          } catch (err) {
+              console.warn('Init failed', err)
+          }
       }
     }
   }, [imageSrc])

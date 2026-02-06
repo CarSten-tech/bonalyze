@@ -13,8 +13,11 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
   const [mode, setMode] = React.useState<'CAMERA' | 'EDIT'>('CAMERA')
   const [capturedImage, setCapturedImage] = React.useState<string | null>(null)
 
-  const handleCapture = (imageSrc: string) => {
+  const [detectedCorners, setDetectedCorners] = React.useState<{x:number, y:number}[] | undefined>(undefined)
+
+  const handleCapture = (imageSrc: string, corners?: {x:number, y:number}[]) => {
     setCapturedImage(imageSrc)
+    setDetectedCorners(corners)
     setMode('EDIT')
   }
 
@@ -26,6 +29,7 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
 
   const handleRetake = () => {
     setCapturedImage(null)
+    setDetectedCorners(undefined)
     setMode('CAMERA')
   }
 
@@ -34,6 +38,7 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
       <div className="fixed inset-0 z-[9999] bg-black flex flex-col overscroll-none touch-none">
         <CropEditor 
           imageSrc={capturedImage}
+          initialCorners={detectedCorners}
           onCancel={handleRetake}
           onComplete={handleEditComplete}
         />
