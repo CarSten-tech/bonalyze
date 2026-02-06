@@ -207,56 +207,100 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       </div>
 
       {/* Editor Area */}
-      <div 
-        ref={containerRef} 
-        className="flex-1 relative overflow-hidden bg-black m-0"
-        style={{ touchAction: 'none' }}
-      >
-        {/* Render Image Centered */}
-        {/* We use specific sizing to ensure 1:1 mapping is easy to calculate if needed, 
-            but here we just let CSS 'contain' do it and map via ratios in helper functions */}
-        {image && (
-          <img
-            src={imageSrc}
-            alt="Source"
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain select-none pointer-events-none"
-            style={{ maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100% - 32px)' }} // Add some padding
-          />
-        )}
-        
-        {/* Dimmed Overlay (Outside Crop) */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ overflow: 'visible' }}>
-          <defs>
-            <mask id="crop-mask">
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+      <div className="flex-1 bg-black p-5 flex flex-col" style={{ touchAction: 'none' }}>
+        <div ref={containerRef} className="relative flex-1 w-full h-full overflow-hidden">
+          {/* Render Image Centered */}
+          {image && (
+            <img
+              src={imageSrc}
+              alt="Source"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full object-contain select-none pointer-events-none"
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '100%'
+              }} 
+            />
+          )}
+          
+          {/* SVG Overlay: Dimmer + Frame */}
+          {containerSize.width > 0 && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ overflow: 'visible' }}>
+              {/* Dimmed Background using evenodd rule */}
               <path 
-                d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
-                fill="black"
+                  d={`
+                  M 0 0 H ${containerSize.width} V ${containerSize.height} H 0 Z 
+                  M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} 
+                  L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} 
+                  L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} 
+                  L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z
+                  `}
+                  fill="rgba(0, 0, 0, 0.6)"
+                  fillRule="evenodd"
               />
-            </mask>
-          </defs>
-          
-          {/* Darken everything EXCEPT the crop area */}
-          <rect 
-            x="0" 
-            y="0" 
-            width="100%" 
-            height="100%" 
-            fill="rgba(0, 0, 0, 0.6)" 
-            mask="url(#crop-mask)" 
-          />
-          
-          {/* White Border Line */}
-          <path 
-            d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
-            fill="none"
-            stroke="white"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="drop-shadow-md"
-          />
-        </svg>
+              
+              {/* White Border Line */}
+              <path 
+                  d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="drop-shadow-md"
+              />
+              </svg>
+          )}
+
+          {/* Draggable Handles */}
+          {corners.map((pt, i) => {
+            const screenPt = toScreen(pt)
+            const isDragging = activeHandleIndex === i
+            
+            return (
+              <React.Fragment key={i}>
+                <motion.div
+                  drag
+                  dragMomentum={false}
+                  dragElastic={0}
+                  onDragStart={() => setActiveHandleIndex(i)}
+                  onDragEnd={() => setActiveHandleIndex(null)}
+                  onDrag={(_, info) => {
+                    const rect = containerRef.current?.getBoundingClientRect()
+                    if (rect) {
+                      const x = info.point.x - rect.left
+                      const y = info.point.y - rect.top
+                      updateCorner(i, { x, y })
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: 0, 
+                    top: 0,
+                    x: screenPt.x - 24, // larger hit area
+                    y: screenPt.y - 24,
+                  }}
+                  className="w-12 h-12 z-20 cursor-move flex items-center justify-center outline-none touch-none"
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/20 ${isDragging ? 'scale-125' : ''} transition-transform`} />
+                </motion.div>
+
+                {/* Magnifier Glass */}
+                {isDragging && image && (
+                  <Magnifier 
+                      imageSrc={imageSrc} 
+                      x={pt.x} 
+                      y={pt.y} 
+                      imgWidth={imageSize.width}
+                      imgHeight={imageSize.height}
+                      screenX={screenPt.x}
+                      screenY={screenPt.y}
+                  />
+                )}
+              </React.Fragment>
+            )
+          })}
+        </div>
+      </div>
 
         {/* Draggable Handles */}
         {corners.map((pt, i) => {
