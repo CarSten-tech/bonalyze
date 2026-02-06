@@ -27,6 +27,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [activeFilter, setActiveFilter] = React.useState<'original' | 'grayscale' | 'bw'>('original')
+  const [showFilters, setShowFilters] = React.useState(false)
   const [activeHandleIndex, setActiveHandleIndex] = React.useState<number | null>(null)
 
   // Load image
@@ -38,49 +39,44 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
       
       if (initialCorners && initialCorners.length === 4) {
-          // Use AI detected corners if available
           setCorners(initialCorners as [Point, Point, Point, Point])
       } else {
-          // Fallback to auto-detect (legacy) or default
-          try {
-              // Since we have OpenCV loaded potentially, we could use it here too!
-              // But strictly speaking, if live detect failed, this might fail too.
-              // Let's fallback to defaults for speed.
-              
-              const w = img.naturalWidth
-              const h = img.naturalHeight
-              const padX = w * 0.1
-              const padY = h * 0.1
-              setCorners([
-                { x: padX, y: padY },         // TL
-                { x: w - padX, y: padY },     // TR
-                { x: w - padX, y: h - padY }, // BR
-                { x: padX, y: h - padY },     // BL
-              ])
-          } catch (err) {
-              console.warn('Init failed', err)
-          }
+          // Fallback Default
+          const w = img.naturalWidth
+          const h = img.naturalHeight
+          const padX = w * 0.15
+          const padY = h * 0.15
+          setCorners([
+            { x: padX, y: padY },         // TL
+            { x: w - padX, y: padY },     // TR
+            { x: w - padX, y: h - padY }, // BR
+            { x: padX, y: h - padY },     // BL
+          ])
       }
     }
   }, [imageSrc])
 
-  // Measure container for coordinate mapping
-  React.useEffect(() => {
+  // Measure container (Robust)
+  React.useLayoutEffect(() => {
     if (!containerRef.current) return
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        })
-      }
-    })
+    
+    const measure = () => {
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (rect && rect.width > 0 && rect.height > 0) {
+            setContainerSize({ width: rect.width, height: rect.height })
+        }
+    }
+    
+    measure() // Immediate measure
+    
+    // Observer for resizing
+    const resizeObserver = new ResizeObserver(() => measure())
     resizeObserver.observe(containerRef.current)
+    
     return () => resizeObserver.disconnect()
   }, [])
 
-  // Coordinate Conversion Helpers
-  // Image (Natural) -> Screen (Displayed)
+  // Coordinate Conversion Helpers (Same logic)
   const toScreen = (pt: Point) => {
     if (!imageSize.width || !containerSize.width) return { x: 0, y: 0 }
     
@@ -90,13 +86,11 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
     let displayWidth, displayHeight, offsetX, offsetY
     
     if (containerRatio > imgRatio) {
-      // Container is wider, fit by height
       displayHeight = containerSize.height
       displayWidth = displayHeight * imgRatio
       offsetX = (containerSize.width - displayWidth) / 2
       offsetY = 0
     } else {
-      // Container is taller, fit by width
       displayWidth = containerSize.width
       displayHeight = displayWidth / imgRatio
       offsetX = 0
@@ -111,7 +105,6 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
     }
   }
 
-  // Screen -> Image
   const toImage = (screenPt: Point) => {
     if (!imageSize.width || !containerSize.width) return { x: 0, y: 0 }
     
@@ -139,25 +132,11 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       y: (screenPt.y - offsetY) / scale
     }
   }
-
-  const handleDrag = (index: number, info: any) => {
-    // Framer motion drag info gives delta, but we need absolute position relative to container
-    // We can use the visual element interaction? No.
-    // Let's rely on updating state ONLY when drag ends or use onDrag.
-    // Framer motion onDrag gives (event, info). Info.point is global.
-    // We need relative to container.
-    
-    // Simplification: Let's assume the draggable div's bounding box is correct.
-    // Actually, updating state on every frame might be heavy.
-    // But we need to draw lines.
-  }
   
-  // Custom Drag Handler to sync state
   const updateCorner = (index: number, newScreenPt: Point) => {
     const newImagePt = toImage(newScreenPt)
     setCorners(prev => {
       const next: [Point, Point, Point, Point] = [...prev]
-      // Clamp to image bounds
       next[index] = {
         x: Math.max(0, Math.min(newImagePt.x, imageSize.width)),
         y: Math.max(0, Math.min(newImagePt.y, imageSize.height))
@@ -169,19 +148,13 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   const handleSave = async () => {
     if (!image) return
     setIsProcessing(true)
-    
     try {
-      // 1. Perspective Crop
       const warpedBlob = await applyPerspectiveWarp(image, corners)
-      
-      // 2. Apply Filter
       const finalBlob = await applyFilter(warpedBlob, activeFilter)
-      
       onComplete(finalBlob)
     } catch (err) {
       console.error('Processing failed', err)
-      // Fallback: Just return original if warping fails
-      // onComplete(originalBlob)
+      toast.error("Fehler beim Verarbeiten")
     } finally {
       setIsProcessing(false)
     }
@@ -194,68 +167,81 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   )
 
   return (
-    <div className="flex flex-col h-full bg-black text-white">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4">
-        <Button variant="ghost" onClick={onCancel} className="text-white">
-          <RotateCcw className="mr-2 h-4 w-4" /> Neu
-        </Button>
-        <span className="font-semibold">Zuschneiden</span>
-        <Button onClick={handleSave} disabled={isProcessing} className="bg-white text-black hover:bg-gray-200">
-          {isProcessing ? <Loader2 className="animate-spin" /> : <Check className="h-4 w-4" />}
-        </Button>
+    <div className="flex flex-col h-full bg-black text-white touch-none">
+      {/* Top Bar: Cancel & Title */}
+      <div className="flex justify-between items-center p-4 z-50 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0">
+         <Button variant="ghost" size="icon" onClick={onCancel} className="text-white hover:bg-white/20 rounded-full">
+            <X className="h-6 w-6" />
+         </Button>
+         <div className="flex flex-col items-center">
+             <span className="font-semibold text-lg drop-shadow-md">Zuschneiden</span>
+             <span className="text-xs text-white/70 drop-shadow-md">Ecken ziehen zum Anpassen</span>
+         </div>
+         {/* Filter Toggle */}
+         <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`rounded-full transition-colors ${showFilters || activeFilter !== 'original' ? 'text-primary bg-white/20' : 'text-white hover:bg-white/20'}`}
+         >
+            <Contrast className="h-6 w-6" />
+         </Button>
       </div>
+      
+      {/* Filter Overlay (Conditional) */}
+      {showFilters && (
+         <div className="absolute top-16 right-4 z-50 bg-black/90 backdrop-blur-md rounded-xl border border-white/10 p-2 flex flex-col gap-2 shadow-2xl animate-in fade-in slide-in-from-top-2">
+            <FilterOption isActive={activeFilter === 'original'} onClick={() => setActiveFilter('original')} label="Original" />
+            <FilterOption isActive={activeFilter === 'bw'} onClick={() => setActiveFilter('bw')} label="Dokument" />
+            <FilterOption isActive={activeFilter === 'grayscale'} onClick={() => setActiveFilter('grayscale')} label="Graustufen" />
+         </div>
+      )}
 
       {/* Editor Area */}
-      <div className="flex-1 bg-black p-5 flex flex-col" style={{ touchAction: 'none' }}>
-        <div ref={containerRef} className="relative flex-1 w-full h-full overflow-hidden">
-          {/* Render Image Centered */}
-          {image && (
-            <img
-              src={imageSrc}
-              alt="Source"
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full object-contain select-none pointer-events-none"
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '100%'
-              }} 
-            />
-          )}
+      <div className="flex-1 relative w-full h-full overflow-hidden bg-gray-900/50">
+        <div ref={containerRef} className="absolute inset-0 w-full h-full">
+          {/* Image */}
+          <img
+            src={imageSrc}
+            alt="Source"
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full object-contain select-none pointer-events-none"
+          />
           
-          {/* SVG Overlay & Handles - Only render when we have measurements */}
+          {/* SVG Overlay & Handles */}
           {containerSize.width > 0 && imageSize.width > 0 && (
             <>
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ overflow: 'visible' }}>
-              {/* Dimmed Background using evenodd rule */}
-              <path 
-                  d={`
-                  M 0 0 H ${containerSize.width} V ${containerSize.height} H 0 Z 
-                  M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} 
-                  L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} 
-                  L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} 
-                  L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z
-                  `}
-                  fill="rgba(0, 0, 0, 0.6)"
-                  fillRule="evenodd"
-              />
-              
-              {/* White Border Line */}
-              <path 
-                  d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="drop-shadow-md"
-              />
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-40" style={{ overflow: 'visible' }}>
+                <defs>
+                   <mask id="cropMask">
+                      <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                      <path 
+                        d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} 
+                            L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} 
+                            L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} 
+                            L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
+                        fill="black" 
+                      />
+                   </mask>
+                </defs>
+                
+                {/* Darken outside area */}
+                <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cropMask)" />
+                
+                {/* Border Warning: Red if shape is invalid/weird? No, keep simple white */}
+                <path 
+                    d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
+                />
               </svg>
 
-              {/* Draggable Handles */}
+              {/* Handles */}
               {corners.map((pt, i) => {
                 const screenPt = toScreen(pt)
-                const isDragging = activeHandleIndex === i
-                
                 return (
                   <React.Fragment key={i}>
                     <motion.div
@@ -267,34 +253,35 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                       onDrag={(_, info) => {
                         const rect = containerRef.current?.getBoundingClientRect()
                         if (rect) {
-                          const x = info.point.x - rect.left
-                          const y = info.point.y - rect.top
-                          updateCorner(i, { x, y })
+                           // Use touches if available for better accuracy? Frame motion handles it.
+                           // info.point is page coordinates.
+                           // We need client coordinates relative to container.
+                           // But container is fixed/absolute?
+                           // info.point.x - rect.left is correct.
+                           const x = info.point.x - rect.left
+                           const y = info.point.y - rect.top
+                           updateCorner(i, { x, y })
                         }
                       }}
                       style={{
                         position: 'absolute',
-                        left: 0, 
-                        top: 0,
-                        x: screenPt.x - 24, // larger hit area (48px)
+                        left: 0, top: 0,
+                        x: screenPt.x - 24, 
                         y: screenPt.y - 24,
                       }}
-                      className="w-12 h-12 z-50 cursor-move flex items-center justify-center outline-none touch-none"
+                      className="w-12 h-12 z-50 cursor-none flex items-center justify-center outline-none touch-none"
                     >
-                      {/* Visible Handle (White Circle r=16 => 32px diameter) */}
-                      <div className={`w-8 h-8 rounded-full bg-white shadow-lg ring-2 ring-black/10 ${isDragging ? 'scale-110' : ''} transition-transform`} />
+                      {/* Big touch target, visible dot */}
+                      <div className="w-6 h-6 bg-white rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.3)] ring-4 ring-white/30 backdrop-blur-sm transition-transform active:scale-125" />
                     </motion.div>
-
-                    {/* Magnifier Glass */}
-                    {isDragging && image && (
+                    
+                     {/* Magnifier */}
+                    {activeHandleIndex === i && (
                       <Magnifier 
                           imageSrc={imageSrc} 
-                          x={pt.x} 
-                          y={pt.y} 
-                          imgWidth={imageSize.width}
-                          imgHeight={imageSize.height}
-                          screenX={screenPt.x}
-                          screenY={screenPt.y}
+                          x={pt.x} y={pt.y} 
+                          imgWidth={imageSize.width} imgHeight={imageSize.height}
+                          screenX={screenPt.x} screenY={screenPt.y}
                       />
                     )}
                   </React.Fragment>
@@ -305,45 +292,54 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
         </div>
       </div>
 
+      {/* Bottom Bar: Action Buttons */}
+      <div className="p-6 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent flex justify-between items-center z-50">
+         {/* Reset/Auto */}
+         <Button 
+            variant="secondary" 
+            size="lg" 
+            onClick={() => {
+                // Determine rough corners again (Reset)
+                const w = imageSize.width
+                const h = imageSize.height
+                setCorners([
+                    { x: w*0.15, y: h*0.15 },
+                    { x: w - w*0.15, y: h*0.15 },
+                    { x: w - w*0.15, y: h - h*0.15 },
+                    { x: w*0.15, y: h - h*0.15 },
+                ])
+            }}
+            className="rounded-full w-14 h-14 bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 p-0"
+         >
+            <RotateCcw className="h-6 w-6" />
+         </Button>
 
-
-      {/* Filter Toolbar */}
-      <div className="flex justify-around items-center p-4 bg-gray-900 border-t border-gray-800">
-        <FilterButton 
-          icon={<ImageIcon />} 
-          label="Original" 
-          active={activeFilter === 'original'} 
-          onClick={() => setActiveFilter('original')} 
-        />
-        <FilterButton 
-          icon={<Contrast />} 
-          label="S/W" 
-          active={activeFilter === 'bw'} 
-          onClick={() => setActiveFilter('bw')} 
-        />
-        <FilterButton 
-          icon={<Wand2 />} 
-          label="Grau" 
-          active={activeFilter === 'grayscale'} 
-          onClick={() => setActiveFilter('grayscale')} 
-        />
+         {/* Confirm Main Action */}
+         <Button 
+            onClick={handleSave} 
+            disabled={isProcessing}
+            className="rounded-full w-20 h-20 bg-white text-black hover:bg-gray-200 shadow-[0_0_40px_rgba(255,255,255,0.3)] p-0 flex items-center justify-center transform transition-transform active:scale-95"
+         >
+            {isProcessing ? <Loader2 className="h-8 w-8 animate-spin" /> : <Check className="h-10 w-10" />}
+         </Button>
+         
+         {/* Spacer to balance layout (or maybe Auto-Detect button later) */}
+         <div className="w-14" />
       </div>
     </div>
   )
 }
 
-function FilterButton({ icon, label, active, onClick }: any) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
-        active ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-white'
-      }`}
-    >
-      <div className="h-6 w-6">{icon}</div>
-      <span className="text-xs">{label}</span>
-    </button>
-  )
+function FilterOption({ isActive, onClick, label }: { isActive: boolean, onClick: () => void, label: string }) {
+    return (
+        <button 
+            onClick={onClick}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all text-left flex items-center justify-between min-w-[120px] ${isActive ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
+        >
+            {label}
+            {isActive && <Check className="h-3 w-3 ml-2" />}
+        </button>
+    )
 }
 
 interface MagnifierProps {
