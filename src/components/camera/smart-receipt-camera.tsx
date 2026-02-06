@@ -10,13 +10,19 @@ interface SmartReceiptCameraProps {
   onClose: () => void
 }
 
+import { createPortal } from 'react-dom'
+
 export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraProps) {
   const [mode, setMode] = React.useState<'CAMERA' | 'EDIT'>('CAMERA')
   const [capturedImage, setCapturedImage] = React.useState<string | null>(null)
+  const [mounted, setMounted] = React.useState(false)
 
   const [detectedCorners, setDetectedCorners] = React.useState<{x:number, y:number}[] | undefined>(undefined)
 
-
+  React.useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
   // Effect: Run detection in background when image is captured
   React.useEffect(() => {
@@ -46,7 +52,7 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
     if (!detectedCorners) {
        runDetection()
     }
-  }, [capturedImage, mode]) // Re-run if image changes
+  }, [capturedImage, mode])
 
   const handleCapture = async (imageSrc: string, corners?: {x:number, y:number}[]) => {
     // 1. Immediate UI Switch
@@ -74,23 +80,25 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
     setMode('CAMERA')
   }
 
-  if (mode === 'EDIT' && capturedImage) {
-    return (
-      <div className="fixed inset-0 z-[9999] bg-black flex flex-col overscroll-none touch-none">
+  if (!mounted) return null
+
+  const content = (
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col overscroll-none touch-none h-[100dvh]">
+      {mode === 'EDIT' && capturedImage ? (
         <CropEditor 
           imageSrc={capturedImage}
           initialCorners={detectedCorners}
           onCancel={handleRetake}
           onComplete={handleEditComplete}
         />
-      </div>
-    )
-  }
-
-  return (
-    <CameraView 
-      onCapture={handleCapture}
-      onClose={onClose}
-    />
+      ) : (
+        <CameraView 
+          onCapture={handleCapture}
+          onClose={onClose}
+        />
+      )}
+    </div>
   )
+
+  return createPortal(content, document.body)
 }
