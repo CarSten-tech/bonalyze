@@ -466,34 +466,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         let tx = Math.max(0, Math.min(startPoint.x + dx, imageSize.width))
                         let ty = Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
 
-                        // --- Magnetic Snap ---
-                        // Reduced strength (10px -> 5px) to fix "jumping"
-                        const SNAP_DIST = 5 / scale
-                        
-                        // Snap X (Vertical lines)
-                        let bestX = tx
-                        let minDx = SNAP_DIST
-                        for (const lineX of snapLines.vertical) {
-                            const diff = Math.abs(tx - lineX)
-                            if (diff < minDx) {
-                                minDx = diff
-                                bestX = lineX
-                            }
-                        }
-                        if (minDx < SNAP_DIST) tx = bestX
-                        
-                        // Snap Y (Horizontal lines)
-                        let bestY = ty
-                        let minDy = SNAP_DIST
-                        for (const lineY of snapLines.horizontal) {
-                            const diff = Math.abs(ty - lineY)
-                            if (diff < minDy) {
-                                minDy = diff
-                                bestY = lineY
-                            }
-                        }
-                        if (minDy < SNAP_DIST) ty = bestY
-                        // ---------------------
+                        // --- Magnetic Snap REMOVED (User Request) ---
+                        // "If I pull manually with the magnifier, they should be disabled"
 
                         const newPt = { x: tx, y: ty }
                         
