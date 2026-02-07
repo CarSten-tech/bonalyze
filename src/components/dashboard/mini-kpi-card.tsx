@@ -114,6 +114,7 @@ interface HeroKPICardProps {
   icon?: React.ReactNode
   isLoading?: boolean
   className?: string
+  onClick?: () => void
 }
 
 export function HeroKPICard({
@@ -124,6 +125,7 @@ export function HeroKPICard({
   icon,
   isLoading = false,
   className,
+  onClick,
 }: HeroKPICardProps) {
   if (isLoading) {
     return (
@@ -156,7 +158,14 @@ export function HeroKPICard({
   const trendSign = isUp ? '+' : ''
 
   return (
-    <Card className={cn('rounded-xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50', className)}>
+    <Card 
+      onClick={onClick}
+      className={cn(
+        'rounded-xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50', 
+        onClick && 'cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] transition-transform',
+        className
+      )}
+    >
       <CardContent className="p-8">
         <div className="flex flex-col gap-6">
           {/* Header */}
@@ -175,8 +184,8 @@ export function HeroKPICard({
           <div>
             <MetricValue 
               value={value} 
-              className="text-5xl sm:text-6xl font-bold tracking-tighter text-foreground"
-              currencyClassName="text-2xl sm:text-3xl font-medium text-muted-foreground ml-2"
+              className="text-6xl sm:text-7xl font-bold tracking-tighter text-foreground"
+              currencyClassName="text-3xl sm:text-4xl font-medium text-muted-foreground ml-2"
             />
           </div>
 

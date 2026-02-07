@@ -260,6 +260,7 @@ export default function DashboardPage() {
             trendLabel="vs. Vormonat"
             icon={<Landmark className="h-6 w-6" />}
             isLoading={isLoading}
+            onClick={() => router.push('/dashboard/receipts')}
           />
 
           {/* 1.6 Budget Widget & Mini KPI */}
