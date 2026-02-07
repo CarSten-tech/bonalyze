@@ -222,7 +222,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
         // prevent dragging image ghosts
-        WebkitUserDrag: 'none', 
+        ['WebkitUserDrag' as any]: 'none', 
       }}
     >
       {/* Top Bar: Cancel & Title */}
