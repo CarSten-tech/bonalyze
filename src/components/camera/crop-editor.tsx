@@ -269,6 +269,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                 x={pt.x} y={pt.y}
                 imgWidth={imageSize.width} imgHeight={imageSize.height}
                 screenX={screenPt.x} screenY={screenPt.y}
+                activeHandleIndex={activeHandleIndex as number}
              />
           )
       })()}
@@ -366,19 +367,27 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                           setCorners(prev => {
                               const next: [Point, Point, Point, Point] = [...prev]
                               
-                              // Move P1 and P2
-                              const p1Old = startCorners[i]
-                              const p2Old = startCorners[(i + 1) % 4]
+                              const sideIndex = i // 0=Top, 1=Right, 2=Bottom, 3=Left
                               
-                              let nx1 = p1Old.x + dx
-                              let ny1 = p1Old.y + dy
-                              let nx2 = p2Old.x + dx
-                              let ny2 = p2Old.y + dy
+                              // Constrain Delta based on side
+                              let effectiveDx = dx
+                              let effectiveDy = dy
                               
-                              // Clamp to bounds
-                              // Implementing full clamping for 2 points is tricky, 
-                              // simplified: clamp each checks min/max of both
-                              if (nx1 < 0 || nx2 < 0 || nx1 > imageSize.width || nx2 > imageSize.width) return prev // Rigid limit
+                              if (sideIndex === 0 || sideIndex === 2) {
+                                  // Top/Bottom: Only move vertically (Y)
+                                  effectiveDx = 0
+                              } else {
+                                  // Left/Right: Only move horizontally (X)
+                                  effectiveDy = 0
+                              }
+
+                              const nx1 = p1Old.x + effectiveDx
+                              const ny1 = p1Old.y + effectiveDy
+                              const nx2 = p2Old.x + effectiveDx
+                              const ny2 = p2Old.y + effectiveDy
+                              
+                              // Clamp logic...
+                              if (nx1 < 0 || nx2 < 0 || nx1 > imageSize.width || nx2 > imageSize.width) return prev
                               if (ny1 < 0 || ny2 < 0 || ny1 > imageSize.height || ny2 > imageSize.height) return prev
 
                               next[i] = { x: nx1, y: ny1 }
@@ -405,8 +414,15 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                           style={{ left: screenMid.x, top: screenMid.y }}
                           onPointerDown={handleSidePointerDown}
                       >
-                          {/* Visual: White Pill/Dash (Thick) */}
-                          <div className="w-5 h-1.5 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)]" /> 
+                          {/* Visual: Rotated Pill based on side */}
+                          {/* 0=Top(H), 1=Right(V), 2=Bottom(H), 3=Left(V) */}
+                          <div 
+                            className={`bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] ${
+                                (i === 0 || i === 2) 
+                                ? "w-6 h-1.5"   // Horizontal
+                                : "w-1.5 h-6"   // Vertical
+                            }`} 
+                          /> 
                       </div>
                   )
               })}
@@ -575,9 +591,10 @@ interface MagnifierProps {
     imgHeight: number
     screenX: number
     screenY: number
+    activeHandleIndex: number
 }
 
-function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: MagnifierProps) {
+function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY, activeHandleIndex }: MagnifierProps) {
     // Zoom level reduced (3.0 -> 2.0)
     const ZOOM = 2.0
     const SIZE = 120 // Larger view area
@@ -590,12 +607,13 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
     const bgPosY = - (y * ZOOM - SIZE/2)
     
     // Offset logic: "Lupe_Y = Finger_Y - 100px"
-    // We position the magnifier absolute relative to the container.
-    // screenX/screenY are the center coordinates of the handle.
-    // We want the BOTTOM of the magnifier to be some distance above the finger?
-    // Or center of magnifier is 100px above?
-    // "etwa 80-100 Pixel darüber" usually means the bottom edge is clear of the finger.
     const OFFSET_Y = 100 
+
+    // Determine corner style
+    // 0=TL, 1=TR, 2=BR, 3=BL
+    // 4=Top, 5=Right, 6=Bottom, 7=Left
+    const isCorner = activeHandleIndex < 4
+    const cornerId = activeHandleIndex
     
     return (
         <div 
@@ -605,7 +623,7 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
                 height: SIZE,
                 position: 'absolute', 
                 left: screenX - SIZE/2, 
-                top: screenY - OFFSET_Y - (SIZE/2), // Center of loupe is offset up by 100 + half size
+                top: screenY - OFFSET_Y - (SIZE/2),
                 boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             }}
         >
@@ -619,7 +637,39 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
                     backgroundRepeat: 'no-repeat'
                 }}
             />
-            {/* No Crosshair requested */}
+            {/* Corner Indicator (White L-shape) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {isCorner && (
+                    <div className="relative w-8 h-8 opacity-90">
+                        {/* Top Left Corner style */}
+                        {(cornerId === 0) && (
+                             <div className="absolute top-0 left-0 w-full h-full border-l-[3px] border-t-[3px] border-white" />
+                        )}
+                        {/* Top Right */}
+                        {(cornerId === 1) && (
+                             <div className="absolute top-0 right-0 w-full h-full border-r-[3px] border-t-[3px] border-white" />
+                        )}
+                        {/* Bottom Right */}
+                        {(cornerId === 2) && (
+                             <div className="absolute bottom-0 right-0 w-full h-full border-r-[3px] border-b-[3px] border-white" />
+                        )}
+                        {/* Bottom Left */}
+                        {(cornerId === 3) && (
+                             <div className="absolute bottom-0 left-0 w-full h-full border-l-[3px] border-b-[3px] border-white" />
+                        )}
+                    </div>
+                )}
+                
+                {/* Side lines? Maybe just a straight line for sides */}
+                {!isCorner && (
+                    <div className="relative w-8 h-8 opacity-90 flex items-center justify-center">
+                        {/* Top/Bottom (4, 6) -> Horizontal Line */}
+                        {(cornerId === 4 || cornerId === 6) && <div className="w-full h-[3px] bg-white" />}
+                        {/* Left/Right (5, 7) -> Vertical Line */}
+                        {(cornerId === 5 || cornerId === 7) && <div className="h-full w-[3px] bg-white" />}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
