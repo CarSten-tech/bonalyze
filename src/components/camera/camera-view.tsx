@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Webcam from 'react-webcam'
-import { Camera, X, RefreshCw } from 'lucide-react'
+import { Camera, X, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { loadOpenCV } from '@/lib/opencv-loader'
 
@@ -16,6 +16,11 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const overlayRef = React.useRef<HTMLCanvasElement>(null)
   
+  // Smoothing Queue
+  const cornersHistory = React.useRef<{x:number, y:number}[][]>([])
+  const NO_DETECTION_RESET_FRAMES = 5
+  const noDetectionCount = React.useRef(0)
+
   const [isMounted, setIsMounted] = React.useState(false)
   const [cameraError, setCameraError] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -139,11 +144,9 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               if (overlayCtx) {
                   overlayCtx.clearRect(0, 0, width, height)
                   
+                  let displayCorners: {x:number, y:number}[] | undefined
+
                   if (bestContour) {
-                      overlayCtx.strokeStyle = '#00FF00'
-                      overlayCtx.lineWidth = 4
-                      overlayCtx.beginPath()
-                      
                       const invScale = 1 / (scale < 1 ? scale : 1)
                       
                       // Extract points
@@ -152,20 +155,101 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                          const x = bestContour.data32S[i*2] * invScale
                          const y = bestContour.data32S[i*2+1] * invScale
                          pts.push({x, y})
-                         if (i===0) overlayCtx.moveTo(x, y)
-                         else overlayCtx.lineTo(x, y)
                       }
-                      overlayCtx.closePath()
-                      overlayCtx.stroke()
+
+                      // --- Temporal Smoothing ---
+                      cornersHistory.current.push(pts)
+                      if (cornersHistory.current.length > 5) {
+                          cornersHistory.current.shift()
+                      }
+                      noDetectionCount.current = 0
+
+                      // Calculate Average
+                      const avgCorners = [
+                          {x:0,y:0}, {x:0,y:0}, {x:0,y:0}, {x:0,y:0}
+                      ]
                       
-                      // Sort corners TL, TR, BR, BL for passing back
-                      // Simple sort by Y then X... actually needs correct order.
-                      // approxPolyDP usually returns ordered, but start point varies.
-                      // Let's just pass them as is for now, user can adjust.
-                      setDetectedCorners(pts)
+                      const len = cornersHistory.current.length
+                      for (const frame of cornersHistory.current) {
+                          for (let i=0; i<4; i++) {
+                              avgCorners[i].x += frame[i].x
+                              avgCorners[i].y += frame[i].y
+                          }
+                      }
+                      
+                      displayCorners = avgCorners.map(p => ({
+                          x: p.x / len,
+                          y: p.y / len
+                      }))
                       
                       bestContour.delete()
                   } else {
+                      // No detection this frame
+                      noDetectionCount.current++
+                      if (noDetectionCount.current < NO_DETECTION_RESET_FRAMES && cornersHistory.current.length > 0) {
+                           // Keep showing last known state for a few frames (prevents flickering)
+                           const len = cornersHistory.current.length
+                           const avgCorners = [
+                               {x:0,y:0}, {x:0,y:0}, {x:0,y:0}, {x:0,y:0}
+                           ]
+                           for (const frame of cornersHistory.current) {
+                               for (let i=0; i<4; i++) {
+                                   avgCorners[i].x += frame[i].x
+                                   avgCorners[i].y += frame[i].y
+                               }
+                           }
+                           displayCorners = avgCorners.map(p => ({
+                               x: p.x / len,
+                               y: p.y / len
+                           }))
+                      } else {
+                          // Lost it
+                          cornersHistory.current = []
+                          displayCorners = undefined
+                      }
+                  }
+
+                  // Update State
+                  setDetectedCorners(displayCorners)
+
+                  // --- Lens Style Drawing ---
+                  if (displayCorners) {
+                      // 1. Darken background
+                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+                      overlayCtx.fillRect(0, 0, width, height)
+
+                      // 2. Cut out the hole
+                      overlayCtx.globalCompositeOperation = 'destination-out'
+                      overlayCtx.beginPath()
+                      overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
+                      overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
+                      overlayCtx.lineTo(displayCorners[2].x, displayCorners[2].y)
+                      overlayCtx.lineTo(displayCorners[3].x, displayCorners[3].y)
+                      overlayCtx.closePath()
+                      overlayCtx.fill()
+                      
+                      overlayCtx.globalCompositeOperation = 'source-over'
+
+                      // 3. Draw Stroke and Handles
+                      overlayCtx.strokeStyle = 'white'
+                      overlayCtx.lineWidth = 3
+                      overlayCtx.beginPath()
+                      overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
+                      overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
+                      overlayCtx.lineTo(displayCorners[2].x, displayCorners[2].y)
+                      overlayCtx.lineTo(displayCorners[3].x, displayCorners[3].y)
+                      overlayCtx.closePath()
+                      overlayCtx.stroke()
+
+                      // Corners
+                      for(const p of displayCorners) {
+                          overlayCtx.beginPath()
+                          overlayCtx.arc(p.x, p.y, 6, 0, 2 * Math.PI)
+                          overlayCtx.fillStyle = 'white'
+                          overlayCtx.fill()
+                      }
+                  } else {
+                      // No detection: Clear/Transparent
                       setDetectedCorners(undefined)
                   }
               }
@@ -341,16 +425,12 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                 className="absolute inset-0 h-full w-full pointer-events-none z-10 object-cover" 
             />
             
-            {/* Guide Grid Overlay (Only when no detect) */}
+            {/* Guide Text/Overlay when no stable detection */}
             {!isLoading && !detectedCorners && (
-              <div className="absolute inset-0 pointer-events-none z-10 opacity-30">
-                <div className="absolute top-1/3 left-0 right-0 h-px bg-white" />
-                <div className="absolute top-2/3 left-0 right-0 h-px bg-white" />
-                <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white" />
-                <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white" />
-                
-                {/* Active Capture Area Hint */}
-                <div className="absolute inset-x-8 inset-y-12 border border-white/40 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.3)]" />
+              <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+                 <div className="text-white/50 text-sm font-medium bg-black/40 px-4 py-2 rounded-full backdrop-blur-md">
+                    Beleg hier platzieren
+                 </div>
               </div>
             )}
           </>
@@ -367,12 +447,12 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
           <button
             onClick={capture}
             disabled={isLoading}
-            className={`h-20 w-20 rounded-full border-[6px] flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 disabled:scale-100 ${
-                detectedCorners ? 'border-green-400 bg-white' : 'border-white/30 bg-white'
+            className={`h-20 w-20 rounded-full border-[4px] flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 disabled:scale-100 ${
+                detectedCorners ? 'border-white bg-transparent' : 'border-white bg-white'
             }`}
             aria-label="Foto aufnehmen"
           >
-            <div className={`h-16 w-16 rounded-full border-2 ${detectedCorners ? 'border-green-600' : 'border-black'}`} />
+            <div className={`h-16 w-16 rounded-full ${detectedCorners ? 'bg-white' : 'hidden'}`} />
           </button>
           
           <Button 
@@ -380,12 +460,10 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
             size="icon" 
             className="text-white hover:bg-white/10"
             onClick={() => {
-                // Toggle flash? Or upload
                 fileInputRef.current?.click()
             }}
           >
-             <RefreshCw className="h-6 w-6 opacity-0" /> {/* Placeholder balance */}
-             {/* Actual button is upload */}
+             <ImageIcon className="h-6 w-6" />
           </Button>
         </div>
       )}

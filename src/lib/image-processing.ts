@@ -317,30 +317,52 @@ export async function detectDocumentEdges(
         const imgData = ctx.getImageData(0, 0, w, h)
         const data = imgData.data
 
-        // 2. Binarization (Simple Threshold)
-        // Receipts are usually lighter than background.
-        // Let's find the average brightness, then threshold.
-        // Actually, adaptive threshold is better but expensive in JS.
-        // Let's stick to a robust global threshold with a "center weight" heuristic?
-        // No, let's use a fixed percentile or Otsu.
-        // For MVP: Simple threshold 128 often works if flash is used.
-        // Better: Iterate and find min/max intensity, then (min+max)/2.
-        
-        // Convert to Grayscale & finding min/max
+// 2. Binarization (Otsu's Method)
         const gray = new Uint8Array(w * h)
-        let minVal = 255, maxVal = 0
+        const histogram = new Int32Array(256).fill(0)
+        
         for (let i = 0; i < w * h; i++) {
             const r = data[i*4]
             const g = data[i*4+1]
             const b = data[i*4+2]
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b
+            // Standard Luminance
+            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
             gray[i] = lum
-            if (lum < minVal) minVal = lum
-            if (lum > maxVal) maxVal = lum
+            histogram[lum]++
         }
 
-        const threshold = minVal + (maxVal - minVal) * 0.45 // Slightly below middle
-        const binary = new Uint8Array(w * h) // 1 = object, 0 = bg
+        // Otsu's Algorithm
+        let total = w * h
+        let sum = 0
+        for (let i = 0; i < 256; i++) sum += i * histogram[i]
+        
+        let sumB = 0
+        let wB = 0
+        let wF = 0
+        let varMax = 0
+        let threshold = 0
+        
+        for (let t = 0; t < 256; t++) {
+            wB += histogram[t]
+            if (wB === 0) continue
+            wF = total - wB
+            if (wF === 0) break
+            
+            sumB += t * histogram[t]
+            
+            const mB = sumB / wB
+            const mF = (sum - sumB) / wF
+            
+            const varBetween = wB * wF * (mB - mF) * (mB - mF)
+            
+            if (varBetween > varMax) {
+                varMax = varBetween
+                threshold = t
+            }
+        }
+
+        // Apply Threshold
+        const binary = new Uint8Array(w * h)
         for (let i = 0; i < w * h; i++) {
            binary[i] = gray[i] > threshold ? 1 : 0
         }
@@ -463,6 +485,70 @@ export async function detectDocumentEdges(
       img.src = imageSource.src
     }
   })
+}
+
+// --- Line Detection for Magnetic Snap ---
+export async function detectStrongLines(imageSource: string | HTMLImageElement): Promise<{ horizontal: number[], vertical: number[] }> {
+    return new Promise((resolve) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+             if (!window.cv) {
+                 resolve({ horizontal: [], vertical: [] })
+                 return
+             }
+             try {
+                 const cv = window.cv
+                 const canvas = document.createElement('canvas')
+                 // Downscale for performance
+                 const scale = 800 / Math.max(img.width, img.height)
+                 const w = Math.round(img.width * scale)
+                 const h = Math.round(img.height * scale)
+                 canvas.width = w
+                 canvas.height = h
+                 const ctx = canvas.getContext('2d')
+                 if(!ctx) return resolve({ horizontal: [], vertical: [] })
+                 ctx.drawImage(img, 0, 0, w, h)
+                 
+                 let src = cv.imread(canvas)
+                 let dst = new cv.Mat()
+                 cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0)
+                 cv.Canny(src, dst, 50, 200, 3)
+                 
+                 let lines = new cv.Mat()
+                 // Threshold = 80, MinLineLength = 30, MaxLineGap = 10
+                 cv.HoughLinesP(dst, lines, 1, Math.PI / 180, 80, 30, 10)
+                 
+                 const horizontal: number[] = []
+                 const vertical: number[] = []
+                 const invScale = 1/scale
+
+                 for (let i = 0; i < lines.rows; ++i) {
+                     let startPoint = { x: lines.data32S[i * 4], y: lines.data32S[i * 4 + 1] }
+                     let endPoint = { x: lines.data32S[i * 4 + 2], y: lines.data32S[i * 4 + 3] }
+                     
+                     // Check angle
+                     const dx = Math.abs(endPoint.x - startPoint.x)
+                     const dy = Math.abs(endPoint.y - startPoint.y)
+                     
+                     if (dx > dy * 5) { // Horizontal-ish
+                         const y = (startPoint.y + endPoint.y) / 2
+                         horizontal.push(y * invScale)
+                     } else if (dy > dx * 5) { // Vertical-ish
+                         const x = (startPoint.x + endPoint.x) / 2
+                         vertical.push(x * invScale)
+                     }
+                 }
+
+                 src.delete(); dst.delete(); lines.delete()
+                 resolve({ horizontal, vertical })
+             } catch (e) {
+                 console.error("Line det fail", e)
+                 resolve({ horizontal: [], vertical: [] })
+             }
+        }
+        img.src = typeof imageSource === 'string' ? imageSource : imageSource.src
+    })
 }
 
 // --- Geometry Helpers ---

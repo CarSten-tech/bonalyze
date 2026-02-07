@@ -5,7 +5,7 @@ import { Check, Loader2, RotateCcw, X, Wand2, Contrast, Image as ImageIcon } fro
 import { toast } from "sonner"
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { applyPerspectiveWarp, applyFilter, detectDocumentEdges, type Point } from '@/lib/image-processing'
+import { applyPerspectiveWarp, applyFilter, detectDocumentEdges, detectStrongLines, type Point } from '@/lib/image-processing'
 
 interface CropEditorProps {
   imageSrc: string
@@ -30,6 +30,9 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   const [activeFilter, setActiveFilter] = React.useState<'original' | 'grayscale' | 'bw'>('original')
   const [showFilters, setShowFilters] = React.useState(false)
   const [activeHandleIndex, setActiveHandleIndex] = React.useState<number | null>(null)
+  
+  // Magnetic Lines
+  const [snapLines, setSnapLines] = React.useState<{horizontal: number[], vertical: number[]}>({ horizontal: [], vertical: [] })
 
   // Load image & Update corners
   React.useEffect(() => {
@@ -38,6 +41,11 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
     img.onload = async () => {
       setImage(img)
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
+      
+      // Detect lines for snapping
+      detectStrongLines(img.src).then(lines => {
+          setSnapLines(lines)
+      })
       
       // If we have corners (either initial or late-arriving), apply them
       if (initialCorners && initialCorners.length === 4) {
@@ -286,10 +294,38 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         const dx = (moveEvent.clientX - startX) / scale
                         const dy = (moveEvent.clientY - startY) / scale
                         
-                        const newPt = {
-                            x: Math.max(0, Math.min(startPoint.x + dx, imageSize.width)),
-                            y: Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
+                        let tx = Math.max(0, Math.min(startPoint.x + dx, imageSize.width))
+                        let ty = Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
+
+                        // --- Magnetic Snap ---
+                        const SNAP_DIST = 20 / scale // 20 screen pixels
+                        
+                        // Snap X (Vertical lines)
+                        let bestX = tx
+                        let minDx = SNAP_DIST
+                        for (const lineX of snapLines.vertical) {
+                            const diff = Math.abs(tx - lineX)
+                            if (diff < minDx) {
+                                minDx = diff
+                                bestX = lineX
+                            }
                         }
+                        if (minDx < SNAP_DIST) tx = bestX
+                        
+                        // Snap Y (Horizontal lines)
+                        let bestY = ty
+                        let minDy = SNAP_DIST
+                        for (const lineY of snapLines.horizontal) {
+                            const diff = Math.abs(ty - lineY)
+                            if (diff < minDy) {
+                                minDy = diff
+                                bestY = lineY
+                            }
+                        }
+                        if (minDy < SNAP_DIST) ty = bestY
+                        // ---------------------
+
+                        const newPt = { x: tx, y: ty }
                         
                         setCorners(prev => {
                             const next: [Point, Point, Point, Point] = [...prev]
