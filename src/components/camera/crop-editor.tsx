@@ -369,6 +369,10 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                               
                               const sideIndex = i // 0=Top, 1=Right, 2=Bottom, 3=Left
                               
+                              // Move P1 and P2
+                              const p1Old = startCorners[i]
+                              const p2Old = startCorners[(i + 1) % 4]
+                              
                               // Constrain Delta based on side
                               let effectiveDx = dx
                               let effectiveDy = dy
