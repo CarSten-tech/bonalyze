@@ -215,7 +215,16 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   )
 
   return (
-    <div className="flex flex-col h-full bg-black text-white touch-none">
+    <div 
+      className="flex flex-col h-full bg-black text-white touch-none"
+      style={{
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        // prevent dragging image ghosts
+        WebkitUserDrag: 'none', 
+      }}
+    >
       {/* Top Bar: Cancel & Title */}
       <div className="flex justify-between items-center p-4 z-50 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0">
          <Button variant="ghost" size="icon" onClick={onCancel} className="text-white hover:bg-white/20 rounded-full">
