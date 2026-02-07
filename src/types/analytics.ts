@@ -4,6 +4,8 @@
  * Type definitions for dashboard analytics data structures.
  */
 
+import { BudgetStatus } from "@/components/dashboard/budget-widget"
+
 /**
  * Category spending data
  */
@@ -46,6 +48,9 @@ export interface ComparisonData {
 /**
  * Complete dashboard analytics data
  */
+/**
+ * Complete dashboard analytics data
+ */
 export interface DashboardAnalytics {
   // Current period data
   current: PeriodSummary
@@ -57,6 +62,8 @@ export interface DashboardAnalytics {
   topStores: StoreData[]
   // Period information
   periodLabel: string
+  // Budget status
+  budgetStatus: BudgetStatus | null
 }
 
 /**

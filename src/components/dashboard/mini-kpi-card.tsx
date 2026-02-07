@@ -156,31 +156,37 @@ export function HeroKPICard({
   const trendSign = isUp ? '+' : ''
 
   return (
-    <Card className={cn('rounded-xl shadow-sm border-0 bg-white', className)}>
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-4">
+    <Card className={cn('rounded-xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50', className)}>
+      <CardContent className="p-8">
+        <div className="flex flex-col gap-6">
           {/* Header */}
           <div className="flex items-start justify-between">
-            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">
               {label}
             </p>
             {icon && (
-              <div className="p-2 rounded-lg bg-slate-50 text-slate-400">
-                {React.isValidElement(icon) ? React.cloneElement(icon, { className: "w-5 h-5" } as any) : icon}
+              <div className="p-2.5 rounded-xl bg-slate-100/50 text-slate-500">
+                {React.isValidElement(icon) ? React.cloneElement(icon, { className: "w-6 h-6" } as any) : icon}
               </div>
             )}
           </div>
 
           {/* Main Value */}
-          <MetricValue value={value} currencyClassName="text-2xl font-bold text-foreground" />
+          <div>
+            <MetricValue 
+              value={value} 
+              className="text-5xl sm:text-6xl font-bold tracking-tighter text-foreground"
+              currencyClassName="text-2xl sm:text-3xl font-medium text-muted-foreground ml-2"
+            />
+          </div>
 
           {/* Footer / Trend */}
           {trend !== null && trend !== undefined && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className={cn('px-2 py-0.5 rounded-md text-xs font-semibold flex items-center gap-1', trendColor)}>
+            <div className="flex items-center gap-3">
+              <span className={cn('px-2.5 py-1 rounded-full text-sm font-bold flex items-center gap-1.5', trendColor)}>
                 {trendArrow} {trendSign}{Math.abs(trend).toFixed(0)}%
               </span>
-              <span className="text-xs text-gray-400 font-medium">{trendLabel}</span>
+              <span className="text-sm text-muted-foreground font-medium">{trendLabel}</span>
             </div>
           )}
         </div>

@@ -28,8 +28,7 @@ import {
   ReceiptListItem,
   ReceiptListItemSkeleton,
 } from '@/components/dashboard'
-import { getBudgetStatus } from '@/app/actions/budget'
-import { BudgetWidget, type BudgetStatus } from "@/components/dashboard/budget-widget"
+import { BudgetWidget } from "@/components/dashboard/budget-widget"
 import { WarrantyWidget } from "@/components/dashboard/warranty-widget"
 import { formatCurrency } from '@/components/common/currency'
 
@@ -67,11 +66,6 @@ export default function DashboardPage() {
   // Fetch recent receipts
   const [recentReceipts, setRecentReceipts] = useState<RecentReceipt[]>([])
   const [receiptsLoading, setReceiptsLoading] = useState(true)
-  
-  // Fetch Budget Data
-  const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null)
-  const [isBudgetLoading, setIsBudgetLoading] = useState(true)
-  
   const supabase = createClient()
 
   useEffect(() => {
@@ -122,34 +116,6 @@ export default function DashboardPage() {
 
     fetchRecentReceipts()
   }, [currentHousehold, supabase])
-
-  // Fetch Budget Status when household or date changes
-  useEffect(() => {
-      async function loadBudget() {
-        if (!currentHousehold) return
-        setIsBudgetLoading(true)
-        try {
-          const data = await getBudgetStatus(currentHousehold.id, selectedDate)
-          if (data) {
-            setBudgetStatus({
-              ...data,
-              period: {
-                start: new Date(data.period.start),
-                end: new Date(data.period.end)
-              }
-            })
-          } else {
-             setBudgetStatus(null) 
-          }
-        } catch (error) {
-          console.error("Failed to load budget status:", error)
-          setBudgetStatus(null)
-        } finally {
-          setIsBudgetLoading(false)
-        }
-      }
-      loadBudget()
-  }, [currentHousehold, selectedDate])
 
   // Handle month navigation
   const handleMonthChange = useCallback((newDate: Date) => {
@@ -304,7 +270,7 @@ export default function DashboardPage() {
               progress={progressPercentage}
               isLoading={isLoading}
             />
-            <BudgetWidget budgetStatus={budgetStatus} isLoading={isBudgetLoading} />
+            <BudgetWidget budgetStatus={data?.budgetStatus ?? null} isLoading={isLoading} />
           </div>
 
           {/* Warranty Vault Widget */}

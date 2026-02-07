@@ -17,6 +17,7 @@ import {
   StoreData,
   getCategoryColor,
 } from '@/types/analytics'
+import { getBudgetStatus } from '@/app/actions/budget'
 
 interface UseDashboardAnalyticsOptions {
   preset: PeriodPreset
@@ -59,40 +60,47 @@ export function useDashboardAnalytics(
       const currentPeriod = getDateRange(preset, customRange)
       const comparisonPeriod = getComparisonPeriod(preset, customRange)
 
-      // Fetch receipts for current period
-      const { data: currentReceipts, error: currentError } = await supabase
-        .from('receipts')
-        .select(`
-          id,
-          total_amount_cents,
-          date,
-          merchant_id,
-          merchants (
+      // Fetch budget status (in parallel)
+      const budgetPromise = getBudgetStatus(currentHousehold.id, new Date(currentPeriod.startDate))
+
+      // Wait for all data
+      const [
+        { data: currentReceipts, error: currentError },
+        { data: previousReceipts, error: previousError },
+        budgetStatus
+      ] = await Promise.all([
+        supabase
+          .from('receipts')
+          .select(`
             id,
-            name,
-            logo_url
-          )
-        `)
-        .eq('household_id', currentHousehold.id)
-        .gte('date', currentPeriod.startDate)
-        .lte('date', currentPeriod.endDate)
+            total_amount_cents,
+            date,
+            merchant_id,
+            merchants (
+              id,
+              name,
+              logo_url
+            )
+          `)
+          .eq('household_id', currentHousehold.id)
+          .gte('date', currentPeriod.startDate)
+          .lte('date', currentPeriod.endDate),
+        supabase
+          .from('receipts')
+          .select('total_amount_cents')
+          .eq('household_id', currentHousehold.id)
+          .gte('date', comparisonPeriod.startDate)
+          .lte('date', comparisonPeriod.endDate),
+        budgetPromise
+      ])
 
       if (currentError) throw currentError
-
-      // Fetch receipts for comparison period
-      const { data: previousReceipts, error: previousError } = await supabase
-        .from('receipts')
-        .select('total_amount_cents')
-        .eq('household_id', currentHousehold.id)
-        .gte('date', comparisonPeriod.startDate)
-        .lte('date', comparisonPeriod.endDate)
-
       if (previousError) throw previousError
 
       // Fetch receipt items with product categories for current period
       const receiptIds = currentReceipts?.map((r) => r.id) || []
       let categoryData: CategoryData[] = []
-
+      
       if (receiptIds.length > 0) {
         const { data: items, error: itemsError } = await supabase
           .from('receipt_items')
@@ -185,6 +193,16 @@ export function useDashboardAnalytics(
       ) || 0
       const previousCount = previousReceipts?.length || 0
 
+      // Map budget status correctly to the updated type
+      // Since getBudgetStatus returns the correct shape, we just need to ensure dates are Dates
+      const formattedBudgetStatus = budgetStatus ? {
+        ...budgetStatus,
+        period: {
+          start: new Date(budgetStatus.period.start),
+          end: new Date(budgetStatus.period.end)
+        }
+      } : null
+
       const analytics: DashboardAnalytics = {
         current: {
           totalSpent: currentTotal,
@@ -199,6 +217,7 @@ export function useDashboardAnalytics(
         categories: categoryData,
         topStores,
         periodLabel: currentPeriod.label,
+        budgetStatus: formattedBudgetStatus
       }
 
       setState({ data: analytics, isLoading: false, error: null })
