@@ -22,21 +22,21 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-type Priority = "urgent" | "sale" | "flexible" | null
+type Priority = string | null
 
 interface ItemDetailSheetProps {
   item: ShoppingListItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdate?: (id: string, updates: { quantity?: number; unit?: string; priority?: "urgent" | "sale" | "flexible" | null }) => Promise<void>
+  onUpdate?: (id: string, updates: { quantity?: number; unit?: string; priority?: string | null }) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   lastChangedBy?: string | null
 }
 
 const priorityOptions = [
-  { value: "urgent" as Priority, label: "Dringend", icon: Flame, color: "text-red-500 bg-red-50 border-red-200" },
-  { value: "sale" as Priority, label: "Angebot", icon: Tag, color: "text-amber-500 bg-amber-50 border-amber-200" },
-  { value: "flexible" as Priority, label: "Wenn's passt", icon: Clock, color: "text-blue-500 bg-blue-50 border-blue-200" },
+  { value: "urgent", label: "Dringend", icon: Flame, color: "text-red-500 bg-red-50 border-red-200" },
+  { value: "sale", label: "Angebot", icon: Tag, color: "text-amber-500 bg-amber-50 border-amber-200" },
+  { value: "flexible", label: "Wenn's passt", icon: Clock, color: "text-blue-500 bg-blue-50 border-blue-200" },
 ]
 
 const settingsActions = [

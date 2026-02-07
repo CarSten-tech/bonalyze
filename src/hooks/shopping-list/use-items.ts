@@ -79,6 +79,7 @@ export function useShoppingItems(listId: string | null) {
             quantity: newItemInput.quantity || 1,
             unit: newItemInput.unit || null,
             product_id: null, // Unknown yet
+            priority: null,
             is_checked: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

@@ -17,7 +17,6 @@ export type Database = {
       budget_alerts: {
         Row: {
           alert_type: string
-          created_at: string
           household_id: string
           id: string
           period_start: string
@@ -25,7 +24,6 @@ export type Database = {
         }
         Insert: {
           alert_type: string
-          created_at?: string
           household_id: string
           id?: string
           period_start: string
@@ -33,7 +31,6 @@ export type Database = {
         }
         Update: {
           alert_type?: string
-          created_at?: string
           household_id?: string
           id?: string
           period_start?: string
@@ -84,41 +81,6 @@ export type Database = {
           },
         ]
       }
-      category_budgets: {
-        Row: {
-          amount_cents: number
-          budget_id: string
-          category: string
-          created_at: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          amount_cents: number
-          budget_id: string
-          category: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          amount_cents?: number
-          budget_id?: string
-          category?: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "category_budgets_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
-            referencedRelation: "budgets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       categories: {
         Row: {
           created_at: string | null
@@ -156,6 +118,41 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      category_budgets: {
+        Row: {
+          amount_cents: number
+          budget_id: string
+          category: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          budget_id: string
+          category: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          budget_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_budgets_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
             referencedColumns: ["id"]
           },
         ]
@@ -288,6 +285,71 @@ export type Database = {
           },
         ]
       }
+      member_nutrition_profiles: {
+        Row: {
+          activity_level: string
+          age_years: number
+          bmr_kcal: number
+          created_at: string
+          gender: string
+          height_cm: number
+          household_member_id: string
+          id: string
+          target_calories_kcal: number | null
+          target_carbs_g: number | null
+          target_fat_g: number | null
+          target_protein_g: number | null
+          target_water_ml: number | null
+          tdee_kcal: number
+          updated_at: string
+          weight_kg: number
+        }
+        Insert: {
+          activity_level?: string
+          age_years: number
+          bmr_kcal?: number
+          created_at?: string
+          gender: string
+          height_cm: number
+          household_member_id: string
+          id?: string
+          target_calories_kcal?: number | null
+          target_carbs_g?: number | null
+          target_fat_g?: number | null
+          target_protein_g?: number | null
+          target_water_ml?: number | null
+          tdee_kcal?: number
+          updated_at?: string
+          weight_kg: number
+        }
+        Update: {
+          activity_level?: string
+          age_years?: number
+          bmr_kcal?: number
+          created_at?: string
+          gender?: string
+          height_cm?: number
+          household_member_id?: string
+          id?: string
+          target_calories_kcal?: number | null
+          target_carbs_g?: number | null
+          target_fat_g?: number | null
+          target_protein_g?: number | null
+          target_water_ml?: number | null
+          tdee_kcal?: number
+          updated_at?: string
+          weight_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_nutrition_profiles_household_member_id_fkey"
+            columns: ["household_member_id"]
+            isOneToOne: true
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchants: {
         Row: {
           created_at: string
@@ -325,38 +387,136 @@ export type Database = {
       }
       notifications: {
         Row: {
-          created_at: string
+          created_at: string | null
+          data: Json | null
+          household_id: string
           id: string
-          is_read: boolean
+          is_read: boolean | null
           message: string
-          related_id: string | null
           title: string
           type: string
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
+          data?: Json | null
+          household_id: string
           id?: string
-          is_read?: boolean
+          is_read?: boolean | null
           message: string
-          related_id?: string | null
           title: string
           type: string
           user_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
+          data?: Json | null
+          household_id?: string
           id?: string
-          is_read?: boolean
+          is_read?: boolean | null
           message?: string
-          related_id?: string | null
           title?: string
           type?: string
           user_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "notifications_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_logs: {
+        Row: {
+          activity_name: string | null
+          burned_calories_kcal: number | null
+          calories_kcal: number | null
+          carbs_g: number | null
+          created_at: string
+          duration_minutes: number | null
+          fat_g: number | null
+          fluid_ml: number | null
+          household_id: string
+          id: string
+          is_from_suggestion: boolean | null
+          item_name: string | null
+          log_date: string
+          meal_type: string
+          protein_g: number | null
+          receipt_item_id: string | null
+          suggestion_dismissed: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_name?: string | null
+          burned_calories_kcal?: number | null
+          calories_kcal?: number | null
+          carbs_g?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          fat_g?: number | null
+          fluid_ml?: number | null
+          household_id: string
+          id?: string
+          is_from_suggestion?: boolean | null
+          item_name?: string | null
+          log_date?: string
+          meal_type: string
+          protein_g?: number | null
+          receipt_item_id?: string | null
+          suggestion_dismissed?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_name?: string | null
+          burned_calories_kcal?: number | null
+          calories_kcal?: number | null
+          carbs_g?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          fat_g?: number | null
+          fluid_ml?: number | null
+          household_id?: string
+          id?: string
+          is_from_suggestion?: boolean | null
+          item_name?: string | null
+          log_date?: string
+          meal_type?: string
+          protein_g?: number | null
+          receipt_item_id?: string | null
+          suggestion_dismissed?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_logs_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_logs_receipt_item_id_fkey"
+            columns: ["receipt_item_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -370,11 +530,12 @@ export type Database = {
           category_id: string | null
           created_at: string
           created_by: string | null
+          household_id: string | null
           id: string
-          name: string
-          unit: string | null
           last_price_cents: number | null
+          name: string
           price_updated_at: string | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
@@ -382,11 +543,12 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string | null
+          household_id?: string | null
           id?: string
-          name: string
-          unit?: string | null
           last_price_cents?: number | null
+          name: string
           price_updated_at?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
@@ -394,11 +556,12 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string | null
+          household_id?: string | null
           id?: string
-          name?: string
-          unit?: string | null
           last_price_cents?: number | null
+          name?: string
           price_updated_at?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -414,6 +577,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
@@ -442,11 +612,46 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth_keys: Json
+          created_at: string
+          endpoint: string
+          id: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_keys: Json
+          created_at?: string
+          endpoint: string
+          id?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_keys?: Json
+          created_at?: string
+          endpoint?: string
+          id?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       receipt_items: {
         Row: {
           category_id: string | null
           created_at: string
+          estimated_calories_kcal: number | null
+          estimated_carbs_g: number | null
+          estimated_fat_g: number | null
+          estimated_protein_g: number | null
+          estimated_weight_g: number | null
+          expiry_acknowledged: boolean | null
           id: string
+          is_food_item: boolean | null
+          is_warranty_item: boolean | null
           price_cents: number
           product_id: string | null
           product_name: string
@@ -454,15 +659,21 @@ export type Database = {
           receipt_id: string
           unit: string | null
           updated_at: string
-          is_warranty_item: boolean | null
           warranty_end_date: string | null
           warranty_period_months: number | null
-          expiry_acknowledged: boolean | null
         }
         Insert: {
           category_id?: string | null
           created_at?: string
+          estimated_calories_kcal?: number | null
+          estimated_carbs_g?: number | null
+          estimated_fat_g?: number | null
+          estimated_protein_g?: number | null
+          estimated_weight_g?: number | null
+          expiry_acknowledged?: boolean | null
           id?: string
+          is_food_item?: boolean | null
+          is_warranty_item?: boolean | null
           price_cents: number
           product_id?: string | null
           product_name: string
@@ -470,15 +681,21 @@ export type Database = {
           receipt_id: string
           unit?: string | null
           updated_at?: string
-          is_warranty_item?: boolean
           warranty_end_date?: string | null
           warranty_period_months?: number | null
-          expiry_acknowledged?: boolean
         }
         Update: {
           category_id?: string | null
           created_at?: string
+          estimated_calories_kcal?: number | null
+          estimated_carbs_g?: number | null
+          estimated_fat_g?: number | null
+          estimated_protein_g?: number | null
+          estimated_weight_g?: number | null
+          expiry_acknowledged?: boolean | null
           id?: string
+          is_food_item?: boolean | null
+          is_warranty_item?: boolean | null
           price_cents?: number
           product_id?: string | null
           product_name?: string
@@ -486,10 +703,8 @@ export type Database = {
           receipt_id?: string
           unit?: string | null
           updated_at?: string
-          is_warranty_item?: boolean
           warranty_end_date?: string | null
           warranty_period_months?: number | null
-          expiry_acknowledged?: boolean
         }
         Relationships: [
           {
@@ -687,6 +902,7 @@ export type Database = {
           created_at: string
           id: string
           is_checked: boolean
+          priority: string | null
           product_id: string | null
           product_name: string
           quantity: number | null
@@ -698,6 +914,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_checked?: boolean
+          priority?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number | null
@@ -709,6 +926,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_checked?: boolean
+          priority?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number | null
@@ -778,33 +996,6 @@ export type Database = {
           },
         ]
       }
-      push_subscriptions: {
-        Row: {
-          auth_keys: Json
-          created_at: string
-          endpoint: string
-          id: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          auth_keys: Json
-          created_at?: string
-          endpoint: string
-          id?: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          auth_keys?: Json
-          created_at?: string
-          endpoint?: string
-          id?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -870,6 +1061,19 @@ export type Database = {
           total_amount_cents: number
           total_quantity: number
           unit: string
+        }[]
+      }
+      get_supply_range: {
+        Args: { p_days_lookback?: number; p_household_id: string }
+        Returns: {
+          coverage_days: number
+          daily_household_burn: number
+          food_item_count: number
+          member_count: number
+          total_calories_purchased: number
+          total_carbs_g: number
+          total_fat_g: number
+          total_protein_g: number
         }[]
       }
       is_household_member: {
