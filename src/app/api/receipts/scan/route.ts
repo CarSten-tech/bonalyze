@@ -36,6 +36,18 @@ INSTRUCTIONS:
 4. **WARRANTY CHECK**:
    - Setze "is_warranty_candidate": true NUR für langlebige Non-Food Artikel > 10€ (Elektronik, Pfannen, Werkzeug).
 
+5. **NUTRITION ESTIMATION (Nur fuer Lebensmittel)**:
+   - Schaetze fuer JEDEN Lebensmittel-Artikel:
+     - "estimated_calories_kcal": Gesamtkalorien fuer die gekaufte Menge (Nettofuellmenge * kcal pro 100g / 100). Beispiel: 500g Magerquark mit ~66kcal/100g = 330 kcal.
+     - "estimated_weight_g": Geschaetzte Nettofuellmenge in Gramm (z.B. "500g Magerquark" -> 500, "1L Milch" -> 1030, "6 Eier" -> 360)
+     - "estimated_protein_g": Geschaetzte Protein-Gramm gesamt
+     - "estimated_carbs_g": Geschaetzte Kohlenhydrate-Gramm gesamt
+     - "estimated_fat_g": Geschaetztes Fett-Gramm gesamt
+     - "is_food_item": true fuer Lebensmittel/Getraenke, false fuer Non-Food (Putzmittel, Toilettenpapier, Zeitschriften, etc.)
+   - Nutze allgemeines Ernaehrungswissen fuer typische deutsche Supermarkt-Produkte.
+   - Bei Unklarheit (z.B. Markenprodukt ohne Gewichtsangabe) schaetze konservativ basierend auf typischer Packungsgroesse.
+   - Fuer Non-Food Artikel: Alle Nutrition-Werte auf 0 und is_food_item auf false.
+
 JSON OUTPUT STRUCTURE (Strict):
 {
   "merchant": "String (Korrigierter Name, z.B. 'Rewe City')",
@@ -51,7 +63,13 @@ JSON OUTPUT STRUCTURE (Strict):
       "category": "String (Hauptkategorie)",
       "subcategory": "String (Unterkategorie)",
       "tags": ["String", "String"], // z.B. ["bio", "vegetarisch"]
-      "is_warranty_candidate": Boolean
+      "is_warranty_candidate": Boolean,
+      "estimated_calories_kcal": Number, // Gesamtkalorien fuer gekaufte Menge (0 fuer Non-Food)
+      "estimated_weight_g": Number, // Nettofuellmenge in Gramm (0 fuer Non-Food)
+      "estimated_protein_g": Number, // Protein gesamt in Gramm
+      "estimated_carbs_g": Number, // Kohlenhydrate gesamt in Gramm
+      "estimated_fat_g": Number, // Fett gesamt in Gramm
+      "is_food_item": Boolean // true = Lebensmittel, false = Non-Food
     }
   ],
   "amounts": {

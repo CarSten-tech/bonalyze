@@ -159,6 +159,13 @@ export function ReceiptEditor({
         subcategory: item.subcategory,
         isWarranty: item.is_warranty_candidate,
         warrantyEndDate: item.is_warranty_candidate ? addYears(new Date(), 2) : undefined,
+        // Supply Range nutrition fields
+        estimatedCaloriesKcal: item.estimated_calories_kcal || 0,
+        estimatedWeightG: item.estimated_weight_g || 0,
+        estimatedProteinG: item.estimated_protein_g || 0,
+        estimatedCarbsG: item.estimated_carbs_g || 0,
+        estimatedFatG: item.estimated_fat_g || 0,
+        isFoodItem: item.is_food_item ?? true,
       }))
       setItems(scannedItems)
     }
@@ -340,12 +347,19 @@ export function ReceiptEditor({
         quantity: item.quantity,
         price_cents: Math.round(item.priceCents),
         product_id: productIdMap.get(item.productName.trim()) || null,
-        category_id: item.subcategory 
+        category_id: item.subcategory
           ? categoryLookup.get(item.subcategory) || fallbackCategoryId
           : fallbackCategoryId,
         is_warranty_item: item.isWarranty || false,
         warranty_end_date: item.isWarranty && item.warrantyEndDate ? item.warrantyEndDate.toISOString().split('T')[0] : null,
         warranty_period_months: item.isWarranty ? 24 : null,
+        // Supply Range nutrition fields
+        estimated_calories_kcal: item.estimatedCaloriesKcal || null,
+        estimated_weight_g: item.estimatedWeightG || null,
+        estimated_protein_g: item.estimatedProteinG || null,
+        estimated_carbs_g: item.estimatedCarbsG || null,
+        estimated_fat_g: item.estimatedFatG || null,
+        is_food_item: item.isFoodItem ?? true,
       }))
 
       const { error: itemsError } = await supabase

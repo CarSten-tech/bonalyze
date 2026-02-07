@@ -30,6 +30,13 @@ export interface ReceiptItemDraft {
   subcategory?: string
   isWarranty?: boolean
   warrantyEndDate?: Date
+  // Supply Range: Nutrition estimation from AI
+  estimatedCaloriesKcal?: number
+  estimatedWeightG?: number
+  estimatedProteinG?: number
+  estimatedCarbsG?: number
+  estimatedFatG?: number
+  isFoodItem?: boolean
 }
 
 interface ReceiptItemCardProps {

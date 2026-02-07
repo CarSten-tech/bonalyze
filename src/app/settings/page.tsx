@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Home, Wallet, ChevronRight } from 'lucide-react'
+import { Home, Wallet, Utensils, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface SettingsLink {
@@ -24,11 +24,17 @@ const settingsLinks: SettingsLink[] = [
     label: 'Haushalt-Einstellungen',
     description: 'Mitglieder verwalten, Name ändern'
   },
-  { 
-    href: '/settings/budget', 
-    icon: Wallet, 
+  {
+    href: '/settings/budget',
+    icon: Wallet,
     label: 'Budget-Einstellungen',
     description: 'Monatliches Budget festlegen'
+  },
+  {
+    href: '/settings/nutrition',
+    icon: Utensils,
+    label: 'Ernaehrungs-Profile',
+    description: 'BMR & Tagesbedarf fuer Haushaltsmitglieder'
   },
 ]
 

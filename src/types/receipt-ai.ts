@@ -9,9 +9,16 @@ export const ReceiptItemAISchema = z.object({
   total_price: z.number().describe("Gesamtpreis der Position"),
   category: z.string(),
   subcategory: z.string(),
-  // Neu: Tags für Health-Score & Garantie
+  // Tags für Health-Score & Garantie
   tags: z.array(z.string()).default([]),
   is_warranty_candidate: z.boolean().default(false),
+  // Supply Range: Nutrition estimation
+  estimated_calories_kcal: z.number().default(0),
+  estimated_weight_g: z.number().default(0),
+  estimated_protein_g: z.number().default(0),
+  estimated_carbs_g: z.number().default(0),
+  estimated_fat_g: z.number().default(0),
+  is_food_item: z.boolean().default(true),
 })
 
 // Haupt-Schema für die API Antwort

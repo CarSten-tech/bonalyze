@@ -30,6 +30,7 @@ import {
 } from '@/components/dashboard'
 import { BudgetWidget } from "@/components/dashboard/budget-widget"
 import { WarrantyWidget } from "@/components/dashboard/warranty-widget"
+import { SupplyRangeWidget } from "@/components/dashboard/supply-range-widget"
 import { formatCurrency } from '@/components/common/currency'
 
 interface RecentReceipt {
@@ -273,6 +274,9 @@ export default function DashboardPage() {
             />
             <BudgetWidget budgetStatus={data?.budgetStatus ?? null} isLoading={isLoading} />
           </div>
+
+          {/* Supply Range Widget */}
+          <SupplyRangeWidget />
 
           {/* Warranty Vault Widget */}
           <WarrantyWidget />

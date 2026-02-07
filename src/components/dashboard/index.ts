@@ -6,3 +6,4 @@ export {
   ReceiptListItemSkeleton,
   getStoreIcon,
 } from './receipt-list-item'
+export { SupplyRangeWidget } from './supply-range-widget'
