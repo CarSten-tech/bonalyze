@@ -85,28 +85,48 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   }, [imageSize, initialCorners]) // Decoupled from image loading (no flickering)
 
   // Measure container (Robust)
-  React.useLayoutEffect(() => {
+  const measure = React.useCallback(() => {
     if (!containerRef.current) return
-    
-    const measure = () => {
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (rect && rect.width > 0 && rect.height > 0) {
-            setContainerSize({ width: rect.width, height: rect.height })
-        }
+    const rect = containerRef.current.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) {
+        // Only update if changed to avoid loops
+        setContainerSize(prev => {
+            if (prev.width === rect.width && prev.height === rect.height) return prev
+            console.log("CropEditor: Container measured", rect.width, rect.height)
+            return { width: rect.width, height: rect.height }
+        })
+    } else {
+        console.warn("CropEditor: Container has 0 dims", rect)
     }
-    
+  }, [])
+
+  React.useLayoutEffect(() => {
     measure() // Immediate measure
     
     // Observer for resizing
     const resizeObserver = new ResizeObserver(() => measure())
-    resizeObserver.observe(containerRef.current)
+    if (containerRef.current) {
+        resizeObserver.observe(containerRef.current)
+    }
     
-    return () => resizeObserver.disconnect()
-  }, [])
+    // Fallback poll just in case
+    const timer = setTimeout(measure, 100)
+    const timer2 = setTimeout(measure, 500)
+    
+    return () => {
+        resizeObserver.disconnect()
+        clearTimeout(timer)
+        clearTimeout(timer2)
+    }
+  }, [measure])
 
   // Coordinate Conversion Helpers (Same logic)
   const toScreen = (pt: Point) => {
-    if (!imageSize.width || !containerSize.width) return { x: 0, y: 0 }
+    // Log if missing dims
+    if (!imageSize.width || !containerSize.width) {
+        // console.debug("CropEditor: Missing dims for conversion", imageSize, containerSize)
+        return { x: 0, y: 0 }
+    }
     
     const imgRatio = imageSize.width / imageSize.height
     const containerRatio = containerSize.width / containerSize.height
@@ -254,7 +274,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       })()}
 
       {/* Debug Overlay */}
-      {process.env.NODE_ENV === 'development' && (
+      {(process.env.NODE_ENV === 'development' || true) && (
           <div className="absolute top-20 left-4 z-[60] bg-black/50 text-white text-[10px] p-1 pointer-events-none font-mono">
               Img: {imageSize.width}x{imageSize.height}<br/>
               Cont: {Math.round(containerSize.width)}x{Math.round(containerSize.height)}<br/>
