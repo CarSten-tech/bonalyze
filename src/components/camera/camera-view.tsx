@@ -116,188 +116,175 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               // Use Otsu Thresholding
               cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
               
-              // Dilate
-              M = cv.Mat.ones(5, 5, cv.CV_8U)
-              cv.dilate(dst, dst, M, new cv.Point(-1, -1), 2, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
-              M.delete() 
-              
-              // Find Contours
-              contours = new cv.MatVector()
-              hierarchy = new cv.Mat()
-              cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-
-              let maxArea = 0
-              // bestContour already declared up top defaults to null
-
-              for (let i = 0; i < contours.size(); ++i) {
-                  let cnt = contours.get(i)
-                  let area = cv.contourArea(cnt)
+                  // Morphological Close (Dilate -> Erode) to connect gaps without expanding too much
+                  // This fixes "loose" bounding box caused by pure dilation.
+                  let M = cv.Mat.ones(5, 5, cv.CV_8U)
+                  cv.morphologyEx(dst, dst, cv.MORPH_CLOSE, M)
+                  M.delete() 
                   
-                  // Min area filter (5% of screen)
-                  if (area < (dst.cols * dst.rows * 0.05)) {
+                  // Find Contours
+                  contours = new cv.MatVector()
+                  hierarchy = new cv.Mat()
+                  cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+                  let maxArea = 0
+                  // bestContour already declared up top defaults to null
+    
+                  for (let i = 0; i < contours.size(); ++i) {
+                      let cnt = contours.get(i)
+                      let area = cv.contourArea(cnt)
+                      
+                      // Min area filter (5% of screen)
+                      // Increased slightly to avoid noise
+                      if (area < (dst.cols * dst.rows * 0.1)) {
+                          cnt.delete()
+                          continue 
+                      }
+    
+                      let peri = cv.arcLength(cnt, true)
+                      let approx = new cv.Mat()
+                      // Tighter epsilon (0.015 vs 0.02) for better fit to document edges
+                      cv.approxPolyDP(cnt, approx, 0.015 * peri, true)
+    
+                      // Basic Quad Check + Convexity
+                      if (approx.rows === 4 && area > maxArea && cv.isContourConvex(approx)) {
+                          maxArea = area
+                          if (bestContour) bestContour.delete()
+                          bestContour = approx
+                      } else {
+                          approx.delete()
+                      }
                       cnt.delete()
-                      continue 
                   }
-
-                  let peri = cv.arcLength(cnt, true)
-                  let approx = new cv.Mat()
-                  cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
-
-                  // Basic Quad Check + Convexity
-                  if (approx.rows === 4 && area > maxArea && cv.isContourConvex(approx)) {
-                      maxArea = area
-                      if (bestContour) bestContour.delete()
-                      bestContour = approx
-                  } else {
-                      approx.delete()
-                  }
-                  cnt.delete()
-              }
-
-              // Draw on overlay
-              const overlayCtx = overlayRef.current?.getContext('2d')
-              if (overlayCtx) {
-                  overlayCtx.clearRect(0, 0, width, height)
-                  
-                  let displayCorners: {x:number, y:number}[] | undefined
-
-                  if (bestContour) {
-                      const invScale = 1 / (scale < 1 ? scale : 1)
+    
+                  // Draw on overlay
+                  const overlayCtx = overlayRef.current?.getContext('2d')
+                  if (overlayCtx) {
+                      overlayCtx.clearRect(0, 0, width, height)
                       
-                      // Extract points
-                      const rawPts = []
-                      const ptr = bestContour.data32S
-                      for(let i=0; i<4; i++) {
-                         rawPts.push({
-                             x: ptr[i*2] * invScale,
-                             y: ptr[i*2+1] * invScale
-                         })
-                      }
-                      
-                      // Sort Corners: TL, TR, BR, BL
-                      // 1. Sort by Y
-                      rawPts.sort((a,b) => a.y - b.y)
-                      const top = rawPts.slice(0, 2).sort((a,b) => a.x - b.x)
-                      const bottom = rawPts.slice(2, 4).sort((a,b) => a.x - b.x)
-                      
-                      const pts = [top[0], top[1], bottom[1], bottom[0]]
-
-                      // --- Temporal Smoothing ---
-                      cornersHistory.current.push(pts)
-                      // Reduce buffer size for faster reactivity (was 5)
-                      if (cornersHistory.current.length > 3) {
-                          cornersHistory.current.shift()
-                      }
-                      noDetectionCount.current = 0
-
-                      // Calculate Average
-                      const avgCorners = [
-                          {x:0,y:0}, {x:0,y:0}, {x:0,y:0}, {x:0,y:0}
-                      ]
-                      
-                      const len = cornersHistory.current.length
-                      for (const frame of cornersHistory.current) {
-                          for (let i=0; i<4; i++) {
-                              avgCorners[i].x += frame[i].x
-                              avgCorners[i].y += frame[i].y
+                      let displayCorners: {x:number, y:number}[] | undefined
+    
+                      if (bestContour) {
+                          const invScale = 1 / (scale < 1 ? scale : 1)
+                          
+                          // Extract points
+                          const rawPts = []
+                          const ptr = bestContour.data32S
+                          for(let i=0; i<4; i++) {
+                             rawPts.push({
+                                 x: ptr[i*2] * invScale,
+                                 y: ptr[i*2+1] * invScale
+                             })
+                          }
+                          
+                          // Sort Corners: TL, TR, BR, BL
+                          // 1. Sort by Y
+                          rawPts.sort((a,b) => a.y - b.y)
+                          const top = rawPts.slice(0, 2).sort((a,b) => a.x - b.x)
+                          const bottom = rawPts.slice(2, 4).sort((a,b) => a.x - b.x)
+                          
+                          const targetPts = [top[0], top[1], bottom[1], bottom[0]]
+    
+                          // --- LPF Smoothing (Lerp) ---
+                          // Much smoother and less "laggy" than averaging buffer
+                          // Factor 0.4 = 40% towards target per frame. 
+                          // 0.1 = very slow/smooth, 0.9 = very fast/jittery.
+                          const LERP_FACTOR = 0.4 
+                          
+                          if (cornersHistory.current.length === 0) {
+                              // First detection, jump directly
+                              cornersHistory.current = [targetPts]
+                              displayCorners = targetPts
+                          } else {
+                              // Interpolate from last frame
+                              const prev = cornersHistory.current[0] // We only keep 1 frame now effectively
+                              const smoothed = prev.map((p, idx) => ({
+                                  x: p.x + (targetPts[idx].x - p.x) * LERP_FACTOR,
+                                  y: p.y + (targetPts[idx].y - p.y) * LERP_FACTOR
+                              }))
+                              cornersHistory.current = [smoothed]
+                              displayCorners = smoothed
+                          }
+                          
+                          noDetectionCount.current = 0
+                          bestContour.delete()
+                      } else {
+                          // No detection this frame
+                          noDetectionCount.current++
+                          if (noDetectionCount.current < NO_DETECTION_RESET_FRAMES && cornersHistory.current.length > 0) {
+                               // Keep showing last known state (drift slowly to stop?) 
+                               // For now just static hold
+                               displayCorners = cornersHistory.current[0]
+                          } else {
+                              // Lost it
+                              cornersHistory.current = []
+                              displayCorners = undefined
                           }
                       }
-                      
-                      displayCorners = avgCorners.map(p => ({
-                          x: p.x / len,
-                          y: p.y / len
-                      }))
-                      
-                      bestContour.delete()
-                  } else {
-                      // No detection this frame
-                      noDetectionCount.current++
-                      if (noDetectionCount.current < NO_DETECTION_RESET_FRAMES && cornersHistory.current.length > 0) {
-                           // Keep showing last known state for a few frames (prevents flickering)
-                           const len = cornersHistory.current.length
-                           const avgCorners = [
-                               {x:0,y:0}, {x:0,y:0}, {x:0,y:0}, {x:0,y:0}
-                           ]
-                           for (const frame of cornersHistory.current) {
-                               for (let i=0; i<4; i++) {
-                                   avgCorners[i].x += frame[i].x
-                                   avgCorners[i].y += frame[i].y
-                               }
-                           }
-                           displayCorners = avgCorners.map(p => ({
-                               x: p.x / len,
-                               y: p.y / len
-                           }))
-                      } else {
-                          // Lost it
-                          cornersHistory.current = []
-                          displayCorners = undefined
-                      }
-                  }
-
-                  // Update State
-                  setDetectedCorners(displayCorners)
-
-                  // --- Lens Style Drawing ---
-                  if (displayCorners) {
-                      // 1. Darken background
-                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-                      overlayCtx.fillRect(0, 0, width, height)
-
-                      // 2. Cut out the hole (Keep full quad hole for focus)
-                      overlayCtx.globalCompositeOperation = 'destination-out'
-                      overlayCtx.beginPath()
-                      overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
-                      overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
-                      overlayCtx.lineTo(displayCorners[2].x, displayCorners[2].y)
-                      overlayCtx.lineTo(displayCorners[3].x, displayCorners[3].y)
-                      overlayCtx.closePath()
-                      overlayCtx.fill()
-                      
-                      overlayCtx.globalCompositeOperation = 'source-over'
-
-                      // 3. Draw CORNERS ONLY (L-Shapes)
-                      overlayCtx.strokeStyle = 'white'
-                      overlayCtx.lineWidth = 8 // Much thicker
-                      overlayCtx.lineCap = 'round'
-                      overlayCtx.lineJoin = 'round'
-
-                      const cornLen = 40 // Length of L-arms
-                      
-                      // Helper to draw L at corner
-                      const drawCorner = (idx: number, p1: {x:number, y:number}, pPrev: {x:number, y:number}, pNext: {x:number, y:number}) => {
-                          // Vector to prev
-                          const dx1 = pPrev.x - p1.x
-                          const dy1 = pPrev.y - p1.y
-                          const len1 = Math.sqrt(dx1*dx1 + dy1*dy1)
-                          
-                          // Vector to next
-                          const dx2 = pNext.x - p1.x
-                          const dy2 = pNext.y - p1.y
-                          const len2 = Math.sqrt(dx2*dx2 + dy2*dy2)
-
-                          // Avoid div by zero
-                          if (len1 < 1 || len2 < 1) return
-
+    
+                      // Update State
+                      setDetectedCorners(displayCorners)
+    
+                      // --- Lens Style Drawing ---
+                      if (displayCorners) {
+                          // 1. Darken background
+                          overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+                          overlayCtx.fillRect(0, 0, width, height)
+    
+                          // 2. Cut out the hole (Keep full quad hole for focus)
+                          overlayCtx.globalCompositeOperation = 'destination-out'
                           overlayCtx.beginPath()
-                          // Draw arm to prev
-                          overlayCtx.moveTo(p1.x + (dx1/len1)*Math.min(cornLen, len1), p1.y + (dy1/len1)*Math.min(cornLen, len1))
-                          overlayCtx.lineTo(p1.x, p1.y)
-                          // Draw arm to next
-                          overlayCtx.lineTo(p1.x + (dx2/len2)*Math.min(cornLen, len2), p1.y + (dy2/len2)*Math.min(cornLen, len2))
-                          overlayCtx.stroke()
-                      }
-                      
-                      // TL (0) -> Prev is BL (3), Next is TR (1)
-                      drawCorner(0, displayCorners[0], displayCorners[3], displayCorners[1])
-                      // TR (1) -> Prev is TL (0), Next is BR (2)
-                      drawCorner(1, displayCorners[1], displayCorners[0], displayCorners[2])
-                      // BR (2) -> Prev is TR (1), Next is BL (3)
-                      drawCorner(2, displayCorners[2], displayCorners[1], displayCorners[3])
-                      // BL (3) -> Prev is BR (2), Next is TL (0)
-                      drawCorner(3, displayCorners[3], displayCorners[2], displayCorners[0])
-
-                      // No circles, just the thick L-corners as requested
+                          overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
+                          overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
+                          overlayCtx.lineTo(displayCorners[2].x, displayCorners[2].y)
+                          overlayCtx.lineTo(displayCorners[3].x, displayCorners[3].y)
+                          overlayCtx.closePath()
+                          overlayCtx.fill()
+                          
+                          overlayCtx.globalCompositeOperation = 'source-over'
+    
+                          // 3. Draw CORNERS ONLY (L-Shapes)
+                          overlayCtx.strokeStyle = 'white'
+                          overlayCtx.lineWidth = 12 // Ultra thick (requested)
+                          overlayCtx.lineCap = 'round'
+                          overlayCtx.lineJoin = 'round'
+    
+                          const cornLen = 50 // Slightly longer arms
+                          
+                          // Helper to draw L at corner
+                          const drawCorner = (idx: number, p1: {x:number, y:number}, pPrev: {x:number, y:number}, pNext: {x:number, y:number}) => {
+                              // Vector to prev
+                              const dx1 = pPrev.x - p1.x
+                              const dy1 = pPrev.y - p1.y
+                              const len1 = Math.sqrt(dx1*dx1 + dy1*dy1)
+                              
+                              // Vector to next
+                              const dx2 = pNext.x - p1.x
+                              const dy2 = pNext.y - p1.y
+                              const len2 = Math.sqrt(dx2*dx2 + dy2*dy2)
+    
+                              // Avoid div by zero
+                              if (len1 < 1 || len2 < 1) return
+    
+                              overlayCtx.beginPath()
+                              // Draw arm to prev
+                              overlayCtx.moveTo(p1.x + (dx1/len1)*Math.min(cornLen, len1), p1.y + (dy1/len1)*Math.min(cornLen, len1))
+                              overlayCtx.lineTo(p1.x, p1.y)
+                              // Draw arm to next
+                              overlayCtx.lineTo(p1.x + (dx2/len2)*Math.min(cornLen, len2), p1.y + (dy2/len2)*Math.min(cornLen, len2))
+                              overlayCtx.stroke()
+                          }
+                          
+                          // TL (0) -> Prev is BL (3), Next is TR (1)
+                          drawCorner(0, displayCorners[0], displayCorners[3], displayCorners[1])
+                          // TR (1) -> Prev is TL (0), Next is BR (2)
+                          drawCorner(1, displayCorners[1], displayCorners[0], displayCorners[2])
+                          // BR (2) -> Prev is TR (1), Next is BL (3)
+                          drawCorner(2, displayCorners[2], displayCorners[1], displayCorners[3])
+                          // BL (3) -> Prev is BR (2), Next is TL (0)
+                          drawCorner(3, displayCorners[3], displayCorners[2], displayCorners[0])
+    
+                          // No circles, just the thick L-corners as requested
                   } else {
                       // No detection: Clear/Transparent
                       setDetectedCorners(undefined)
