@@ -102,21 +102,23 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
               cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY, 0)
               cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
-              cv.Canny(dst, dst, 75, 200, 3, false)
               
-              // Dilate to verify edges (connects text lines into blocks)
-              let M = cv.Mat.ones(3, 3, cv.CV_8U)
-              cv.dilate(dst, dst, M, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
+              // Use Otsu Thresholding (More robust than Canny for receipts)
+              cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+              
+              // Morphological Close (Dilate -> Erode) or just Dilate to fill gaps
+              // Connecting text blocks is key.
+              let M = cv.Mat.ones(5, 5, cv.CV_8U)
+              cv.dilate(dst, dst, M, new cv.Point(-1, -1), 2, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
               M.delete()
               
               // Find Contours
               let contours = new cv.MatVector()
               let hierarchy = new cv.Mat()
-              cv.findContours(dst, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+              cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) // EXTERNAL only
 
               let maxArea = 0
               let bestContour = null
-              let bestBlock = null
 
               // Find largest quad
               for (let i = 0; i < contours.size(); ++i) {
@@ -133,15 +135,15 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                   let approx = new cv.Mat()
                   cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
 
-                  if (approx.rows === 4 && area > maxArea) {
+                  // Basic Quad Check + Convexity
+                  if (approx.rows === 4 && area > maxArea && cv.isContourConvex(approx)) {
                       maxArea = area
                       if (bestContour) bestContour.delete()
-                      bestContour = approx // keep it
-                      bestBlock = cnt // keep original? No, approx is enough
+                      bestContour = approx
                   } else {
-                     approx.delete()
-                     cnt.delete()
+                      approx.delete()
                   }
+                  cnt.delete()
               }
 
               // Draw on overlay
@@ -155,12 +157,22 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                       const invScale = 1 / (scale < 1 ? scale : 1)
                       
                       // Extract points
-                      const pts = []
+                      const rawPts = []
+                      const ptr = bestContour.data32S
                       for(let i=0; i<4; i++) {
-                         const x = bestContour.data32S[i*2] * invScale
-                         const y = bestContour.data32S[i*2+1] * invScale
-                         pts.push({x, y})
+                         rawPts.push({
+                             x: ptr[i*2] * invScale,
+                             y: ptr[i*2+1] * invScale
+                         })
                       }
+                      
+                      // Sort Corners: TL, TR, BR, BL
+                      // 1. Sort by Y
+                      rawPts.sort((a,b) => a.y - b.y)
+                      const top = rawPts.slice(0, 2).sort((a,b) => a.x - b.x)
+                      const bottom = rawPts.slice(2, 4).sort((a,b) => a.x - b.x)
+                      
+                      const pts = [top[0], top[1], bottom[1], bottom[0]]
 
                       // --- Temporal Smoothing ---
                       cornersHistory.current.push(pts)
@@ -220,7 +232,7 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                   // --- Lens Style Drawing ---
                   if (displayCorners) {
                       // 1. Darken background
-                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)' // Slightly darker for contrast
                       overlayCtx.fillRect(0, 0, width, height)
 
                       // 2. Cut out the hole
@@ -237,7 +249,9 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
                       // 3. Draw Stroke and Handles
                       overlayCtx.strokeStyle = 'white'
-                      overlayCtx.lineWidth = 3
+                      overlayCtx.lineWidth = 6 // Thicker frame
+                      overlayCtx.lineCap = 'round'
+                      overlayCtx.lineJoin = 'round'
                       overlayCtx.beginPath()
                       overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
                       overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
@@ -246,10 +260,10 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                       overlayCtx.closePath()
                       overlayCtx.stroke()
 
-                      // Corners
+                      // Corners (Larger circles)
                       for(const p of displayCorners) {
                           overlayCtx.beginPath()
-                          overlayCtx.arc(p.x, p.y, 6, 0, 2 * Math.PI)
+                          overlayCtx.arc(p.x, p.y, 8, 0, 2 * Math.PI)
                           overlayCtx.fillStyle = 'white'
                           overlayCtx.fill()
                       }
