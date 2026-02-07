@@ -15,7 +15,7 @@ import { useHousehold } from "@/contexts/household-context"
 import { formatCurrency } from "@/components/common/currency"
 import { cn } from "@/lib/utils"
 
-interface BudgetStatus {
+export interface BudgetStatus {
   budget: {
     id: string
     period_type: string
@@ -31,38 +31,11 @@ interface BudgetStatus {
 }
 
 interface BudgetWidgetProps {
-  currentDate?: Date
+  budgetStatus: BudgetStatus | null
+  isLoading?: boolean
 }
 
-export function BudgetWidget({ currentDate = new Date() }: BudgetWidgetProps) {
-  const { currentHousehold } = useHousehold()
-  const [status, setStatus] = useState<BudgetStatus | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadBudget() {
-      if (!currentHousehold) return
-      setIsLoading(true) // Ensure loading state is reset when date changes
-      try {
-        const data = await getBudgetStatus(currentHousehold.id, currentDate)
-        if (data) {
-          setStatus({
-            ...data,
-            period: {
-              start: new Date(data.period.start),
-              end: new Date(data.period.end)
-            }
-          })
-        }
-      } catch (error) {
-        console.error("Failed to load budget status:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadBudget()
-  }, [currentHousehold, currentDate])
-
+export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetProps) {
   if (isLoading) {
     return (
       <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
@@ -75,25 +48,57 @@ export function BudgetWidget({ currentDate = new Date() }: BudgetWidgetProps) {
     )
   }
 
-  if (!status) {
-    return null
+  if (!budgetStatus) {
+    return (
+        <Card className="rounded-xl shadow-sm border-0 bg-white h-full relative overflow-hidden group">
+            <CardContent className="p-5 flex flex-col justify-center items-center h-full text-center space-y-3">
+                <div className="bg-slate-50 p-3 rounded-full group-hover:bg-slate-100 transition-colors">
+                    <Wallet className="h-6 w-6 text-slate-400" />
+                </div>
+                <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-900">Kein Budget</p>
+                    <p className="text-xs text-slate-500">
+                        Erstelle ein Budget für mehr Übersicht.
+                    </p>
+                </div>
+                <Button variant="outline" size="sm" className="h-8 text-xs w-full" asChild>
+                    <Link href="/settings/budget">
+                        Budget erstellen
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
+    )
   }
 
-  const { budget, period, usedAmount } = status
+  const { budget, period, usedAmount } = budgetStatus
   const totalAmount = budget.total_amount_cents
-  const percentage = Math.min(Math.round((usedAmount / totalAmount) * 100), 100)
+  
+  // Logic: Show Remaining vs Used
   const remainingAmount = totalAmount - usedAmount
+  const percentageUsed = Math.min(Math.round((usedAmount / totalAmount) * 100), 100)
   
-  // Color logic
-  let progressBarColor = "bg-primary"
-  let restAmountColor = "text-foreground" // Use foreground for cleaner look, maybe subtle color if warning
+  // Calculate Daily Budget (Left / Days Remaining)
+  const today = new Date()
+  const daysInPeriod = differenceInDays(period.end, period.start) + 1
+  const daysPassed = Math.max(0, differenceInDays(today, period.start))
+  const daysRemaining = Math.max(1, differenceInDays(period.end, today) + 1) // +1 because today counts
   
-  if (percentage >= 100) {
+  const dailyBudgetLeft = Math.max(0, remainingAmount / daysRemaining)
+
+  // Color logic - Inverted safety (Green = Low usage, Red = High usage)
+  let progressBarColor = "bg-emerald-500" // Safe
+  let amountColor = "text-emerald-600"
+  
+  if (percentageUsed >= 100) {
     progressBarColor = "bg-destructive"
-    restAmountColor = "text-destructive"
-  } else if (percentage >= 80) {
+    amountColor = "text-destructive"
+  } else if (percentageUsed >= 85) {
     progressBarColor = "bg-orange-500" 
-    restAmountColor = "text-orange-600"
+    amountColor = "text-orange-600"
+  } else if (percentageUsed >= 60) {
+    progressBarColor = "bg-blue-500"
+    amountColor = "text-blue-600"
   }
 
   // Format currency without symbol for custom layout
@@ -101,39 +106,52 @@ export function BudgetWidget({ currentDate = new Date() }: BudgetWidgetProps) {
     new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount / 100)
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
+    <Card className="rounded-xl shadow-sm border-0 bg-white h-full relative overflow-hidden">
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
-         <div className="space-y-2">
-            <h3 className="text-xs text-gray-500 font-medium uppercase tracking-wider">
-              Budget {format(period.start, "MMMM", { locale: de })}
-            </h3>
+         <div className="space-y-2 relative z-10">
+            <div className="flex justify-between items-start">
+                <h3 className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                Verfügbar {format(period.start, "MMMM", { locale: de })}
+                </h3>
+                {percentageUsed >= 100 && (
+                    <AlertTriangle className="h-4 w-4 text-destructive animate-pulse" />
+                )}
+            </div>
             
-            {/* Main Value */}
+            {/* Main Value: Remaining Amount */}
             <div className="flex items-baseline gap-1">
-               <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                 {formatValue(usedAmount)}
+               <span className={cn("text-3xl font-bold tabular-nums tracking-tight", amountColor)}>
+                 {formatValue(remainingAmount)}
                </span>
-               <span className="text-sm font-medium text-foreground">
+               <span className={cn("text-sm font-medium", amountColor)}>
                  EUR
                </span>
             </div>
          </div>
 
-         <div className="pt-4 space-y-1">
-            {/* Limit Label */}
-            <div className="flex justify-between text-[11px] text-gray-400 font-medium uppercase tracking-wide">
-              <span>Aktuell</span>
-              <span>Limit: {formatValue(totalAmount)} EUR</span>
+         <div className="pt-4 space-y-2 relative z-10">
+            {/* Daily Budget Info */}
+            <div className="flex justify-between items-end">
+                 <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-400 font-medium uppercase">Tagesbudget (Rest)</span>
+                    <span className="text-xs font-semibold text-gray-700">
+                        ~{formatValue(dailyBudgetLeft)} EUR
+                    </span>
+                 </div>
+                 <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-gray-400 font-medium uppercase">Genutzt</span>
+                    <span className="text-xs font-medium text-gray-600">
+                        {percentageUsed}%
+                    </span>
+                 </div>
             </div>
 
-            <Progress value={percentage} className="h-1.5 bg-slate-100" indicatorClassName={progressBarColor} />
-            
-            {/* Restbetrag - Right Aligned */}
-            <div className="flex justify-end pt-1">
-               <span className={cn("text-xs font-medium tabular-nums", restAmountColor)}>
-                 {remainingAmount >= 0 ? 'Noch ' : 'Drüber: '} 
-                 {formatValue(Math.abs(remainingAmount))} EUR
-               </span>
+            {/* Progress Bar */}
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                    className={cn("h-full transition-all duration-500", progressBarColor)} 
+                    style={{ width: `${percentageUsed}%` }}
+                />
             </div>
          </div>
       </CardContent>
