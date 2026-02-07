@@ -35,10 +35,11 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   const [snapLines, setSnapLines] = React.useState<{horizontal: number[], vertical: number[]}>({ horizontal: [], vertical: [] })
 
   // Load image & Update corners
+  // 1. Load Image (Only when src changes)
   React.useEffect(() => {
     const img = new Image()
     img.src = imageSrc
-    img.onload = async () => {
+    img.onload = () => {
       setImage(img)
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
       
@@ -46,26 +47,42 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       detectStrongLines(img.src).then(lines => {
           setSnapLines(lines)
       })
-      
-      // If we have corners (either initial or late-arriving), apply them
-      if (initialCorners && initialCorners.length === 4) {
-          setCorners(initialCorners as [Point, Point, Point, Point])
-      } else {
-          // Only set default fallback if we haven't set corners yet OR if it's the very first load
-          // But here we re-run on imageSrc change.
-          const w = img.naturalWidth
-          const h = img.naturalHeight
-          const padX = w * 0.15
-          const padY = h * 0.15
-          setCorners([
-            { x: padX, y: padY },         // TL
-            { x: w - padX, y: padY },     // TR
-            { x: w - padX, y: h - padY }, // BR
-            { x: padX, y: h - padY },     // BL
-          ])
-      }
     }
-  }, [imageSrc, initialCorners]) // React to updates in corners!
+  }, [imageSrc])
+
+  // 2. Sync Corners (When image is ready OR corners change)
+  React.useEffect(() => {
+    if (imageSize.width === 0 || imageSize.height === 0) return
+
+    if (initialCorners && initialCorners.length === 4) {
+        setCorners(initialCorners as [Point, Point, Point, Point])
+    } else {
+        // Only set defaults if we haven't touched them yet? 
+        // Or if this is the first setup.
+        // For now, if no initialCorners are provided, we reset to default on mount/image change.
+        // To avoid overwriting user edits if this effect runs late, we could check if corners are (0,0).
+        // But for this use case (new scan), reset is usually expected if no corners found.
+        
+        // Check if we are already initialized to avoid reset on re-renders (if any)
+        // But simpler: Just set default if we are in a "fresh" state or image changed.
+        
+        // Actually, detecting if it's a "new" image:
+        const w = imageSize.width
+        const h = imageSize.height
+        const padX = w * 0.15
+        const padY = h * 0.15
+        
+        // Only Apply defaults if we strictly have NO info (prevent overwriting if parent passes undefined later?)
+        // The parent initializes with undefined, then passes corners.
+        // If we set defaults immediately, then corners arrive, we overwrite defaults. That's good.
+        setCorners([
+          { x: padX, y: padY },         // TL
+          { x: w - padX, y: padY },     // TR
+          { x: w - padX, y: h - padY }, // BR
+          { x: padX, y: h - padY },     // BL
+        ])
+    }
+  }, [imageSize, initialCorners]) // Decoupled from image loading (no flickering)
 
   // Measure container (Robust)
   React.useLayoutEffect(() => {
@@ -283,9 +300,10 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                     d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
                     fill="none"
                     stroke="white"
-                    strokeWidth="2"
+                    strokeWidth="4"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
                 />
               </svg>
 
@@ -367,8 +385,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                           style={{ left: screenMid.x, top: screenMid.y }}
                           onPointerDown={handleSidePointerDown}
                       >
-                          {/* Visual: Thick White Pill */}
-                          <div className="w-6 h-1.5 bg-white rounded-full shadow-md" /> 
+                          {/* Visual: White Dot (Same as corners) */}
+                          <div className="w-4 h-4 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] border border-gray-100" /> 
                       </div>
                   )
               })}
@@ -468,7 +486,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                       className="absolute -ml-6 -mt-6 w-12 h-12 z-50 flex items-center justify-center cursor-move"
                     >
                       {/* Big touch target, visible dot */}
-                      <div className="w-5 h-5 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)]" />
+                      <div className="w-4 h-4 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] border border-gray-100" />
                     </div>
                   </React.Fragment>
                 )
