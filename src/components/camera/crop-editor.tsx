@@ -208,6 +208,34 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
          </div>
       )}
 
+      {/* Magnifier */}
+      {(() => {
+          if (activeHandleIndex === null || !image) return null
+          
+          let pt: Point = { x: 0, y: 0 }
+          
+          if (activeHandleIndex < 4) {
+              pt = corners[activeHandleIndex]
+          } else {
+              // Side Handle (4=Top, 5=Right, 6=Bottom, 7=Left)
+              const sideIdx = activeHandleIndex - 4
+              const p1 = corners[sideIdx]
+              const p2 = corners[(sideIdx + 1) % 4]
+              pt = { x: (p1.x + p2.x)/2, y: (p1.y + p2.y)/2 }
+          }
+          
+          const screenPt = toScreen(pt)
+          
+          return (
+             <Magnifier 
+                imageSrc={imageSrc}
+                x={pt.x} y={pt.y}
+                imgWidth={imageSize.width} imgHeight={imageSize.height}
+                screenX={screenPt.x} screenY={screenPt.y}
+             />
+          )
+      })()}
+
       {/* Debug Overlay */}
       {process.env.NODE_ENV === 'development' && (
           <div className="absolute top-20 left-4 z-[60] bg-black/50 text-white text-[10px] p-1 pointer-events-none font-mono">
@@ -218,7 +246,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       )}
 
       {/* Editor Area */}
-      <div className="flex-1 relative w-full h-full overflow-hidden bg-gray-900/50">
+      <div className="flex-1 relative w-full h-full overflow-hidden bg-black">
         <div ref={containerRef} className="absolute inset-0 w-full h-full touch-none">
           {/* Image */}
           {image && (
@@ -247,10 +275,10 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                    </mask>
                 </defs>
                 
-                {/* Darken outside area */}
+                {/* Darken outside area - Lens style: semi-transparent black */}
                 <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cropMask)" />
                 
-                {/* Border Line */}
+                {/* Border Line - Solid White */}
                 <path 
                     d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
                     fill="none"
@@ -258,11 +286,94 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
                 />
               </svg>
 
-              {/* Handles */}
+              {/* Side Handles (Midpoints) */}
+              {[0, 1, 2, 3].map(i => {
+                  const p1 = corners[i]
+                  const p2 = corners[(i + 1) % 4]
+                  const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+                  const screenMid = toScreen(mid)
+                  
+                  // Side Drag Handler
+                  const handleSidePointerDown = (e: React.PointerEvent) => {
+                      e.preventDefault(); e.stopPropagation()
+                      // We use a special index > 3 to indicate side? Or just a separate state.
+                      // Let's us separate state for clarity or just 0-3 for corners, 4-7 for sides.
+                      // 4=Top (0-1), 5=Right (1-2), 6=Bottom (2-3), 7=Left (3-0)
+                      setActiveHandleIndex(4 + i) 
+                      
+                      const startX = e.clientX
+                      const startY = e.clientY
+                      
+                      // Calculate scale
+                      const imgRatio = imageSize.width / imageSize.height
+                      const containerRatio = containerSize.width / containerSize.height
+                      let displayWidth
+                      if (containerRatio > imgRatio) {
+                           const displayHeight = containerSize.height
+                           displayWidth = displayHeight * imgRatio
+                      } else {
+                           displayWidth = containerSize.width
+                      }
+                      const scale = displayWidth / imageSize.width
+                      
+                      const startCorners = [...corners]
+
+                      const onPointerMove = (moveEvent: PointerEvent) => {
+                          const dx = (moveEvent.clientX - startX) / scale
+                          const dy = (moveEvent.clientY - startY) / scale
+                          
+                          setCorners(prev => {
+                              const next: [Point, Point, Point, Point] = [...prev]
+                              
+                              // Move P1 and P2
+                              const p1Old = startCorners[i]
+                              const p2Old = startCorners[(i + 1) % 4]
+                              
+                              let nx1 = p1Old.x + dx
+                              let ny1 = p1Old.y + dy
+                              let nx2 = p2Old.x + dx
+                              let ny2 = p2Old.y + dy
+                              
+                              // Clamp to bounds
+                              // Implementing full clamping for 2 points is tricky, 
+                              // simplified: clamp each checks min/max of both
+                              if (nx1 < 0 || nx2 < 0 || nx1 > imageSize.width || nx2 > imageSize.width) return prev // Rigid limit
+                              if (ny1 < 0 || ny2 < 0 || ny1 > imageSize.height || ny2 > imageSize.height) return prev
+
+                              next[i] = { x: nx1, y: ny1 }
+                              next[(i + 1) % 4] = { x: nx2, y: ny2 }
+                              
+                              return next
+                          })
+                      }
+                      
+                      const onPointerUp = () => {
+                          window.removeEventListener('pointermove', onPointerMove)
+                          window.removeEventListener('pointerup', onPointerUp)
+                          setActiveHandleIndex(null)
+                      }
+                      
+                      window.addEventListener('pointermove', onPointerMove)
+                      window.addEventListener('pointerup', onPointerUp)
+                  }
+
+                  return (
+                      <div
+                          key={`side-${i}`}
+                          className="absolute w-8 h-8 -ml-4 -mt-4 z-50 flex items-center justify-center cursor-move"
+                          style={{ left: screenMid.x, top: screenMid.y }}
+                          onPointerDown={handleSidePointerDown}
+                      >
+                          {/* Visual: Thick White Pill */}
+                          <div className="w-6 h-1.5 bg-white rounded-full shadow-md" /> 
+                      </div>
+                  )
+              })}
+
+              {/* Corner Handles */}
               {corners.map((pt, i) => {
                 const screenPt = toScreen(pt)
                 
@@ -350,28 +461,15 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                       onPointerDown={handlePointerDown}
                       style={{
                         position: 'absolute',
-                        left: 0, top: 0,
-                        transform: `translate(${screenPt.x - 24}px, ${screenPt.y - 24}px)`,
-                        width: '48px',
-                        height: '48px',
-                        zIndex: 50,
+                        left: screenPt.x, 
+                        top: screenPt.y,
                         touchAction: 'none'
                       }}
-                      className="cursor-none flex items-center justify-center outline-none"
+                      className="absolute -ml-6 -mt-6 w-12 h-12 z-50 flex items-center justify-center cursor-move"
                     >
                       {/* Big touch target, visible dot */}
-                      <div className="w-6 h-6 bg-white rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.3)] ring-4 ring-white/30 backdrop-blur-sm transition-transform active:scale-125 pointer-events-none" />
+                      <div className="w-5 h-5 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)]" />
                     </div>
-                    
-                     {/* Magnifier */}
-                    {activeHandleIndex === i && (
-                      <Magnifier 
-                          imageSrc={imageSrc} 
-                          x={pt.x} y={pt.y} 
-                          imgWidth={imageSize.width} imgHeight={imageSize.height}
-                          screenX={screenPt.x} screenY={screenPt.y}
-                      />
-                    )}
                   </React.Fragment>
                 )
               })}
