@@ -104,6 +104,11 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
               cv.Canny(dst, dst, 75, 200, 3, false)
               
+              // Dilate to verify edges (connects text lines into blocks)
+              let M = cv.Mat.ones(3, 3, cv.CV_8U)
+              cv.dilate(dst, dst, M, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
+              M.delete()
+              
               // Find Contours
               let contours = new cv.MatVector()
               let hierarchy = new cv.Mat()

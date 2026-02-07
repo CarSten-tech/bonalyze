@@ -280,204 +280,130 @@ export async function applyFilter(
 
 }
 
-/**
- * Detects document edges using a simple brightness threshold.
- * best suited for: Light document on Dark background.
- */
-/**
- * Detects document edges using a Connected Component Analysis + Convex Hull approach.
- * 1. Downscale
- * 2. Threshold (Adaptive-ish)
- * 3. Find Largest Connected Component
- * 4. Convex Hull
- * 5. Fit Quad
- */
-export async function detectDocumentEdges(
-  imageSource: string | HTMLImageElement
-): Promise<[Point, Point, Point, Point]> {
-  return new Promise((resolve, reject) => {
+
+export async function detectDocumentEdges(imageSource: string | HTMLImageElement): Promise<[Point, Point, Point, Point] | undefined> {
+  return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     
     img.onload = () => {
-      try {
-        // 1. Downscale for performance (max 512px)
-        const maxDim = 512
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-        const w = Math.floor(img.width * scale)
-        const h = Math.floor(img.height * scale)
+      // 1. Check for OpenCV
+      if (window.cv) {
+          try {
+              const cv = window.cv
+              const maxDim = 800
+              const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+              const w = Math.floor(img.width * scale)
+              const h = Math.floor(img.height * scale)
 
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('No ctx')
-        
-        ctx.drawImage(img, 0, 0, w, h)
-        const imgData = ctx.getImageData(0, 0, w, h)
-        const data = imgData.data
+              const canvas = document.createElement('canvas')
+              canvas.width = w
+              canvas.height = h
+              const ctx = canvas.getContext('2d')
+              if (!ctx) throw new Error('No ctx')
+              ctx.drawImage(img, 0, 0, w, h)
 
-// 2. Binarization (Otsu's Method)
-        const gray = new Uint8Array(w * h)
-        const histogram = new Int32Array(256).fill(0)
-        
-        for (let i = 0; i < w * h; i++) {
-            const r = data[i*4]
-            const g = data[i*4+1]
-            const b = data[i*4+2]
-            // Standard Luminance
-            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
-            gray[i] = lum
-            histogram[lum]++
-        }
+              let src = cv.imread(canvas)
+              let dst = new cv.Mat()
+              
+              // Preprocess
+              cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0)
+              cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
+              
+              // Use Canny + Dilate OR Threshold? 
+              // For high contrast (receipt on table), Threshold (Otsu) is often better to find the "blob".
+              // Let's try Canny with Dilate first as it handles gradients well.
+              cv.Canny(dst, dst, 75, 200)
+              
+              // Dilate to close gaps (text lines etc)
+              let M = cv.Mat.ones(3, 3, cv.CV_8U)
+              cv.dilate(dst, dst, M, new cv.Point(-1, -1), 2, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
+              
+              // Find Contours
+              let contours = new cv.MatVector()
+              let hierarchy = new cv.Mat()
+              cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-        // Otsu's Algorithm
-        let total = w * h
-        let sum = 0
-        for (let i = 0; i < 256; i++) sum += i * histogram[i]
-        
-        let sumB = 0
-        let wB = 0
-        let wF = 0
-        let varMax = 0
-        let threshold = 0
-        
-        for (let t = 0; t < 256; t++) {
-            wB += histogram[t]
-            if (wB === 0) continue
-            wF = total - wB
-            if (wF === 0) break
-            
-            sumB += t * histogram[t]
-            
-            const mB = sumB / wB
-            const mF = (sum - sumB) / wF
-            
-            const varBetween = wB * wF * (mB - mF) * (mB - mF)
-            
-            if (varBetween > varMax) {
-                varMax = varBetween
-                threshold = t
-            }
-        }
+              let maxArea = 0
+              let bestBlock = null
 
-        // Apply Threshold
-        const binary = new Uint8Array(w * h)
-        for (let i = 0; i < w * h; i++) {
-           binary[i] = gray[i] > threshold ? 1 : 0
-        }
+              for (let i = 0; i < contours.size(); ++i) {
+                  let cnt = contours.get(i)
+                  let area = cv.contourArea(cnt)
+                  
+                  if (area < (w * h * 0.05)) { // Min 5% area
+                      cnt.delete()
+                      continue
+                  }
 
-        // 3. Find Largest Connected Component (CCL)
-        // Simple Union-Find or Two-Pass algorithm?
-        // A simple flood fill from every non-visited pixel is easiest to write.
-        const visited = new Uint8Array(w * h)
-        let maxComponent: number[] = [] 
-        
-        // Optimization: Checking center first usually finds the receipt
-        const checkPoints = [
-            (h/2 * w) + w/2, // Center
-            (h/3 * w) + w/3,
-            (h/2 * w) + w/4
-        ]
+                  let peri = cv.arcLength(cnt, true)
+                  let approx = new cv.Mat()
+                  cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
 
-        // Flood fill helper (iterative using stack to avoid recursion limit)
-        const getComponent = (startIndex: number) => {
-            if (binary[startIndex] === 0 || visited[startIndex]) return []
-            
-            const component = []
-            const stack = [startIndex]
-            visited[startIndex] = 1
-            
-            while(stack.length > 0) {
-               const idx = stack.pop()!
-               component.push(idx)
-               
-               const cx = idx % w
-               const cy = Math.floor(idx / w)
-               
-               // 4-connectivity
-               const neighbors = []
-               if (cx > 0) neighbors.push(idx - 1)
-               if (cx < w - 1) neighbors.push(idx + 1)
-               if (cy > 0) neighbors.push(idx - w)
-               if (cy < h - 1) neighbors.push(idx + w) // Bottom
-               
-               for(const n of neighbors) {
-                   if (binary[n] === 1 && !visited[n]) {
-                       visited[n] = 1
-                       stack.push(n)
-                   }
-               }
-            }
-            return component
-        }
-        
-        // Scan for components
-        for (let i = 0; i < w * h; i+= 4) { // Skip-scan for speed
-            if (binary[i] === 1 && !visited[i]) {
-                const comp = getComponent(i)
-                if (comp.length > maxComponent.length) {
-                    maxComponent = comp
-                }
-            }
-        }
-        
-        // If max component is too small (< 5% of screen), return default
-        if (maxComponent.length < (w * h * 0.05)) {
-             // Fallback
-             const padX = img.width * 0.15
-             const padY = img.height * 0.15
-             resolve([
-               { x: padX, y: padY },
-               { x: img.width - padX, y: padY },
-               { x: img.width - padX, y: img.height - padY },
-               { x: padX, y: img.height - padY },
-             ])
-             return
-        }
+                  if (approx.rows === 4 && area > maxArea) {
+                      maxArea = area
+                      if (bestBlock) bestBlock.delete()
+                      bestBlock = approx
+                  } else {
+                      approx.delete()
+                  }
+                  cnt.delete()
+              }
 
-        // 4. Compute Convex Hull (Monotone Chain algorithm)
-        // First convert indices to Points
-        const points: Point[] = []
-        // taking a subset to reduce hull time?
-        const step = Math.ceil(maxComponent.length / 1000) 
-        for(let i=0; i<maxComponent.length; i+=step) {
-             const idx = maxComponent[i]
-             points.push({ x: idx % w, y: Math.floor(idx / w) })
-        }
-        
-        const hull = convexHull(points)
+              if (bestBlock) {
+                  const invScale = 1 / scale
+                  // Extract and Sort Corners (TL, TR, BR, BL)
+                  const ptr = bestBlock.data32S
+                  let pts: Point[] = [
+                      { x: ptr[0], y: ptr[1] },
+                      { x: ptr[2], y: ptr[3] },
+                      { x: ptr[4], y: ptr[5] },
+                      { x: ptr[6], y: ptr[7] }
+                  ]
+                  
+                  // Sort Logic
+                  // 1. Sort by Y (top 2 vs bottom 2)
+                  pts.sort((a,b) => a.y - b.y)
+                  const top = pts.slice(0, 2).sort((a,b) => a.x - b.x) // TL, TR
+                  const bottom = pts.slice(2, 4).sort((a,b) => a.x - b.x) // BL, BR (Wait, BL should be smaller X)
+                  // BL is bottom[0], BR is bottom[1]
+                  
+                  const sorted = [top[0], top[1], bottom[1], bottom[0]] // TL, TR, BR, BL
+                  
+                  const finalCorners: [Point, Point, Point, Point] = [
+                      { x: sorted[0].x * invScale, y: sorted[0].y * invScale },
+                      { x: sorted[1].x * invScale, y: sorted[1].y * invScale },
+                      { x: sorted[2].x * invScale, y: sorted[2].y * invScale },
+                      { x: sorted[3].x * invScale, y: sorted[3].y * invScale }
+                  ]
 
-        // 5. Simplify Hull to Quad (4 corners)
-        // Find the 4 points that approximate the hull best (largest area quad)
-        const corners = findQuadFromHull(hull, w, h)
-        
-        // Scale back up
-        const invScale = 1 / scale
-        const finalCorners: [Point, Point, Point, Point] = [
-            { x: corners[0].x * invScale, y: corners[0].y * invScale },
-            { x: corners[1].x * invScale, y: corners[1].y * invScale },
-            { x: corners[2].x * invScale, y: corners[2].y * invScale },
-            { x: corners[3].x * invScale, y: corners[3].y * invScale },
-        ]
-        
-        resolve(finalCorners)
+                  src.delete(); dst.delete(); M.delete(); contours.delete(); hierarchy.delete(); bestBlock.delete()
+                  resolve(finalCorners)
+                  return
+              }
+              
+              // Cleanup if no detection
+              src.delete(); dst.delete(); M.delete(); contours.delete(); hierarchy.delete()
 
-      } catch (err) {
-        console.error("Detection error:", err)
-        // Safe fallback
-        const padX = img.width * 0.2
-        const padY = img.height * 0.2
-        resolve([
-           { x: padX, y: padY },
-           { x: img.width - padX, y: padY },
-           { x: img.width - padX, y: img.height - padY },
-           { x: padX, y: img.height - padY },
-        ])
+          } catch (e) {
+              console.error("OpenCV Detect Error", e)
+          }
       }
+
+      // --- Fallback (Simple Padding) ---
+      // If OpenCV is missing or fails, return undefined (let caller handle or use default)
+      console.warn("Falling back to default crop")
+      const padX = img.width * 0.15
+      const padY = img.height * 0.15
+      resolve([
+         { x: padX, y: padY },
+         { x: img.width - padX, y: padY },
+         { x: img.width - padX, y: img.height - padY },
+         { x: padX, y: img.height - padY },
+      ])
     }
     
-    img.onerror = () => reject(new Error('Image failed to load'))
+    img.onerror = () => resolve(undefined)
     
     if (typeof imageSource === 'string') {
       img.src = imageSource
