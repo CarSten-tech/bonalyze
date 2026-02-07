@@ -320,10 +320,10 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                     d={`M ${toScreen(corners[0]).x} ${toScreen(corners[0]).y} L ${toScreen(corners[1]).x} ${toScreen(corners[1]).y} L ${toScreen(corners[2]).x} ${toScreen(corners[2]).y} L ${toScreen(corners[3]).x} ${toScreen(corners[3]).y} Z`}
                     fill="none"
                     stroke="white"
-                    strokeWidth="4"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
+                    style={{ filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.5))' }}
                 />
               </svg>
 
@@ -401,12 +401,12 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                   return (
                       <div
                           key={`side-${i}`}
-                          className="absolute w-8 h-8 -ml-4 -mt-4 z-50 flex items-center justify-center cursor-move"
+                          className="absolute w-10 h-10 -ml-5 -mt-5 z-50 flex items-center justify-center cursor-move"
                           style={{ left: screenMid.x, top: screenMid.y }}
                           onPointerDown={handleSidePointerDown}
                       >
-                          {/* Visual: White Dot (Same as corners) */}
-                          <div className="w-4 h-4 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] border border-gray-100" /> 
+                          {/* Visual: White Pill/Dash (Thick) */}
+                          <div className="w-5 h-1.5 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)]" /> 
                       </div>
                   )
               })}
@@ -447,7 +447,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         let ty = Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
 
                         // --- Magnetic Snap ---
-                        const SNAP_DIST = 20 / scale // 20 screen pixels
+                        // Reduced strength (10px -> 5px) to fix "jumping"
+                        const SNAP_DIST = 5 / scale
                         
                         // Snap X (Vertical lines)
                         let bestX = tx
@@ -503,10 +504,10 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         top: screenPt.y,
                         touchAction: 'none'
                       }}
-                      className="absolute -ml-6 -mt-6 w-12 h-12 z-50 flex items-center justify-center cursor-move"
+                      className="absolute -ml-5 -mt-5 w-10 h-10 z-50 flex items-center justify-center cursor-move"
                     >
-                      {/* Big touch target, visible dot */}
-                      <div className="w-4 h-4 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] border border-gray-100" />
+                      {/* Visual: Small White Dot */}
+                      <div className="w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)] border border-transparent" />
                     </div>
                   </React.Fragment>
                 )
@@ -577,8 +578,8 @@ interface MagnifierProps {
 }
 
 function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: MagnifierProps) {
-    // Zoom level matching "Microsoft Lens" feels (approx 3x)
-    const ZOOM = 3.0
+    // Zoom level reduced (3.0 -> 2.0)
+    const ZOOM = 2.0
     const SIZE = 120 // Larger view area
     
     const bgAbsWidth = imgWidth * ZOOM
@@ -598,7 +599,7 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
     
     return (
         <div 
-            className="pointer-events-none fixed z-50 rounded-full border-[4px] border-white shadow-2xl overflow-hidden bg-black"
+            className="pointer-events-none fixed z-50 rounded-full border-[3px] border-white shadow-2xl overflow-hidden bg-black"
             style={{
                 width: SIZE,
                 height: SIZE,
@@ -618,11 +619,7 @@ function Magnifier({ imageSrc, x, y, imgWidth, imgHeight, screenX, screenY }: Ma
                     backgroundRepeat: 'no-repeat'
                 }}
             />
-            {/* Fine Crosshair */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-80">
-                <div className="w-full h-[1px] bg-red-400/80 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                <div className="h-full w-[1px] absolute bg-red-400/80 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-            </div>
+            {/* No Crosshair requested */}
         </div>
     )
 }
