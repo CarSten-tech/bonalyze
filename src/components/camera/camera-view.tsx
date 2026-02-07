@@ -78,6 +78,16 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                }
           }
 
+          let src: any = null
+          let dst: any = null
+          let contours: any = null
+          let hierarchy: any = null
+          let M: any = null
+          let bestContour: any = null
+          // approx/cnt are used inside loop, can be let there or here. 
+          // to be safe with cleanup, let's decl here if needed, but loop vars are usually safe if not leaked.
+          // actually cnt is from contours.get(i), need to delete it.
+
           try {
               // 1. Draw video to hidden canvas
               const ctx = canvasRef.current?.getContext('2d')
@@ -85,12 +95,12 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               ctx.drawImage(video, 0, 0, width, height)
 
               // 2. OpenCV Processing
-              let src = cv.imread(canvasRef.current)
-              let dst = new cv.Mat()
+              src = cv.imread(canvasRef.current)
+              dst = new cv.Mat()
               
               // Downscale for speed (keep aspect ratio)
               let dsize = new cv.Size(0,0)
-              const scale = 500 / Math.max(width, height)
+              const scale = 350 / Math.max(width, height)
               if (scale < 1) {
                   const w = Math.round(width * scale)
                   const h = Math.round(height * scale)
@@ -103,24 +113,22 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
               cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY, 0)
               cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
               
-              // Use Otsu Thresholding (More robust than Canny for receipts)
+              // Use Otsu Thresholding
               cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
               
-              // Morphological Close (Dilate -> Erode) or just Dilate to fill gaps
-              // Connecting text blocks is key.
-              let M = cv.Mat.ones(5, 5, cv.CV_8U)
+              // Dilate
+              M = cv.Mat.ones(5, 5, cv.CV_8U)
               cv.dilate(dst, dst, M, new cv.Point(-1, -1), 2, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
-              M.delete()
+              M.delete() 
               
               // Find Contours
-              let contours = new cv.MatVector()
-              let hierarchy = new cv.Mat()
-              cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) // EXTERNAL only
+              contours = new cv.MatVector()
+              hierarchy = new cv.Mat()
+              cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
               let maxArea = 0
-              let bestContour = null
+              // bestContour already declared up top defaults to null
 
-              // Find largest quad
               for (let i = 0; i < contours.size(); ++i) {
                   let cnt = contours.get(i)
                   let area = cv.contourArea(cnt)
@@ -176,7 +184,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
                       // --- Temporal Smoothing ---
                       cornersHistory.current.push(pts)
-                      if (cornersHistory.current.length > 5) {
+                      // Reduce buffer size for faster reactivity (was 5)
+                      if (cornersHistory.current.length > 3) {
                           cornersHistory.current.shift()
                       }
                       noDetectionCount.current = 0
@@ -232,10 +241,10 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                   // --- Lens Style Drawing ---
                   if (displayCorners) {
                       // 1. Darken background
-                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)' // Slightly darker for contrast
+                      overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)'
                       overlayCtx.fillRect(0, 0, width, height)
 
-                      // 2. Cut out the hole
+                      // 2. Cut out the hole (Keep full quad hole for focus)
                       overlayCtx.globalCompositeOperation = 'destination-out'
                       overlayCtx.beginPath()
                       overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
@@ -247,26 +256,48 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                       
                       overlayCtx.globalCompositeOperation = 'source-over'
 
-                      // 3. Draw Stroke and Handles
+                      // 3. Draw CORNERS ONLY (L-Shapes)
                       overlayCtx.strokeStyle = 'white'
-                      overlayCtx.lineWidth = 6 // Thicker frame
+                      overlayCtx.lineWidth = 8 // Much thicker
                       overlayCtx.lineCap = 'round'
                       overlayCtx.lineJoin = 'round'
-                      overlayCtx.beginPath()
-                      overlayCtx.moveTo(displayCorners[0].x, displayCorners[0].y)
-                      overlayCtx.lineTo(displayCorners[1].x, displayCorners[1].y)
-                      overlayCtx.lineTo(displayCorners[2].x, displayCorners[2].y)
-                      overlayCtx.lineTo(displayCorners[3].x, displayCorners[3].y)
-                      overlayCtx.closePath()
-                      overlayCtx.stroke()
 
-                      // Corners (Larger circles)
-                      for(const p of displayCorners) {
+                      const cornLen = 40 // Length of L-arms
+                      
+                      // Helper to draw L at corner
+                      const drawCorner = (idx: number, p1: {x:number, y:number}, pPrev: {x:number, y:number}, pNext: {x:number, y:number}) => {
+                          // Vector to prev
+                          const dx1 = pPrev.x - p1.x
+                          const dy1 = pPrev.y - p1.y
+                          const len1 = Math.sqrt(dx1*dx1 + dy1*dy1)
+                          
+                          // Vector to next
+                          const dx2 = pNext.x - p1.x
+                          const dy2 = pNext.y - p1.y
+                          const len2 = Math.sqrt(dx2*dx2 + dy2*dy2)
+
+                          // Avoid div by zero
+                          if (len1 < 1 || len2 < 1) return
+
                           overlayCtx.beginPath()
-                          overlayCtx.arc(p.x, p.y, 8, 0, 2 * Math.PI)
-                          overlayCtx.fillStyle = 'white'
-                          overlayCtx.fill()
+                          // Draw arm to prev
+                          overlayCtx.moveTo(p1.x + (dx1/len1)*Math.min(cornLen, len1), p1.y + (dy1/len1)*Math.min(cornLen, len1))
+                          overlayCtx.lineTo(p1.x, p1.y)
+                          // Draw arm to next
+                          overlayCtx.lineTo(p1.x + (dx2/len2)*Math.min(cornLen, len2), p1.y + (dy2/len2)*Math.min(cornLen, len2))
+                          overlayCtx.stroke()
                       }
+                      
+                      // TL (0) -> Prev is BL (3), Next is TR (1)
+                      drawCorner(0, displayCorners[0], displayCorners[3], displayCorners[1])
+                      // TR (1) -> Prev is TL (0), Next is BR (2)
+                      drawCorner(1, displayCorners[1], displayCorners[0], displayCorners[2])
+                      // BR (2) -> Prev is TR (1), Next is BL (3)
+                      drawCorner(2, displayCorners[2], displayCorners[1], displayCorners[3])
+                      // BL (3) -> Prev is BR (2), Next is TL (0)
+                      drawCorner(3, displayCorners[3], displayCorners[2], displayCorners[0])
+
+                      // No circles, just the thick L-corners as requested
                   } else {
                       // No detection: Clear/Transparent
                       setDetectedCorners(undefined)
@@ -281,6 +312,13 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
           } catch (err) {
               console.warn("CV Error", err)
+              // Ensure cleanup if validation fails mid-way
+              try {
+                  if (src && !src.isDeleted()) src.delete()
+                  if (dst && !dst.isDeleted()) dst.delete()
+                  if (contours && !contours.isDeleted()) contours.delete()
+                  if (hierarchy && !hierarchy.isDeleted()) hierarchy.delete()
+              } catch (e) {}
           }
 
           animationFrameId = requestAnimationFrame(processFrame)
@@ -293,7 +331,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
   const capture = React.useCallback(() => {
     try {
-      const video = webcamRef.current?.video
+      if (!webcamRef.current) return
+      const video = webcamRef.current.video
       if (!video) return
 
       // Manual Capture for Max Resolution
@@ -312,7 +351,10 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
           if (imageSrc && imageSrc !== 'data:,') {
              // For debugging height
              console.log(`Captured resolution: ${canvas.width}x${canvas.height}`)
-             onCapture(imageSrc, detectedCorners)
+             // Use current detected corners if available
+             const currentCorners = detectedCorners // Closure capture or ref?
+             // Since this is a useCallback with [detectedCorners], it will always have the latest value.
+             onCapture(imageSrc, currentCorners)
           } else {
              console.error("Capture failed: empty image")
           }
