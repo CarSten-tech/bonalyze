@@ -291,7 +291,7 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
       if (window.cv) {
           try {
               const cv = window.cv
-              const maxDim = 800
+              const maxDim = 500
               const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
               const w = Math.floor(img.width * scale)
               const h = Math.floor(img.height * scale)
@@ -427,7 +427,7 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
                  const cv = window.cv
                  const canvas = document.createElement('canvas')
                  // Downscale for performance
-                 const scale = 800 / Math.max(img.width, img.height)
+                 const scale = 500 / Math.max(img.width, img.height)
                  const w = Math.round(img.width * scale)
                  const h = Math.round(img.height * scale)
                  canvas.width = w
