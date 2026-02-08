@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/contexts/household-context'
 import { createClient } from '@/lib/supabase'
 import { getDailyNutritionSummary, addNutritionLog, deleteNutritionLog } from '@/app/actions/nutrition'
@@ -50,35 +51,58 @@ export interface DailyNutritionData {
   allLogs: NutritionLogEntry[]
 }
 
+type AddLogInput = {
+  meal_type: string
+  item_name?: string
+  calories_kcal?: number
+  protein_g?: number
+  carbs_g?: number
+  fat_g?: number
+  activity_name?: string
+  burned_calories_kcal?: number
+  duration_minutes?: number
+  fluid_ml?: number
+}
+
 interface UseNutritionDataReturn {
   data: DailyNutritionData | null
   isLoading: boolean
   error: string | null
   refresh: () => Promise<void>
-  addLog: (logData: {
-    meal_type: string
-    item_name?: string
-    calories_kcal?: number
-    protein_g?: number
-    carbs_g?: number
-    fat_g?: number
-    activity_name?: string
-    burned_calories_kcal?: number
-    duration_minutes?: number
-    fluid_ml?: number
-  }) => Promise<void>
+  addLog: (logData: AddLogInput) => Promise<void>
   removeLog: (logId: string) => Promise<void>
+}
+
+const FOOD_MEAL_TYPES = ['fruehstueck', 'mittagessen', 'abendessen', 'snacks']
+
+function recalculateTotals(data: DailyNutritionData): DailyNutritionData {
+  const foodLogs = FOOD_MEAL_TYPES.flatMap(type => data.meals[type] || [])
+  return {
+    ...data,
+    consumption: {
+      calories: foodLogs.reduce((sum, l) => sum + (l.calories_kcal || 0), 0),
+      protein: Math.round(foodLogs.reduce((sum, l) => sum + Number(l.protein_g || 0), 0)),
+      carbs: Math.round(foodLogs.reduce((sum, l) => sum + Number(l.carbs_g || 0), 0)),
+      fat: Math.round(foodLogs.reduce((sum, l) => sum + Number(l.fat_g || 0), 0)),
+    },
+    activity: {
+      ...data.activity,
+      totalBurned: data.activity.logs.reduce((sum, l) => sum + (l.burned_calories_kcal || 0), 0),
+      count: data.activity.logs.length,
+    },
+    fluid: {
+      ...data.fluid,
+      totalMl: data.fluid.logs.reduce((sum, l) => sum + (l.fluid_ml || 0), 0),
+    },
+  }
 }
 
 export function useNutritionData(date: Date): UseNutritionDataReturn {
   const { currentHousehold } = useHousehold()
   const supabase = createClient()
-  const [data, setData] = useState<DailyNutritionData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Get current user
   useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -88,59 +112,146 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
   }, [supabase])
 
   const dateStr = format(date, 'yyyy-MM-dd')
+  const queryKey = ['nutrition_data', currentHousehold?.id, userId, dateStr]
 
-  const fetchData = useCallback(async () => {
-    if (!currentHousehold || !userId) {
-      setData(null)
-      setIsLoading(false)
-      return
-    }
+  const query = useQuery({
+    queryKey,
+    queryFn: () => getDailyNutritionSummary(currentHousehold!.id, userId!, dateStr),
+    enabled: !!currentHousehold && !!userId,
+  })
 
-    setIsLoading(true)
-    setError(null)
+  const addLogMutation = useMutation({
+    mutationFn: (logData: AddLogInput) =>
+      addNutritionLog({
+        household_id: currentHousehold!.id,
+        log_date: dateStr,
+        ...logData,
+      }),
+    onMutate: async (logData) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<DailyNutritionData>(queryKey)
 
-    try {
-      const result = await getDailyNutritionSummary(currentHousehold.id, userId, dateStr)
-      setData(result as DailyNutritionData)
-    } catch (err) {
-      console.error('Error fetching nutrition data:', err)
-      setError(err instanceof Error ? err.message : 'Fehler beim Laden')
-      setData(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [currentHousehold, userId, dateStr])
+      const tempId = crypto.randomUUID()
+      const tempEntry: NutritionLogEntry = {
+        id: tempId,
+        meal_type: logData.meal_type,
+        item_name: logData.item_name || null,
+        calories_kcal: logData.calories_kcal || 0,
+        protein_g: logData.protein_g || 0,
+        carbs_g: logData.carbs_g || 0,
+        fat_g: logData.fat_g || 0,
+        activity_name: logData.activity_name || null,
+        burned_calories_kcal: logData.burned_calories_kcal || 0,
+        duration_minutes: logData.duration_minutes || null,
+        fluid_ml: logData.fluid_ml || 0,
+        receipt_item_id: null,
+        created_at: new Date().toISOString(),
+      }
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+      queryClient.setQueryData<DailyNutritionData>(queryKey, (old) => {
+        if (!old) return old
+        const updated = { ...old, allLogs: [...old.allLogs, tempEntry] }
 
-  const addLog = useCallback(async (logData: {
-    meal_type: string
-    item_name?: string
-    calories_kcal?: number
-    protein_g?: number
-    carbs_g?: number
-    fat_g?: number
-    activity_name?: string
-    burned_calories_kcal?: number
-    duration_minutes?: number
-    fluid_ml?: number
-  }) => {
-    if (!currentHousehold) return
+        if (logData.meal_type === 'fluid') {
+          updated.fluid = {
+            ...old.fluid,
+            logs: [...old.fluid.logs, tempEntry],
+            totalMl: old.fluid.totalMl + (logData.fluid_ml || 0),
+          }
+        } else if (logData.meal_type === 'activity') {
+          updated.activity = {
+            ...old.activity,
+            logs: [...old.activity.logs, tempEntry],
+            totalBurned: old.activity.totalBurned + (logData.burned_calories_kcal || 0),
+            count: old.activity.count + 1,
+          }
+        } else if (FOOD_MEAL_TYPES.includes(logData.meal_type)) {
+          updated.meals = {
+            ...old.meals,
+            [logData.meal_type]: [...(old.meals[logData.meal_type] || []), tempEntry],
+          }
+          return recalculateTotals(updated)
+        }
+        return updated
+      })
 
-    await addNutritionLog({
-      household_id: currentHousehold.id,
-      log_date: dateStr,
-      ...logData,
-    })
-    await fetchData()
-  }, [currentHousehold, dateStr, fetchData])
+      return { previous, optimisticId: tempId }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
 
-  const removeLog = useCallback(async (logId: string) => {
-    await deleteNutritionLog(logId)
-    await fetchData()
-  }, [fetchData])
+  const removeLogMutation = useMutation({
+    mutationFn: (logId: string) => deleteNutritionLog(logId),
+    onMutate: async (logId) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<DailyNutritionData>(queryKey)
 
-  return { data, isLoading, error, refresh: fetchData, addLog, removeLog }
+      queryClient.setQueryData<DailyNutritionData>(queryKey, (old) => {
+        if (!old) return old
+        const updated = {
+          ...old,
+          allLogs: old.allLogs.filter(l => l.id !== logId),
+          fluid: {
+            ...old.fluid,
+            logs: old.fluid.logs.filter(l => l.id !== logId),
+          },
+          activity: {
+            ...old.activity,
+            logs: old.activity.logs.filter(l => l.id !== logId),
+          },
+          meals: Object.fromEntries(
+            Object.entries(old.meals).map(([key, entries]) => [
+              key,
+              entries.filter(l => l.id !== logId),
+            ])
+          ),
+        }
+        return recalculateTotals(updated)
+      })
+
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey })
+  }, [queryClient, queryKey])
+
+  const addLog = useCallback(
+    async (logData: AddLogInput) => {
+      await addLogMutation.mutateAsync(logData)
+    },
+    [addLogMutation]
+  )
+
+  const removeLog = useCallback(
+    async (logId: string) => {
+      await removeLogMutation.mutateAsync(logId)
+    },
+    [removeLogMutation]
+  )
+
+  return {
+    data: (query.data as DailyNutritionData) ?? null,
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+    refresh,
+    addLog,
+    removeLog,
+  }
 }

@@ -69,19 +69,19 @@ export function ActivityCard({
   }
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
+    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white to-orange-50 h-full">
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-orange-50">
-                <Flame className="h-4 w-4 text-orange-500" />
+              <div className="p-1.5 rounded-lg bg-orange-100">
+                <Flame className="h-4 w-4 text-orange-600" />
               </div>
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">
                 Aktivitaet
               </span>
             </div>
-            <span className="text-xs font-medium text-gray-400 tabular-nums">
+            <span className="text-xs font-medium text-orange-500 tabular-nums">
               {percentage}%
             </span>
           </div>
@@ -95,7 +95,7 @@ export function ActivityCard({
         </div>
 
         <div className="pt-3 space-y-2">
-          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 w-full bg-orange-100/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-orange-500 rounded-full transition-all duration-500"
               style={{ width: `${percentage}%` }}
@@ -104,7 +104,7 @@ export function ActivityCard({
 
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 text-xs w-full text-muted-foreground">
+              <Button variant="ghost" size="sm" className="h-7 text-xs w-full text-orange-600 hover:text-orange-700 hover:bg-orange-50">
                 <Plus className="h-3 w-3 mr-1" /> Aktivitaet
               </Button>
             </SheetTrigger>

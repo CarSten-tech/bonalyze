@@ -121,8 +121,6 @@ export async function addNutritionLog(logData: {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/ernaehrung")
   return data
 }
 
@@ -135,9 +133,6 @@ export async function deleteNutritionLog(logId: string) {
     .eq("id", logId)
 
   if (error) throw new Error(error.message)
-
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/ernaehrung")
 }
 
 export async function getDailyNutritionSummary(
@@ -237,6 +232,37 @@ export async function getDailyNutritionSummary(
     meals,
     allLogs: logs || [],
   }
+}
+
+// --- Recent Food Items (for meal entry page) ---
+
+export async function getRecentFoodItems(
+  householdId: string,
+  userId: string,
+  mealType: string,
+  limit = 20
+) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("nutrition_logs")
+    .select("item_name, calories_kcal, protein_g, carbs_g, fat_g")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .eq("meal_type", mealType)
+    .not("item_name", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message)
+
+  // Deduplicate by item_name
+  const seen = new Set<string>()
+  return (data || []).filter((item) => {
+    if (!item.item_name || seen.has(item.item_name)) return false
+    seen.add(item.item_name)
+    return true
+  })
 }
 
 // --- Supply Range ---

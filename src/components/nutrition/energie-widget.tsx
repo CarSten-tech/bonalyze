@@ -1,5 +1,7 @@
 'use client'
 
+import { Zap } from 'lucide-react'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -98,10 +100,10 @@ function MacroBar({
           {label}
         </span>
         <span className="text-xs font-medium text-gray-600 tabular-nums">
-          {current}g
+          {current}g / {target}g
         </span>
       </div>
-      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-500', color)}
           style={{ width: `${percentage}%` }}
@@ -141,12 +143,17 @@ export function EnergieWidget({
   const percentage = target > 0 ? Math.round((consumed / target) * 100) : 0
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-white">
+    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white to-primary/5">
       <CardContent className="p-5 space-y-5">
         {/* Header */}
-        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
-          Energie
-        </p>
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-amber-100">
+            <Zap className="h-3.5 w-3.5 text-amber-600" />
+          </div>
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+            Energie
+          </p>
+        </div>
 
         {/* Circular Progress */}
         <div className="flex justify-center">

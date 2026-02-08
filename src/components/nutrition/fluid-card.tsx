@@ -41,13 +41,13 @@ export function FluidCard({
   }
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
+    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white to-blue-50 h-full">
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-blue-50">
-                <Droplets className="h-4 w-4 text-blue-500" />
+              <div className="p-1.5 rounded-lg bg-blue-100">
+                <Droplets className="h-4 w-4 text-blue-600" />
               </div>
               <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">
                 Fluessigkeit
@@ -57,7 +57,7 @@ export function FluidCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 text-blue-600"
                 onClick={() => handleAdd(250)}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -76,7 +76,7 @@ export function FluidCard({
         </div>
 
         <div className="pt-3 space-y-2">
-          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 w-full bg-blue-100/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 rounded-full transition-all duration-500"
               style={{ width: `${percentage}%` }}
@@ -88,7 +88,7 @@ export function FluidCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs flex-1"
+                className="h-7 text-xs flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
                 onClick={() => handleAdd(250)}
               >
                 +250ml
@@ -96,7 +96,7 @@ export function FluidCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs flex-1"
+                className="h-7 text-xs flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
                 onClick={() => handleAdd(500)}
               >
                 +500ml

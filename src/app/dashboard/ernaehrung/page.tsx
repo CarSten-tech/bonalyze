@@ -29,9 +29,10 @@ function DayNavigation({
   onDateChange: (date: Date) => void
 }) {
   const isCurrentDay = isToday(currentDate)
-  const label = isCurrentDay
+  const dayLabel = isCurrentDay
     ? 'Heute'
-    : format(currentDate, 'EEEE, d. MMMM', { locale: de })
+    : format(currentDate, 'EEEE', { locale: de })
+  const dateLabel = format(currentDate, 'd. MMMM', { locale: de })
 
   return (
     <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
@@ -43,7 +44,10 @@ function DayNavigation({
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <div className="flex flex-col items-center">
+        <span className="text-sm font-semibold text-foreground">{dayLabel}</span>
+        <span className="text-xs text-muted-foreground">{dateLabel}</span>
+      </div>
       <Button
         variant="ghost"
         size="icon"
@@ -185,7 +189,6 @@ export default function ErnaehrungPage() {
         <DailyMeals
           meals={data?.meals || { fruehstueck: [], mittagessen: [], abendessen: [], snacks: [] }}
           isLoading={isLoading}
-          onAddLog={addLog}
           onDeleteLog={removeLog}
         />
       </section>
