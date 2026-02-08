@@ -18,6 +18,7 @@ interface DashboardLayoutProps {
 
 function DashboardContent({ children }: DashboardLayoutProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
   const { currentHousehold, isLoading: isHouseholdLoading, households } = useHousehold()
 
@@ -82,7 +83,6 @@ function DashboardContent({ children }: DashboardLayoutProps) {
 
   // Determine if we should show the global header
   // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
-  const pathname = usePathname() // Need to import this
   const isDetailPage = pathname.includes('/ausgaben/kategorie/') || pathname.includes('/ausgaben/produkt/') || pathname.includes('/ernaehrung/mahlzeit/')
   const isCameraPage = pathname.includes('/dashboard/receipts/new')
 
