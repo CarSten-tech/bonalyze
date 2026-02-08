@@ -38,7 +38,8 @@ export function useFoodSearch() {
         cacheRef.current.set(term.toLowerCase(), data)
         setResults(data)
         setError(null)
-      } catch {
+      } catch (err) {
+        console.error('Food search error:', err)
         setError('Suche fehlgeschlagen')
         setResults([])
       } finally {

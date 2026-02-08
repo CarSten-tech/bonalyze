@@ -207,7 +207,7 @@ export default function MahlzeitPage({
   const router = useRouter()
   const { currentHousehold } = useHousehold()
   const { addLog } = useNutritionData(new Date())
-  const { query, results, isSearching, search, clearSearch } = useFoodSearch()
+  const { query, results, isSearching, error: searchError, search, clearSearch } = useFoodSearch()
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addedCount, setAddedCount] = useState(0)
@@ -378,6 +378,15 @@ export default function MahlzeitPage({
                   <Skeleton className="h-9 w-9 rounded-full" />
                 </div>
               ))}
+            </div>
+          ) : searchError ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <p className="text-sm text-destructive font-medium">
+                {searchError}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Bitte versuche es erneut oder nutze die manuelle Eingabe
+              </p>
             </div>
           ) : results.length > 0 ? (
             <div>

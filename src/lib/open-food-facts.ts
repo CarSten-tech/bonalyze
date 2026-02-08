@@ -31,12 +31,7 @@ export async function searchFoods(
   })
 
   const response = await fetch(
-    `https://world.openfoodfacts.org/cgi/search.pl?${params}`,
-    {
-      headers: {
-        'User-Agent': 'Bonalyze/1.0',
-      },
-    }
+    `https://world.openfoodfacts.org/cgi/search.pl?${params}`
   )
 
   if (!response.ok) throw new Error('Open Food Facts API error')
