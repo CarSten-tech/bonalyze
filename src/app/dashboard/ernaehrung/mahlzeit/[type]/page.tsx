@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, use } from 'react'
+import { useState, useEffect, useCallback, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Search, X, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,12 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useNutritionData } from '@/hooks/use-nutrition-data'
-import { useFoodSearch } from '@/hooks/use-food-search'
+import { useFoodSearch, type UnifiedFoodResult } from '@/hooks/use-food-search'
 import { useHousehold } from '@/contexts/household-context'
 import { createClient } from '@/lib/supabase'
-import { getRecentFoodItems } from '@/app/actions/nutrition'
-import type { FoodSearchResult } from '@/lib/open-food-facts'
+import { getRecentFoodItems, getProductByBarcode } from '@/app/actions/nutrition'
 import { cn } from '@/lib/utils'
+import { BarcodeScanner } from '@/components/barcode-scanner'
+import { ScanBarcode } from 'lucide-react'
 
 const MEAL_META: Record<string, { label: string; emoji: string }> = {
   fruehstueck: { label: 'Fruehstueck', emoji: '\u{1F305}' },
@@ -32,54 +33,62 @@ interface RecentItem {
   fat_g: number | null
 }
 
-function FoodResultRow({
+function FoodResultCard({
   name,
   subtitle,
   calories,
-  protein,
-  carbs,
-  fat,
+  source,
   onAdd,
   added,
 }: {
   name: string
   subtitle?: string
   calories: number
-  protein: number
-  carbs: number
-  fat: number
+  source?: 'local' | 'openfoodfacts'
   onAdd: () => void
   added?: boolean
 }) {
+  // Determine label based on source
+  const label = source === 'local' ? 'Lebensmittel' : 'Online-Suche'
+  const labelClass = source === 'local' 
+    ? "bg-[#ecfccb] text-[#3f6212] dark:bg-[#3f6212]/20 dark:text-[#ecfccb]" // Lime-100/800
+    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-b-0">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{name}</p>
+    <div className="bg-card rounded-xl p-4 shadow-sm border border-border/40 relative mb-3 last:mb-0">
+      <div className="pr-10"> {/* Space for button */}
+        <h3 className="font-semibold text-base leading-snug break-words text-foreground">
+          {name}
+        </h3>
         {subtitle && (
-          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+            {subtitle}
+          </p>
         )}
-        <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-          E {protein}g &middot; K {carbs}g &middot; F {fat}g
-        </p>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <span className="text-sm font-semibold text-foreground tabular-nums">
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "absolute top-4 right-4 h-9 w-9 rounded-full border transition-all",
+          added
+            ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+            : "border-primary text-primary hover:bg-primary/10"
+        )}
+        onClick={onAdd}
+        disabled={added}
+      >
+        <Plus className="h-5 w-5" />
+      </Button>
+
+      <div className="flex items-center justify-between mt-4">
+        <span className={cn("text-[11px] font-medium px-2 py-1 rounded-md", labelClass)}>
+          {label}
+        </span>
+        <span className="text-sm font-medium tabular-nums text-muted-foreground">
           {calories} kcal
         </span>
-        <Button
-          variant="outline"
-          size="icon"
-          className={cn(
-            'h-9 w-9 rounded-full transition-colors',
-            added
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'border-primary text-primary hover:bg-primary/10'
-          )}
-          onClick={onAdd}
-          disabled={added}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   )
@@ -207,7 +216,7 @@ export default function MahlzeitPage({
   const router = useRouter()
   const { currentHousehold } = useHousehold()
   const { addLog } = useNutritionData(new Date())
-  const { query, results, isSearching, error: searchError, search, clearSearch } = useFoodSearch()
+  const { query, results, isSearching, error: searchError, search, clearSearch, totalCount, hasMore, loadMore } = useFoodSearch()
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addedCount, setAddedCount] = useState(0)
@@ -217,6 +226,26 @@ export default function MahlzeitPage({
   const [userId, setUserId] = useState<string | null>(null)
 
   const meta = MEAL_META[type] || { label: type, emoji: '' }
+
+  // Intersection Observer for infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasMore, loadMore])
 
   // Get user ID
   useEffect(() => {
@@ -244,12 +273,16 @@ export default function MahlzeitPage({
   }, [query])
 
   const handleAddFromSearch = useCallback(
-    async (item: FoodSearchResult) => {
+    async (item: UnifiedFoodResult) => {
       if (addedIds.has(item.id)) return
       try {
+        // Include source in name for BLS items
+        const displayName = item.source === 'local' 
+          ? item.name 
+          : (item.brand && item.brand !== 'Open Food Facts' ? `${item.name} (${item.brand})` : item.name)
         await addLog({
           meal_type: type,
-          item_name: item.brand ? `${item.name} (${item.brand})` : item.name,
+          item_name: displayName,
           calories_kcal: item.calories,
           protein_g: item.protein,
           carbs_g: item.carbs,
@@ -264,6 +297,49 @@ export default function MahlzeitPage({
     },
     [addLog, type, addedIds]
   )
+
+  // Barcode Scanner Logic
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const isScanningRef = useRef(false)
+
+  const handleBarcodeScan = useCallback(async (barcode: string) => {
+    if (isScanningRef.current) return
+    isScanningRef.current = true
+    setIsScannerOpen(false)
+    toast.loading('Produkt wird gesucht...', { id: 'scan-loading' })
+
+    try {
+      const product = await getProductByBarcode(barcode)
+      
+      if (product) {
+        toast.dismiss('scan-loading')
+        const unifiedItem: UnifiedFoodResult = {
+          id: product.id,
+          name: product.name,
+          brand: 'Open Food Facts',
+          calories: product.calories,
+          protein: product.protein,
+          carbs: product.carbs,
+          fat: product.fat,
+          servingSize: '100g',
+          source: 'openfoodfacts'
+        }
+        
+        setActiveTab('suche')
+        handleAddFromSearch(unifiedItem)
+        
+      } else {
+        toast.dismiss('scan-loading')
+        toast.error('Produkt nicht gefunden')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.dismiss('scan-loading')
+      toast.error('Fehler beim Scannen')
+    } finally {
+      isScanningRef.current = false
+    }
+  }, [handleAddFromSearch])
 
   const handleAddFromRecent = useCallback(
     async (item: RecentItem) => {
@@ -290,6 +366,7 @@ export default function MahlzeitPage({
     <div className="flex flex-col min-h-screen bg-background -mx-4 -mt-2">
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background border-b border-border safe-top">
+        {/* ... (Header content unchanged) ... */}
         <div className="flex h-14 items-center justify-between px-4">
           <Button
             variant="ghost"
@@ -317,24 +394,40 @@ export default function MahlzeitPage({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              className="pl-10 pr-10 h-10 bg-muted/50 border-0"
+              className="pl-10 pr-20 h-10 bg-muted/50 border-0"
               placeholder="Lebensmittel suchen..."
               value={query}
               onChange={(e) => search(e.target.value)}
             />
-            {query && (
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {query && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={clearSearch}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
-                onClick={clearSearch}
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => setIsScannerOpen(true)}
               >
-                <X className="h-4 w-4" />
+                <ScanBarcode className="h-4 w-4" />
               </Button>
-            )}
+            </div>
           </div>
         </div>
       </header>
+      
+      <BarcodeScanner 
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleBarcodeScan}
+      />
 
       {/* Tabs */}
       <Tabs
@@ -349,6 +442,7 @@ export default function MahlzeitPage({
               className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
             >
               Suche
+              {results.length > 0 && <span className="ml-1.5 text-xs text-muted-foreground">({totalCount})</span>}
             </TabsTrigger>
             <TabsTrigger
               value="zuletzt"
@@ -367,8 +461,39 @@ export default function MahlzeitPage({
 
         {/* Search Results Tab */}
         <TabsContent value="suche" className="flex-1 mt-0">
-          {isSearching ? (
-            <div className="p-4 space-y-3">
+          {results.length > 0 ? (
+            <div>
+              {results.map((item) => (
+                <FoodResultCard
+                  key={item.id}
+                  name={item.name}
+                  subtitle={
+                    item.source === 'local'
+                      ? `BLS · ${item.category || 'pro 100g'}`
+                      : item.brand && item.brand !== 'Open Food Facts'
+                        ? `${item.brand} · pro 100g`
+                        : 'pro 100g'
+                  }
+                  calories={item.calories}
+                  source={item.source}
+                  onAdd={() => handleAddFromSearch(item)}
+                  added={addedIds.has(item.id)}
+                />
+              ))}
+              
+              {/* Infinite Scroll Loader / Trigger */}
+              <div ref={observerTarget} className="py-4 flex justify-center">
+                {hasMore ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Ende der Ergebnisse
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : isSearching ? (
+             <div className="p-4 space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="flex-1 space-y-1.5">
@@ -386,29 +511,6 @@ export default function MahlzeitPage({
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Bitte versuche es erneut oder nutze die manuelle Eingabe
-              </p>
-            </div>
-          ) : results.length > 0 ? (
-            <div>
-              {results.map((item) => (
-                <FoodResultRow
-                  key={item.id}
-                  name={item.name}
-                  subtitle={
-                    item.brand
-                      ? `${item.brand} \u00B7 pro 100g`
-                      : 'pro 100g'
-                  }
-                  calories={item.calories}
-                  protein={item.protein}
-                  carbs={item.carbs}
-                  fat={item.fat}
-                  onAdd={() => handleAddFromSearch(item)}
-                  added={addedIds.has(item.id)}
-                />
-              ))}
-              <p className="text-center text-xs text-muted-foreground py-4">
-                Powered by Open Food Facts
               </p>
             </div>
           ) : query.length >= 2 ? (
@@ -449,13 +551,12 @@ export default function MahlzeitPage({
           ) : recentItems.length > 0 ? (
             <div>
               {recentItems.map((item, idx) => (
-                <FoodResultRow
+                <FoodResultCard
                   key={`${item.item_name}-${idx}`}
                   name={item.item_name || 'Unbenannt'}
+                  subtitle="Zuletzt verwendet"
                   calories={item.calories_kcal || 0}
-                  protein={Number(item.protein_g) || 0}
-                  carbs={Number(item.carbs_g) || 0}
-                  fat={Number(item.fat_g) || 0}
+                  source="local"
                   onAdd={() => handleAddFromRecent(item)}
                 />
               ))}

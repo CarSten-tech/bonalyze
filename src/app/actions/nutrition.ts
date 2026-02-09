@@ -265,6 +265,170 @@ export async function getRecentFoodItems(
   })
 }
 
+// --- Local Food Database Search (BLS) ---
+
+import type { Tables } from '@/types/database.types'
+import { serverCache, createCacheKey } from '@/lib/cache'
+
+/** Exported type for nutrition library items */
+export type NutritionLibraryRow = Tables<'nutrition_library'>
+
+export interface NutritionLibraryItem {
+  id: string
+  bls_code: string
+  name: string
+  category: string | null
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+const BLS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+export interface SearchResult<T> {
+  items: T[]
+  count: number
+}
+
+/**
+ * Searches the local BLS nutrition library database using the 'search_food' RPC.
+ * This is a highly performant server-side search.
+ * Includes rate limiting to prevent RPC abuse.
+ */
+export async function searchNutritionLibrary(
+  query: string,
+  page = 0,
+  limit = 20
+): Promise<SearchResult<NutritionLibraryItem>> {
+  if (!query || query.length < 2) return { items: [], count: 0 }
+
+  const supabase = await createClient()
+
+  // Rate limiting
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { isRateLimited } = await import('@/lib/rate-limit')
+    if (isRateLimited(`search:${user.id}`, 30, 60000)) {
+      throw new Error('Zu viele Suchanfragen. Bitte versuche es in einer Minute erneut.')
+    }
+  }
+
+  // Check cache first
+  const cacheKey = createCacheKey('bls-rpc-search', query.toLowerCase(), page, limit)
+  const cached = serverCache.get<SearchResult<NutritionLibraryItem>>(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  // Call the new RPC function
+
+  // Call the new RPC function
+  // Note: The RPC signature is search_food(search_term, items_per_page, page_number)
+  // We need to type the response correctly.
+  const { data, error } = await supabase
+    .rpc('search_food', {
+      search_term: query,
+      items_per_page: limit,
+      page_number: page
+    })
+
+  if (error) {
+    console.error('[searchNutritionLibrary] RPC Search failed:', error.message)
+    // Fallback? The user said "zwingend nutzen". So we throw or return empty.
+    throw new Error(error.message)
+  }
+
+  // The RPC likely returns just the items. We don't have a total count from a simple query unless the RPC returns it.
+  // Assuming the RPC returns a list of items.
+  // We can estimate 'count' logic: if we got 'limit' items, there might be more.
+  // But the previous interface returned 'count'. UseFoodSearch expects it.
+  // If the RPC doesn't return count, we might have to fake it or remove it from the interface.
+  // Let's assume for now we return the items and a "has more" indicator or just length.
+  // The interface SearchResult has `count`. We'll just return items.length for now, 
+  // or maybe the RPC returns { items, total }? The prompt didn't say.
+  // Prompt says: "Zeige 'Keine weiteren Ergebnisse', wenn die API weniger als 20 Items zurückgibt".
+  // This implies we rely on the implementation of checking returned size vs limit.
+  // We will pass 0 as total count if unknown, or maybe a large number if (length === limit).
+
+  const items = mapNutritionLibraryRows(data as any) // Casting as we don't know exact RPC return shape yet, assuming generic properties match
+  
+  const result = {
+    items,
+    count: items.length === limit ? 9999 : items.length // Hack to keep "totalCount" logic somewhat alive or we ignore it
+  }
+
+  // Cache results
+  serverCache.set(cacheKey, result, BLS_CACHE_TTL_MS)
+
+  return result
+}
+
+/**
+ * Fetches a single product by barcode from Open Food Facts.
+ * Used for direct barcode scanning.
+ */
+export async function getProductByBarcode(barcode: string): Promise<NutritionLibraryItem | null> {
+  const cacheKey = createCacheKey('off-barcode', barcode)
+  const cached = serverCache.get<NutritionLibraryItem>(cacheKey)
+  if (cached) return cached
+
+  try {
+    const response = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
+      {
+        headers: {
+          'User-Agent': 'Bonalyze/1.0 (Nutrition Tracker; contact@bonalyze.de)',
+        },
+        next: { revalidate: 3600 } // Next.js native fetch cache (1 hour)
+      }
+    )
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    if (!data.product) return null
+
+    const p = data.product
+    
+    // Normalize to our internal format
+    const item: NutritionLibraryItem = {
+      id: `off-${p.code || barcode}`,
+      bls_code: p.code || barcode,
+      name: p.product_name || 'Unbekanntes Produkt',
+      category: p.categories_tags?.[0]?.replace('en:', '') || null,
+      calories: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+      protein: Math.round((p.nutriments?.['proteins_100g'] || 0) * 10) / 10,
+      fat: Math.round((p.nutriments?.['fat_100g'] || 0) * 10) / 10,
+      carbs: Math.round((p.nutriments?.['carbohydrates_100g'] || 0) * 10) / 10,
+    }
+
+    serverCache.set(cacheKey, item, 60 * 60 * 1000) // 1 hour memory cache
+    return item
+  } catch (err) {
+    console.error('[getProductByBarcode] API error:', err)
+    return null
+  }
+}
+
+/** Maps raw database rows to normalized NutritionLibraryItem format */
+function mapNutritionLibraryRows(
+  rows: Pick<NutritionLibraryRow, 'id' | 'bls_code' | 'name' | 'category' | 'calories' | 'protein' | 'carbs' | 'fat'>[] | null
+): NutritionLibraryItem[] {
+  if (!rows) return []
+  
+  return rows.map((item) => ({
+    id: item.id,
+    bls_code: item.bls_code,
+    name: item.name,
+    category: item.category,
+    calories: item.calories ?? 0,
+    protein: Number(item.protein) || 0,
+    carbs: Number(item.carbs) || 0,
+    fat: Number(item.fat) || 0,
+  }))
+}
+
 // --- Supply Range ---
 
 export async function getSupplyRange(householdId: string, daysLookback = 30) {

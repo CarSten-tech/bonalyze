@@ -121,12 +121,33 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
   })
 
   const addLogMutation = useMutation({
-    mutationFn: (logData: AddLogInput) =>
-      addNutritionLog({
+    mutationFn: async (logData: AddLogInput) => {
+      const payload = {
         household_id: currentHousehold!.id,
         log_date: dateStr,
         ...logData,
-      }),
+      }
+
+      if (!navigator.onLine) {
+        // Queue for sync when online
+        const { queueAction } = await import('@/lib/sync-queue')
+        await queueAction('ADD_NUTRITION_LOG', payload)
+        
+        // Return a mock response to satisfy the mutation
+        return {
+          id: crypto.randomUUID(),
+          ...payload,
+          user_id: userId!,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_from_suggestion: false,
+          suggestion_dismissed: false,
+          receipt_item_id: null,
+        }
+      }
+
+      return addNutritionLog(payload)
+    },
     onMutate: async (logData) => {
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<DailyNutritionData>(queryKey)
@@ -188,7 +209,14 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
   })
 
   const removeLogMutation = useMutation({
-    mutationFn: (logId: string) => deleteNutritionLog(logId),
+    mutationFn: async (logId: string) => {
+      if (!navigator.onLine) {
+        const { queueAction } = await import('@/lib/sync-queue')
+        await queueAction('DELETE_NUTRITION_LOG', logId)
+        return
+      }
+      return deleteNutritionLog(logId)
+    },
     onMutate: async (logId) => {
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<DailyNutritionData>(queryKey)

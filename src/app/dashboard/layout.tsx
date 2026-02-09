@@ -85,6 +85,8 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
   const isDetailPage = pathname.includes('/ausgaben/kategorie/') || pathname.includes('/ausgaben/produkt/') || pathname.includes('/ernaehrung/mahlzeit/')
   const isCameraPage = pathname.includes('/dashboard/receipts/new')
+  // Hide bottom nav on meal entry page too, as requested by user for better search experience
+  const isMealEntryPage = pathname.includes('/ernaehrung/mahlzeit/')
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -115,7 +117,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
       </main>
 
       {/* Bottom Navigation */}
-      {!isCameraPage && (
+      {!isCameraPage && !isMealEntryPage && (
         <BottomNav
             onScanFromCamera={handleScanFromCamera}
             onScanFromGallery={handleScanFromGallery}

@@ -436,6 +436,69 @@ export type Database = {
           },
         ]
       }
+      nutrition_library: {
+        Row: {
+          bls_code: string
+          calcium: number | null
+          calories: number | null
+          carbs: number | null
+          category: string | null
+          fat: number | null
+          fiber: number | null
+          id: string
+          iron: number | null
+          magnesium: number | null
+          name: string
+          protein: number | null
+          salt: number | null
+          saturated_fat: number | null
+          search_vector: unknown
+          sugar: number | null
+          vitamin_c: number | null
+          zinc: number | null
+        }
+        Insert: {
+          bls_code: string
+          calcium?: number | null
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          fat?: number | null
+          fiber?: number | null
+          id?: string
+          iron?: number | null
+          magnesium?: number | null
+          name: string
+          protein?: number | null
+          salt?: number | null
+          saturated_fat?: number | null
+          search_vector?: unknown
+          sugar?: number | null
+          vitamin_c?: number | null
+          zinc?: number | null
+        }
+        Update: {
+          bls_code?: string
+          calcium?: number | null
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          fat?: number | null
+          fiber?: number | null
+          id?: string
+          iron?: number | null
+          magnesium?: number | null
+          name?: string
+          protein?: number | null
+          salt?: number | null
+          saturated_fat?: number | null
+          search_vector?: unknown
+          sugar?: number | null
+          vitamin_c?: number | null
+          zinc?: number | null
+        }
+        Relationships: []
+      }
       nutrition_logs: {
         Row: {
           activity_name: string | null
@@ -1079,6 +1142,14 @@ export type Database = {
       is_household_member: {
         Args: { household_id: string; user_id: string }
         Returns: boolean
+      }
+      search_food: {
+        Args: {
+          search_term: string
+          items_per_page?: number
+          page_number?: number
+        }
+        Returns: Database["public"]["Tables"]["nutrition_library"]["Row"][]
       }
     }
     Enums: {

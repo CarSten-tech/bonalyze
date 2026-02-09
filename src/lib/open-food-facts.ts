@@ -1,3 +1,8 @@
+/**
+ * Open Food Facts client library
+ * Uses server-side proxy at /api/food-search to avoid CORS issues
+ */
+
 export interface FoodSearchResult {
   id: string
   name: string
@@ -10,6 +15,15 @@ export interface FoodSearchResult {
   imageUrl?: string
 }
 
+interface FoodSearchResponse {
+  products: FoodSearchResult[]
+  error?: string
+}
+
+/**
+ * Searches for food products via the server-side proxy.
+ * The proxy handles CORS and caching.
+ */
 export async function searchFoods(
   query: string,
   page = 1
@@ -17,43 +31,22 @@ export async function searchFoods(
   if (!query || query.length < 2) return []
 
   const params = new URLSearchParams({
-    search_terms: query,
-    search_simple: '1',
-    action: 'process',
-    json: '1',
-    page_size: '20',
+    q: query,
     page: String(page),
-    fields:
-      'code,product_name,brands,nutriments,serving_size,image_small_url',
-    tagtype_0: 'countries',
-    tag_contains_0: 'contains',
-    tag_0: 'germany',
   })
 
-  const response = await fetch(
-    `https://world.openfoodfacts.org/cgi/search.pl?${params}`
-  )
+  const response = await fetch(`/api/food-search?${params}`)
 
-  if (!response.ok) throw new Error('Open Food Facts API error')
+  if (!response.ok) {
+    console.error('[searchFoods] API error:', response.status)
+    return []
+  }
 
-  const data = await response.json()
+  const data: FoodSearchResponse = await response.json()
 
-  return (data.products || [])
-    .filter((p: Record<string, unknown>) => p.product_name)
-    .map((p: Record<string, unknown>) => {
-      const nutriments = (p.nutriments || {}) as Record<string, number>
-      return {
-        id: (p.code as string) || crypto.randomUUID(),
-        name: (p.product_name as string) || 'Unbekannt',
-        brand: (p.brands as string) || '',
-        calories: Math.round(nutriments['energy-kcal_100g'] || 0),
-        protein:
-          Math.round((nutriments['proteins_100g'] || 0) * 10) / 10,
-        carbs:
-          Math.round((nutriments['carbohydrates_100g'] || 0) * 10) / 10,
-        fat: Math.round((nutriments['fat_100g'] || 0) * 10) / 10,
-        servingSize: (p.serving_size as string) || '100g',
-        imageUrl: (p.image_small_url as string) || undefined,
-      }
-    })
+  if (data.error) {
+    console.warn('[searchFoods] API returned error:', data.error)
+  }
+
+  return data.products || []
 }
