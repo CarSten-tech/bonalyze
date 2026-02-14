@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { searchFoods, type FoodSearchResult } from '@/lib/open-food-facts'
-import { searchNutritionLibrary, type NutritionLibraryItem } from '@/app/actions/nutrition'
+import { searchNutritionLibrary, type FoodItem } from '@/app/actions/nutrition'
 
 // ============================================================================
 // Types
@@ -70,34 +69,23 @@ function setCache(query: string, data: { results: UnifiedFoodResult[], totalCoun
 // Mappers & Sorters
 // ============================================================================
 
-function mapBLSToUnified(items: NutritionLibraryItem[]): UnifiedFoodResult[] {
+function mapFoodItemToUnified(items: FoodItem[]): UnifiedFoodResult[] {
   return items.map((item) => ({
-    id: `bls-${item.id}`,
+    id: item.source === 'bls' ? `bls-${item.id}` : item.id,
     name: item.name,
-    brand: 'BLS',
+    brand: item.brand || (item.source === 'bls' ? 'BLS' : 'Open Food Facts'),
     calories: item.calories,
     protein: item.protein,
     carbs: item.carbs,
     fat: item.fat,
     servingSize: '100g',
-    source: 'local' as const,
+    source: item.source === 'bls' ? 'local' as const : 'openfoodfacts' as const,
     category: item.category,
   }))
 }
 
-function mapOFFToUnified(items: FoodSearchResult[]): UnifiedFoodResult[] {
-  return items.map((item) => ({
-    id: `off-${item.id}`,
-    name: item.name,
-    brand: item.brand || 'Open Food Facts',
-    calories: item.calories,
-    protein: item.protein,
-    carbs: item.carbs,
-    fat: item.fat,
-    servingSize: item.servingSize || '100g',
-    source: 'openfoodfacts' as const,
-  }))
-}
+
+
 
 /**
  * Smart Sorting:
@@ -198,34 +186,27 @@ export function useFoodSearch() {
       abortControllerRef.current = new AbortController()
 
       try {
-        // RPC Search (Server Action)
-        const blsData = await searchNutritionLibrary(term, 0, PAGE_SIZE)
-          .catch((err) => {
-            console.error('Search failed', err)
-            return { items: [], count: 0 }
-          })
+        // Optimized Search (Server Action) - now includes BLS + OFF
+        const result = await searchNutritionLibrary(term, 0)
+        
+        if (!result.success || requestId !== currentRequestIdRef.current) return
 
-        // Check if request is still current
-        if (requestId !== currentRequestIdRef.current) return
+        const unifiedResults = mapFoodItemToUnified(result.data)
+        const sortedResults = smartSort(unifiedResults, term)
 
-        const blsUnified = mapBLSToUnified(blsData.items)
-        const sortedResults = smartSort(blsUnified, term)
-
-        // Determine hasMore based on whether we received a full page
-        // If items.length < PAGE_SIZE, we know it's the end.
-        // If items.length === PAGE_SIZE, we assume there *might* be more.
-        const hasMoreMatches = blsUnified.length >= PAGE_SIZE
+        // Determine hasMore: if we got >= PAGE_SIZE results, there might be more on page 1
+        const hasMoreMatches = unifiedResults.length >= PAGE_SIZE
 
         setSearchState({
           state: 'success',
           results: sortedResults,
           error: null,
-          totalCount: blsData.count, // This might be fake 9999 or real if we fix backend later
+          totalCount: unifiedResults.length, // approximation
           hasMore: hasMoreMatches
         })
 
         // Cache result
-        setCache(term, { results: sortedResults, totalCount: blsData.count })
+        setCache(term, { results: sortedResults, totalCount: unifiedResults.length })
 
       } catch (err) {
         if (requestId !== currentRequestIdRef.current) return
@@ -248,25 +229,15 @@ export function useFoodSearch() {
     const nextPage = page + 1
     
     try {
-      const blsData = await searchNutritionLibrary(query, nextPage, PAGE_SIZE)
-        .catch(() => ({ items: [], count: 0 }))
+      const result = await searchNutritionLibrary(query, nextPage)
       
-      if (blsData.items.length > 0) {
+      if (result.success && result.data.length > 0) {
         setPage(nextPage)
-        const newUnified = mapBLSToUnified(blsData.items)
+        const newUnified = mapFoodItemToUnified(result.data)
         const hasMoreMatches = newUnified.length >= PAGE_SIZE
         
         setSearchState(prev => {
-          // Append new results
           const newResults = [...prev.results, ...newUnified]
-          // Re-sort the whole list? Or just append? 
-          // Smart sort might be weird if applied to the whole list again if it reorders wildly. 
-          // But strict RPC order should be respected usually. 
-          // Let's just append for performance and stability, assuming RPC sorts by relevance.
-          // BUT: We applied smartSort on the first page. We should probably apply smartSort to unique defaults only?
-          // Actually, RPC returns sorted results. We should probably trust RPC if it's "search_food".
-          // But client-side smart sort handles "exact match" nicely. 
-          // Let's re-sort the combined list to be safe.
           const sortedCombined = smartSort(newResults, query)
 
           return {

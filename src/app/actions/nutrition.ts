@@ -3,6 +3,52 @@
 import { createServerClient as createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { calculateBMR, calculateTDEE, type ActivityLevel, type Gender } from "@/lib/nutrition-utils"
+import { isRateLimited } from "@/lib/rate-limit"
+
+// --- SEARCH HELPERS & TYPES (NEU) ---
+
+export type FoodItem = {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  category: string;
+  brand?: string;
+  source: 'bls' | 'openfoodfacts';
+};
+
+// Berechnet den Median, um Ausreißer bei Nährwerten zu ignorieren
+function getMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  values.sort((a, b) => a - b);
+  const half = Math.floor(values.length / 2);
+  if (values.length % 2) return values[half];
+  return (values[half - 1] + values[half]) / 2.0;
+}
+
+// Normalisiert Produktnamen für besseres Clustering (z.B. "Rewe Bio Tomaten" -> "tomaten")
+function normalizeName(name: string): string {
+  return name.toLowerCase()
+    .replace(/\b(bio|eco|organic|natur|premium|kl\.|klasse|choice|selection|beste|wahl|eigenmarke|original|frische|genuss)\b/g, '')
+    .replace(/\b(rewe|edeka|aldi|lidl|ja!|gut&günstig|k-classic|milbona|baleares|spanische|italienische|deutsche|penny|netto)\b/g, '')
+    .replace(/[^a-zäöüß0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Word-based match: Checks if ALL words of the search term appear
+ * somewhere in the product name (order-independent).
+ * "milch" matches "Alpenmilch", "Vollmilch 3,5%", etc.
+ */
+function wordMatch(productName: string, searchTerm: string): boolean {
+  const nameLower = productName.toLowerCase();
+  const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  if (searchWords.length === 0) return false;
+  return searchWords.every(word => nameLower.includes(word));
+}
 
 // --- Member Nutrition Profile ---
 
@@ -294,74 +340,173 @@ export interface SearchResult<T> {
 /**
  * Searches the local BLS nutrition library database using the 'search_food' RPC.
  * This is a highly performant server-side search.
- * Includes rate limiting to prevent RPC abuse.
+ * Includes rate limiting to prevent RPC abuse and parallel OFF search with smart clustering.
  */
-export async function searchNutritionLibrary(
-  query: string,
-  page = 0,
-  limit = 20
-): Promise<SearchResult<NutritionLibraryItem>> {
-  if (!query || query.length < 2) return { items: [], count: 0 }
+export async function searchNutritionLibrary(query: string, page: number = 0) {
+  console.time(`[Search] Total:${query}`);
+  console.time(`[Search] CreateClient:${query}`);
+  const supabase = await createClient(); 
+  console.timeEnd(`[Search] CreateClient:${query}`);
+  const ITEMS_PER_PAGE = 20;
 
-  const supabase = await createClient()
-
-  // Rate limiting
-  const { data: { user } } = await supabase.auth.getUser()
+  console.time(`[Search] Auth:${query}`);
+  const { data: { user } } = await supabase.auth.getUser();
+  console.timeEnd(`[Search] Auth:${query}`);
   if (user) {
-    const { isRateLimited } = await import('@/lib/rate-limit')
     if (isRateLimited(`search:${user.id}`, 30, 60000)) {
       throw new Error('Zu viele Suchanfragen. Bitte versuche es in einer Minute erneut.')
     }
   }
 
   // Check cache first
-  const cacheKey = createCacheKey('bls-rpc-search', query.toLowerCase(), page, limit)
-  const cached = serverCache.get<SearchResult<NutritionLibraryItem>>(cacheKey)
+  const cacheKey = createCacheKey('combined-search', query.toLowerCase(), page)
+  const cached = serverCache.get<{ success: boolean, data: FoodItem[] }>(cacheKey)
   if (cached) {
-    return cached
+    console.log(`[Search] Cache hit for: ${query}`);
+    return cached;
   }
 
-  // Call the new RPC function
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout for OFF
 
-  // Call the new RPC function
-  // Note: The RPC signature is search_food(search_term, items_per_page, page_number)
-  // We need to type the response correctly.
-  const { data, error } = await supabase
-    .rpc('search_food', {
-      search_term: query,
-      items_per_page: limit,
-      page_number: page
-    })
+  try {
+    console.time(`[Search] BLS:${query}`);
+    console.time(`[Search] OFF:${query}`);
+    // 1. Parallel-Abfrage: BLS (Lokal via RPC) + OFF (API Deutschland)
+    const [blsResult, offResult] = await Promise.allSettled([
+      // A) Suche in deiner lokalen Datenbank (BLS)
+      supabase.rpc('search_food', {
+        search_term: query,
+        items_per_page: ITEMS_PER_PAGE,
+        page_number: page
+      }).then(res => {
+        console.timeEnd(`[Search] BLS:${query}`);
+        return res;
+      }),
+      
+      // B) OpenFoodFacts: weltweite Suche mit Germany-Tag, nur Seite 1, nur wichtige Felder
+      // Wir laden 50 Items, um genug Daten für intelligentes Clustering zu haben
+      fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=50&page=1&tagtype_0=countries&tag_contains_0=contains&tag_0=germany&fields=code,product_name,nutriments,brands`, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Bonalyze/1.0 (Nutrition Tracker; contact@bonalyze.de)' },
+        next: { revalidate: 3600 } // Cache für 1 Stunde
+      })
+      .then(res => res.json())
+      .then(json => {
+        console.timeEnd(`[Search] OFF:${query}`);
+        return json;
+      })
+      .finally(() => clearTimeout(timeoutId))
+    ]);
 
-  if (error) {
-    console.error('[searchNutritionLibrary] RPC Search failed:', error.message)
-    // Fallback? The user said "zwingend nutzen". So we throw or return empty.
-    throw new Error(error.message)
+    let finalResults: FoodItem[] = [];
+
+    // --- TEIL A: BLS Ergebnisse verarbeiten ---
+    if (blsResult.status === 'fulfilled' && blsResult.value.data) {
+      finalResults = blsResult.value.data.map((item: any) => ({
+        id: item.id.toString(),
+        name: item.name,
+        calories: item.calories,
+        protein: item.protein || 0,
+        carbs: item.carbs || 0,
+        fat: item.fat || 0,
+        category: item.category || 'Allgemein',
+        source: 'bls'
+      }));
+    }
+
+    // --- TEIL B: OpenFoodFacts "Smart Clustering" ---
+    // Logik: Wir laden OFF-Daten NUR, wenn wir auf Seite 0 sind (ganz oben).
+    // Das verhindert Duplikate beim Infinite Scroll.
+    if (page === 0 && offResult.status === 'fulfilled' && (offResult.value as any).products) {
+      const products = (offResult.value as any).products;
+      const clusters = new Map<string, any[]>();
+      const unmatchedProducts: any[] = [];
+
+      products.forEach((p: any) => {
+        // Validierung: Muss Name & Kalorien haben
+        if (!p.product_name || !p.nutriments || p.nutriments['energy-kcal_100g'] === undefined) return;
+        // Kalorien müssen realistisch sein (> 0)
+        if (Number(p.nutriments['energy-kcal_100g']) <= 0) return;
+        
+        const cleanName = normalizeName(p.product_name);
+        
+        // Wörter-basierter Match: Jedes Suchwort muss im Produktnamen vorkommen
+        if (wordMatch(p.product_name, query)) {
+          // Cluster nach normalisiertem Namen
+          if (!clusters.has(cleanName)) clusters.set(cleanName, []);
+          clusters.get(cleanName)?.push(p);
+        } else {
+          // Produkte die den OFF-API-Match haben aber nicht unseren Wort-Filter:
+          // als Einzelprodukte aufnehmen (Fallback)
+          unmatchedProducts.push(p);
+        }
+      });
+
+      const clusteredItems: FoodItem[] = [];
+      
+      clusters.forEach((items, cleanKey) => {
+        // Median berechnen (gegen Ausreißer bei User-Eingaben)
+        const calories = items.map((i: any) => Number(i.nutriments['energy-kcal_100g']));
+        const proteins = items.map((i: any) => Number(i.nutriments.proteins_100g || 0));
+        const carbs = items.map((i: any) => Number(i.nutriments.carbohydrates_100g || 0));
+        const fats = items.map((i: any) => Number(i.nutriments.fat_100g || 0));
+        
+        // Den kürzesten (meist generischsten) Namen für die Anzeige wählen
+        const bestName = items.sort((a: any, b: any) => a.product_name.length - b.product_name.length)[0].product_name;
+
+        clusteredItems.push({
+          id: `off_cluster_${cleanKey.replace(/\s/g, '_')}`,
+          name: bestName, 
+          calories: Math.round(getMedian(calories)),
+          protein: Math.round(getMedian(proteins) * 10) / 10,
+          carbs: Math.round(getMedian(carbs) * 10) / 10,
+          fat: Math.round(getMedian(fats) * 10) / 10,
+          category: 'Extern (Geprüft)',
+          brand: items.length > 1 ? `Ø aus ${items.length} Produkten` : (items[0].brands || 'OpenFoodFacts'),
+          source: 'openfoodfacts'
+        });
+      });
+
+      // Sortieren nach Popularität (Anzahl der Produkte im Cluster)
+      clusteredItems.sort((a, b) => {
+         const countA = a.brand?.match(/\d+/)?.[0] ? parseInt(a.brand?.match(/\d+/)?.[0]!) : 1;
+         const countB = b.brand?.match(/\d+/)?.[0] ? parseInt(b.brand?.match(/\d+/)?.[0]!) : 1;
+         return countB - countA;
+      });
+
+      // Fallback: Einzelne OFF-Produkte die den API-Match haben aber nicht den Wort-Filter
+      // (z.B. Markenprodukte wie "Nutella" die der OFF-API kennt)
+      const individualItems: FoodItem[] = unmatchedProducts.slice(0, 5).map((p: any) => ({
+        id: `off_${p.code || crypto.randomUUID()}`,
+        name: p.product_name,
+        calories: Math.round(Number(p.nutriments['energy-kcal_100g'])),
+        protein: Math.round(Number(p.nutriments.proteins_100g || 0) * 10) / 10,
+        carbs: Math.round(Number(p.nutriments.carbohydrates_100g || 0) * 10) / 10,
+        fat: Math.round(Number(p.nutriments.fat_100g || 0) * 10) / 10,
+        category: 'Online-Suche',
+        brand: p.brands || 'OpenFoodFacts',
+        source: 'openfoodfacts' as const
+      }));
+
+      // Füge geclusterte + einzelne OFF-Ergebnisse VOR die BLS Ergebnisse ein
+      const offResults = [...clusteredItems.slice(0, 5), ...individualItems];
+      console.log(`[Search] OFF: ${clusteredItems.length} clusters, ${individualItems.length} individual, ${products.length} raw products`);
+      finalResults = [...offResults, ...finalResults];
+    } else if (page === 0 && offResult.status === 'rejected') {
+      console.warn('[Search] OFF request failed/timed out, showing BLS only:', offResult.reason);
+    }
+
+    const result = { success: true, data: finalResults };
+    serverCache.set(cacheKey, result, 5 * 60 * 1000); // 5 minutes cache
+    return result;
+
+  } catch (error) {
+    console.error('Search Error:', error);
+    return { success: false, data: [] };
+  } finally {
+    console.timeEnd(`[Search] Total:${query}`);
   }
-
-  // The RPC likely returns just the items. We don't have a total count from a simple query unless the RPC returns it.
-  // Assuming the RPC returns a list of items.
-  // We can estimate 'count' logic: if we got 'limit' items, there might be more.
-  // But the previous interface returned 'count'. UseFoodSearch expects it.
-  // If the RPC doesn't return count, we might have to fake it or remove it from the interface.
-  // Let's assume for now we return the items and a "has more" indicator or just length.
-  // The interface SearchResult has `count`. We'll just return items.length for now, 
-  // or maybe the RPC returns { items, total }? The prompt didn't say.
-  // Prompt says: "Zeige 'Keine weiteren Ergebnisse', wenn die API weniger als 20 Items zurückgibt".
-  // This implies we rely on the implementation of checking returned size vs limit.
-  // We will pass 0 as total count if unknown, or maybe a large number if (length === limit).
-
-  const items = mapNutritionLibraryRows(data as any) // Casting as we don't know exact RPC return shape yet, assuming generic properties match
-  
-  const result = {
-    items,
-    count: items.length === limit ? 9999 : items.length // Hack to keep "totalCount" logic somewhat alive or we ignore it
-  }
-
-  // Cache results
-  serverCache.set(cacheKey, result, BLS_CACHE_TTL_MS)
-
-  return result
 }
 
 /**

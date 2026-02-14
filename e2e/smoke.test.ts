@@ -17,5 +17,5 @@ test('can navigate to nutrition page', async ({ page }) => {
   await page.goto('/dashboard/ernaehrung');
   
   // Just a smoke test to see if it doesn't crash
-  await expect(page).toBeVisible;
+  await expect(page.locator('body')).toBeVisible();
 });
