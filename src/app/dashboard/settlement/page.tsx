@@ -76,7 +76,7 @@ export default function SettlementPage() {
         <div>
           <h1 className="text-2xl font-bold">Abrechnung</h1>
           <p className="text-muted-foreground mt-1">
-            Bitte waehle einen Haushalt aus.
+            Bitte wähle einen Haushalt aus.
           </p>
         </div>
       </div>
@@ -183,17 +183,17 @@ export default function SettlementPage() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Abrechnung abschliessen?</AlertDialogTitle>
+              <AlertDialogTitle>Abrechnung abschließen?</AlertDialogTitle>
               <AlertDialogDescription>
                 Damit bestätigst du, dass alle Überweisungen für{' '}
-                {selectedMonth.label} durchgefuehrt wurden. Diese Abrechnung
+                {selectedMonth.label} durchgeführt wurden. Diese Abrechnung
                 wird in der Historie gespeichert.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Abbrechen</AlertDialogCancel>
               <AlertDialogAction onClick={handleMarkAsSettled}>
-                Ja, abschliessen
+                Ja, abschließen
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

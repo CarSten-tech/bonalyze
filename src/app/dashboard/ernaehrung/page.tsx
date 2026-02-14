@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Camera } from 'lucide-react'
 import { format, addDays, subDays, isToday } from 'date-fns'
 import { de } from 'date-fns/locale'
 
 import { useNutritionData } from '@/hooks/use-nutrition-data'
-import { useSupplyRange } from '@/hooks/use-supply-range'
+import { useNutritionDeficit } from '@/hooks/use-nutrition-deficit'
 import { useSmartSuggestions } from '@/hooks/use-smart-suggestions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,6 +17,7 @@ import {
   FluidCard,
   DailyMeals,
   SmartSuggestionCard,
+  FoodPhotoModal,
 } from '@/components/nutrition'
 import { cn } from '@/lib/utils'
 
@@ -61,9 +62,9 @@ function DayNavigation({
   )
 }
 
-// Supply Range Hero
-function SupplyRangeHero() {
-  const { data, isLoading } = useSupplyRange()
+// Nutrition Deficit Hero
+function NutritionDeficitHero({ selectedDate }: { selectedDate: Date }) {
+  const { data, isLoading } = useNutritionDeficit(selectedDate)
 
   if (isLoading) {
     return (
@@ -77,32 +78,33 @@ function SupplyRangeHero() {
     )
   }
 
-  if (!data || !data.hasProfiles) return null
-
-  const days = data.coverageDays
-  const formattedDays = days.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-
-  let textColor = 'text-emerald-600'
-  if (days < 1) textColor = 'text-destructive'
-  else if (days < 3) textColor = 'text-orange-600'
-  else if (days < 7) textColor = 'text-blue-600'
+  if (!data) return null
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50">
-      <CardContent className="p-6">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">
-            Supply Range
-          </p>
-          <div className="flex items-baseline gap-2">
-            <span className={cn('text-5xl font-bold tabular-nums tracking-tighter', textColor)}>
-              +{formattedDays}
-            </span>
-            <span className={cn('text-xl font-medium', textColor)}>Tage</span>
+    <Card className="rounded-2xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50 overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex flex-col sm:flex-row">
+          <div className="flex-1 p-6 border-b sm:border-b-0 sm:border-r border-slate-100">
+             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Defizit Heute</p>
+             <div className="flex items-baseline gap-1">
+                <span className={cn("text-5xl font-black tabular-nums tracking-tighter", data.dailyDeficit >= 0 ? "text-primary" : "text-destructive")}>
+                  {data.dailyDeficit > 0 ? '+' : ''}{data.dailyDeficit.toLocaleString('de-DE')}
+                </span>
+                <span className="text-xl font-bold text-muted-foreground/60">kcal</span>
+             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {data.totalCaloriesPurchased.toLocaleString('de-DE')} kcal eingekauft &middot; {data.dailyHouseholdBurn.toLocaleString('de-DE')} kcal/Tag Verbrauch
-          </p>
+          <div className="flex-1 p-6 bg-slate-50/30">
+             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Defizit Gesamt</p>
+             <div className="flex items-baseline gap-1">
+                <span className={cn("text-3xl font-bold tabular-nums tracking-tighter", data.totalDeficit >= 0 ? "text-emerald-600" : "text-destructive")}>
+                  {data.totalDeficit > 0 ? '+' : ''}{data.totalDeficit.toLocaleString('de-DE')}
+                </span>
+                <span className="text-sm font-semibold text-muted-foreground/60">kcal</span>
+             </div>
+             <p className="text-[10px] text-muted-foreground mt-1 italic">
+                Über {data.daysTracked} {data.daysTracked === 1 ? 'Tag' : 'Tage'}
+             </p>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -113,6 +115,20 @@ export default function ErnaehrungPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const { data, isLoading, addLog, removeLog } = useNutritionData(selectedDate)
   const { suggestion, logSuggestion, dismissSuggestion } = useSmartSuggestions()
+  const [isFoodPhotoOpen, setIsFoodPhotoOpen] = useState(false)
+
+  const handleSaveFoodPhoto = useCallback(async (items: Array<{
+    meal_type: string
+    item_name: string
+    calories_kcal: number
+    protein_g: number
+    carbs_g: number
+    fat_g: number
+  }>) => {
+    for (const item of items) {
+      await addLog(item)
+    }
+  }, [addLog])
 
   const handleDateChange = useCallback((date: Date) => {
     setSelectedDate(date)
@@ -144,8 +160,8 @@ export default function ErnaehrungPage() {
         />
       )}
 
-      {/* Supply Range Hero */}
-      <SupplyRangeHero />
+      {/* Calorie Deficit Hero */}
+      <NutritionDeficitHero selectedDate={selectedDate} />
 
       {/* Energie Widget */}
       <EnergieWidget
@@ -184,7 +200,7 @@ export default function ErnaehrungPage() {
       {/* Tagesuebersicht */}
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-foreground">Tagesuebersicht</h2>
+          <h2 className="text-lg font-semibold text-foreground">Tagesübersicht</h2>
         </div>
         <DailyMeals
           meals={data?.meals || { fruehstueck: [], mittagessen: [], abendessen: [], snacks: [] }}
@@ -192,6 +208,23 @@ export default function ErnaehrungPage() {
           onDeleteLog={removeLog}
         />
       </section>
+
+      {/* Floating Action Button - Food Photo */}
+      <button
+        onClick={() => setIsFoodPhotoOpen(true)}
+        className="fixed bottom-24 right-5 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-all"
+        aria-label="Essen fotografieren"
+      >
+        <Camera className="h-6 w-6" />
+      </button>
+
+      {/* Food Photo Modal */}
+      <FoodPhotoModal
+        isOpen={isFoodPhotoOpen}
+        onClose={() => setIsFoodPhotoOpen(false)}
+        onSave={handleSaveFoodPhoto}
+        mealType="snacks"
+      />
     </div>
   )
 }

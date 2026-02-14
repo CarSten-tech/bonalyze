@@ -1,0 +1,139 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "bonalyze liste",
+      "intents": [
+        {
+          "name": "LinkAccountIntent",
+          "slots": [
+            {
+              "name": "code",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "verknuepfen mit code {code}",
+            "verbinde mich mit code {code}",
+            "bonalyze verbinden mit code {code}",
+            "nutze code {code}",
+            "mein code ist {code}",
+            "code lautet {code}",
+            "ich moechte mich mit code {code} verbinden",
+            "koppel mich mit code {code}",
+            "konto verknuepfen code {code}",
+            "link code {code}"
+          ]
+        },
+        {
+          "name": "AddItemsIntent",
+          "slots": [
+            {
+              "name": "items",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "fuege {items} zur einkaufsliste hinzu",
+            "fuege {items} hinzu",
+            "setze {items} auf die liste",
+            "schreibe {items} auf die einkaufsliste",
+            "notiere {items}",
+            "kaufe {items}",
+            "ich brauche {items}",
+            "bitte auf die liste {items}",
+            "pack {items} auf die liste",
+            "ergaenze {items}",
+            "fuege auch {items} hinzu",
+            "trage {items} ein",
+            "setze bitte {items} auf meine einkaufsliste",
+            "nimm {items} mit auf",
+            "bonalyze fuege {items} hinzu"
+          ]
+        },
+        {
+          "name": "RemoveItemsIntent",
+          "slots": [
+            {
+              "name": "items",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "entferne {items}",
+            "streiche {items}",
+            "loesche {items} von der einkaufsliste",
+            "nimm {items} von der liste",
+            "nehme {items} von der liste",
+            "wir brauchen {items} nicht mehr",
+            "bitte entferne {items}",
+            "loesch {items}",
+            "raeume {items} von der einkaufsliste",
+            "bonalyze entferne {items}",
+            "streiche bitte {items} von meiner liste",
+            "wir haben {items} schon"
+          ]
+        },
+        {
+          "name": "UpdateQuantityIntent",
+          "slots": [
+            {
+              "name": "items",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "setze {items}",
+            "aendere menge fuer {items}",
+            "aktualisiere {items}",
+            "setze die menge auf {items}",
+            "aendere {items}",
+            "mach aus {items}",
+            "korrigiere die menge fuer {items}",
+            "stell auf {items}",
+            "bonalyze setze {items}",
+            "aendere bitte auf {items}",
+            "stelle die einkaufsliste auf {items}",
+            "setze produktmenge {items}"
+          ]
+        },
+        {
+          "name": "ReadListIntent",
+          "samples": [
+            "was steht auf meiner einkaufsliste",
+            "lies meine einkaufsliste vor",
+            "welche produkte habe ich auf der liste",
+            "was muss ich einkaufen",
+            "was fehlt noch",
+            "nenne mir meine einkaufsliste",
+            "was habe ich eingetragen",
+            "welche artikel sind auf meiner liste",
+            "lies mir die produkte vor",
+            "zeige meine einkaufsliste",
+            "wie sieht meine einkaufsliste aus",
+            "was steht aktuell auf der liste",
+            "sag mir meine einkaufsliste",
+            "was habe ich noch offen",
+            "bonalyze liste vorlesen"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

@@ -7,3 +7,4 @@ export {
   getStoreIcon,
 } from './receipt-list-item'
 export { SupplyRangeWidget } from './supply-range-widget'
+export { CaloriesWidget } from './calories-widget'

@@ -19,7 +19,7 @@ import { BarcodeScanner } from '@/components/barcode-scanner'
 import { ScanBarcode } from 'lucide-react'
 
 const MEAL_META: Record<string, { label: string; emoji: string }> = {
-  fruehstueck: { label: 'Fruehstueck', emoji: '\u{1F305}' },
+  fruehstueck: { label: 'Frühstück', emoji: '\u{1F305}' },
   mittagessen: { label: 'Mittagessen', emoji: '\u{1F37D}\u{FE0F}' },
   abendessen: { label: 'Abendessen', emoji: '\u{1F319}' },
   snacks: { label: 'Snacks', emoji: '\u{1F36A}' },
@@ -127,7 +127,7 @@ function ManualEntryForm({
         carbs_g: parseFloat(carbs) || 0,
         fat_g: parseFloat(fat) || 0,
       })
-      toast.success(`${name} hinzugefuegt`)
+      toast.success(`${name} hinzugefügt`)
       setName('')
       setKcal('')
       setProtein('')
@@ -161,7 +161,7 @@ function ManualEntryForm({
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-2">
           <label className="text-xs font-medium text-muted-foreground">
-            Eiweiss (g)
+            Eiweiß (g)
           </label>
           <Input
             type="number"
@@ -201,7 +201,7 @@ function ManualEntryForm({
         onClick={handleSubmit}
         disabled={!name || !kcal || isSubmitting}
       >
-        Hinzufuegen
+        Hinzufügen
       </Button>
     </div>
   )
@@ -290,9 +290,9 @@ export default function MahlzeitPage({
         })
         setAddedIds((prev) => new Set(prev).add(item.id))
         setAddedCount((c) => c + 1)
-        toast.success(`${item.name} hinzugefuegt`)
+        toast.success(`${item.name} hinzugefügt`)
       } catch {
-        toast.error('Fehler beim Hinzufuegen')
+        toast.error('Fehler beim Hinzufügen')
       }
     },
     [addLog, type, addedIds]
@@ -354,9 +354,9 @@ export default function MahlzeitPage({
           fat_g: Number(item.fat_g) || 0,
         })
         setAddedCount((c) => c + 1)
-        toast.success(`${item.item_name} hinzugefuegt`)
+        toast.success(`${item.item_name} hinzugefügt`)
       } catch {
-        toast.error('Fehler beim Hinzufuegen')
+        toast.error('Fehler beim Hinzufügen')
       }
     },
     [addLog, type]
@@ -517,7 +517,7 @@ export default function MahlzeitPage({
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <Search className="h-10 w-10 text-muted-foreground/30 mb-3" />
               <p className="text-sm text-muted-foreground">
-                Keine Ergebnisse fuer &bdquo;{query}&ldquo;
+                Keine Ergebnisse für &bdquo;{query}&ldquo;
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Versuche es mit einem anderen Begriff oder nutze die manuelle
@@ -564,10 +564,10 @@ export default function MahlzeitPage({
           ) : (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Noch keine Eintraege fuer {meta.label}
+                Noch keine Einträge für {meta.label}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Eintraege werden hier gespeichert, sobald du etwas hinzufuegst
+                Einträge werden hier gespeichert, sobald du etwas hinzufügst
               </p>
             </div>
           )}
@@ -584,7 +584,7 @@ export default function MahlzeitPage({
         <div className="sticky bottom-0 z-30 bg-background border-t border-border safe-bottom px-4 py-3">
           <Button className="w-full h-12 text-base" onClick={() => router.back()}>
             Fertig &middot; {addedCount}{' '}
-            {addedCount === 1 ? 'Eintrag' : 'Eintraege'} hinzugefuegt
+            {addedCount === 1 ? 'Eintrag' : 'Einträge'} hinzugefügt
           </Button>
         </div>
       )}

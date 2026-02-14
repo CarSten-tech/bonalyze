@@ -33,7 +33,7 @@ export default function SettlementHistoryPage() {
       <div className="space-y-6">
         <Header />
         <p className="text-muted-foreground">
-          Bitte waehle einen Haushalt aus.
+          Bitte wähle einen Haushalt aus.
         </p>
       </div>
     )

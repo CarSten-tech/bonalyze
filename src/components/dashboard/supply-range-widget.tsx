@@ -38,7 +38,7 @@ export function SupplyRangeWidget() {
           <div className="space-y-1">
             <p className="text-sm font-medium text-slate-900">Versorgungsreichweite</p>
             <p className="text-xs text-slate-500">
-              Richte Ernaehrungs-Profile ein, um die Reichweite zu berechnen.
+              Richte Ernährungs-Profile ein, um die Reichweite zu berechnen.
             </p>
           </div>
           <Button variant="outline" size="sm" className="h-8 text-xs w-full" asChild>

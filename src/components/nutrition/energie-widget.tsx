@@ -72,7 +72,7 @@ function CircularProgress({
           {formattedRemaining}
         </span>
         <span className="text-xs text-muted-foreground font-medium">
-          kcal uebrig
+          kcal übrig
         </span>
       </div>
     </div>
@@ -169,7 +169,7 @@ export function EnergieWidget({
             color="bg-amber-500"
           />
           <MacroBar
-            label="Eiweiss"
+            label="Eiweiß"
             current={protein.current}
             target={protein.target}
             color="bg-primary"

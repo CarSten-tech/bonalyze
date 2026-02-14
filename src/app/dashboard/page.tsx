@@ -30,7 +30,7 @@ import {
 } from '@/components/dashboard'
 import { BudgetWidget } from "@/components/dashboard/budget-widget"
 import { WarrantyWidget } from "@/components/dashboard/warranty-widget"
-import { SupplyRangeWidget } from "@/components/dashboard/supply-range-widget"
+import { CaloriesWidget } from "@/components/dashboard/calories-widget"
 import { formatCurrency } from '@/components/common/currency'
 
 interface RecentReceipt {
@@ -164,7 +164,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Bitte waehle einen Haushalt aus, um das Dashboard anzuzeigen.
+            Bitte wähle einen Haushalt aus, um das Dashboard anzuzeigen.
           </p>
         </div>
       </div>
@@ -275,8 +275,8 @@ export default function DashboardPage() {
             <BudgetWidget budgetStatus={data?.budgetStatus ?? null} isLoading={isLoading} />
           </div>
 
-          {/* Supply Range Widget */}
-          <SupplyRangeWidget />
+          {/* Calories Progress Widget */}
+          <CaloriesWidget />
 
           {/* Warranty Vault Widget */}
           <WarrantyWidget />

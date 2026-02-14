@@ -12,7 +12,7 @@ import type { NutritionLogEntry } from '@/hooks/use-nutrition-data'
 const MEAL_CONFIG = [
   {
     type: 'fruehstueck',
-    label: 'Fruehstueck',
+    label: 'Frühstück',
     icon: Coffee,
     emoji: '\u{1F305}',
     color: 'border-l-amber-500',
@@ -84,17 +84,17 @@ function MealSection({
               <p className="font-semibold text-foreground">{config.label}</p>
               {itemCount > 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {itemCount} {itemCount === 1 ? 'Eintrag' : 'Eintraege'} &middot; {totalKcal.toLocaleString('de-DE')} kcal
+                  {itemCount} {itemCount === 1 ? 'Eintrag' : 'Einträge'} &middot; {totalKcal.toLocaleString('de-DE')} kcal
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground">Tippe +, um etwas hinzuzufuegen</p>
+                <p className="text-sm text-muted-foreground">Tippe +, um etwas hinzuzufügen</p>
               )}
             </div>
           </div>
           <Link href={`/dashboard/ernaehrung/mahlzeit/${config.type}`}>
             <Button variant="ghost" size="sm" className={cn('h-9 gap-1.5', config.iconColor)}>
               <Plus className="h-4 w-4" />
-              <span className="text-sm sr-only sm:not-sr-only">Hinzufuegen</span>
+              <span className="text-sm sr-only sm:not-sr-only">Hinzufügen</span>
             </Button>
           </Link>
         </div>

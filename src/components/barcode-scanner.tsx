@@ -44,6 +44,8 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
           formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
           ]
         }
 
