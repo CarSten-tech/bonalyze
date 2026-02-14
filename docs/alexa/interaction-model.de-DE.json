@@ -164,18 +164,12 @@
             "nutze liste {listName}",
             "setze aktive liste auf {listName}",
             "gehe auf liste {listName}",
-            "bitte liste {listName} oeffnen",
             "wechsel auf {listName}",
-            "liste {listName} oeffnen",
             "aktiviere liste {listName}",
             "zeige liste {listName}",
             "nimm liste {listName}",
             "wechsle auf liste {listName}",
-            "ich moechte liste {listName}",
-            "oeffne liste {listName} und fuege hinzu",
-            "liste {listName} und fuege hinzu",
-            "wechsle zu liste {listName} und fuege hinzu",
-            "oeffne liste {listName} und setze drauf"
+            "ich moechte liste {listName}"
           ]
         },
         {
