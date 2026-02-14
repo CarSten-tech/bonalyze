@@ -11,59 +11,54 @@ Ein Foto einer Mahlzeit oder eines Lebensmittels. Das Essen kann auf einem Telle
 
 INSTRUCTIONS:
 
-1. **IDENTIFIKATION**:
-   - Erkenne JEDES einzelne Lebensmittel/Zutat auf dem Foto.
-   - Sei spezifisch: Nicht "Salat", sondern "Gemischter Blattsalat mit Tomaten, Gurken und Feta".
-   - Trenne zusammengesetzte Gerichte in einzelne Komponenten auf (z.B. "Pasta Bolognese" → "Spaghetti", "Bolognese-Sauce mit Hackfleisch").
+1. **ANALYSE & IDENTIFIKATION (Chain of Thought)**:
+   - Analysiere das Bild schrittweise. Was siehst du?
+   - Identifiziere JEDES einzelne Lebensmittel/Zutat.
+   - Suche nach visuellen Referenzen für die Größe (Teller, Besteck, Hand, Verpackungsgröße).
+   - Schätze die Dimensionen (z.B. "Der Teller wirkt wie ein Standard-Essteller (26cm), die Nudeln bedecken ca. die Hälfte").
 
-2. **PORTIONSSCHÄTZUNG**:
-   - Schätze die Portionsgröße in Gramm so präzise wie möglich.
-   - Nutze visuelle Hinweise: Tellergröße (~26cm Standard), Besteck, Handgröße.
-   - Typische Referenzwerte:
-     - Ein gehäufter Esslöffel = ~15g
-     - Ein Stück Brot = ~40-50g
-     - Ein Hähnchenbrustfilet = ~150-200g
-     - Ein Teller Pasta = ~200-250g (gekocht)
-     - Ein Glas Wasser = ~250ml
+2. **PORTIONSSCHÄTZUNG (Kritisch!)**:
+   - Schätze die Portionsgröße in Gramm basierend auf deiner Analyse.
+   - **WARNUNG:** Unterscheide zwischen voluminösen (Salat) und dichten Lebensmitteln (Reis, Pasta, Fleisch).
+   - Referenzwerte:
+     - Ein gehäufter Esslöffel gekochter Reis/Pasta = ~20-25g
+     - Eine Handvoll Nüsse = ~30g
+     - Ein Stück Fleisch (handtellergroß) = ~150g
+     - Eine Portion Pasta als Hauptgericht = ~100-125g (roh) / ~200-300g (gekocht)
+   - Sei konservativ bei kalorienreichen Lebensmitteln (Öl, Nüsse, Käse).
 
 3. **NÄHRWERTBERECHNUNG**:
    - Berechne für JEDES Item: Kalorien, Protein, Kohlenhydrate, Fett.
-   - Basierend auf der geschätzten Portionsgröße.
-   - Nutze deutsche Lebensmittel-Durchschnittswerte (BLS-Datenbank Referenz).
+   - Nutze deutsche Standardwerte (BLS).
 
-4. **CONFIDENCE**:
-   - Gib für jedes Item einen Confidence-Wert (0.0-1.0):
-     - 0.9+: Klar erkennbar, Menge gut schätzbar
-     - 0.7-0.9: Erkennbar, Menge geschätzt
-     - 0.5-0.7: Unsicher bei Zutat oder Menge
-     - <0.5: Sehr unsicher
+4. **OUTPUT GENERIERUNG**:
+   - Gib NUR das JSON zurück.
 
 JSON OUTPUT (Strict):
 {
   "items": [
     {
-      "name": "String (Deutscher Name, klar und lesbar)",
-      "quantity_g": Number (Geschätzte Menge in Gramm),
-      "calories_kcal": Number (Kalorien für die geschätzte Menge),
-      "protein_g": Number (Protein in Gramm),
-      "carbs_g": Number (Kohlenhydrate in Gramm),
-      "fat_g": Number (Fett in Gramm),
-      "calories_per_100g": Number (kcal pro 100g - für Neuberechnung bei Mengenänderung),
+      "name": "String (Deutscher Name, z.B. 'Spaghetti Bolognese')",
+      "quantity_g": Number (z.B. 250),
+      "calories_kcal": Number,
+      "protein_g": Number,
+      "carbs_g": Number,
+      "fat_g": Number,
+      "calories_per_100g": Number,
       "protein_per_100g": Number,
       "carbs_per_100g": Number,
       "fat_per_100g": Number,
       "confidence": Number (0.0 - 1.0)
     }
   ],
-  "meal_description": "String (Kurze Beschreibung der Mahlzeit, z.B. 'Pasta Bolognese mit Salat')",
+  "meal_description": "String (Kurze Zusammenfassung)",
   "total_calories": Number,
-  "confidence": Number (0.0 - 1.0, Gesamtvertrauen)
+  "confidence": Number
 }
 
 WICHTIG:
-- Antworte NUR mit dem JSON. Kein Markdown, kein Text drumherum.
-- Wenn kein Essen erkennbar ist, antworte mit: {"items": [], "meal_description": "Kein Essen erkannt", "total_calories": 0, "confidence": 0}
-- Gib die per_100g Werte IMMER mit an, damit der User die Menge ändern und die Nährwerte automatisch neu berechnen kann.
+- Antworte NUR mit dem JSON.
+- Wenn kein Essen erkennbar ist, gib ein leeres Array zurück.
 `
 
 export async function POST(request: NextRequest) {
@@ -100,7 +95,13 @@ export async function POST(request: NextRequest) {
 
     // Call Gemini AI
     const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
+    // Upgrade to 'gemini-2.5-flash' for better visual reasoning capabilities
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.1, // Low temperature for more factual/deterministic output
+      }
+    })
 
     const result = await model.generateContent([
       FOOD_SCAN_PROMPT,

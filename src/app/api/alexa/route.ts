@@ -210,6 +210,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const shouldVerifySignature = process.env.ALEXA_VERIFY_SIGNATURE !== 'false'
+    console.log('[alexa] incoming request. verifySignature:', shouldVerifySignature)
+    console.log('[alexa] headers:', Object.fromEntries(request.headers.entries()))
+    console.log('[alexa] body:', rawBody)
+
     if (shouldVerifySignature) {
       await verifyAlexaRequest(rawBody, request.headers, envelope.request.timestamp)
     }
