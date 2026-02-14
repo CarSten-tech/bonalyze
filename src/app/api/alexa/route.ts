@@ -199,17 +199,19 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
 }
 
 export async function POST(request: NextRequest) {
-  const rawBody = await request.text()
-
-  let envelope: AlexaRequestEnvelope
   try {
-    envelope = JSON.parse(rawBody) as AlexaRequestEnvelope
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const rawBody = await request.text()
 
-  try {
-    const shouldVerifySignature = process.env.ALEXA_VERIFY_SIGNATURE !== 'false'
+    let envelope: AlexaRequestEnvelope
+    try {
+      envelope = JSON.parse(rawBody) as AlexaRequestEnvelope
+    } catch {
+      return NextResponse.json(createAlexaResponse('Systemfehler: Ungültiges JSON format.'), { status: 200 })
+    }
+
+    // WARN: Verification disabled for debugging
+    const shouldVerifySignature = false 
+    
     console.log('[alexa] incoming request. verifySignature:', shouldVerifySignature)
     console.log('[alexa] headers:', Object.fromEntries(request.headers.entries()))
     console.log('[alexa] body:', rawBody)
@@ -220,16 +222,17 @@ export async function POST(request: NextRequest) {
 
     const expectedSkillId = process.env.ALEXA_SKILL_ID
     const incomingSkillId = getAppId(envelope)
+    
+    // Log ID mismatch but don't fail for now to debug
     if (expectedSkillId && incomingSkillId && expectedSkillId !== incomingSkillId) {
-      return NextResponse.json(createAlexaResponse('Skill-ID ist ungueltig.', { shouldEndSession: true }), {
-        status: 403,
-      })
+      console.warn(`[alexa] Skill ID mismatch. Expected: ${expectedSkillId}, Got: ${incomingSkillId}`)
+      // return NextResponse.json(createAlexaResponse('Skill-ID ist ungueltig.', { shouldEndSession: true }), { status: 200 })
     }
 
     const alexaUserId = getAlexaUserId(envelope)
     if (!alexaUserId) {
       return NextResponse.json(createAlexaResponse('Alexa Benutzer konnte nicht erkannt werden.'), {
-        status: 401,
+        status: 200,
       })
     }
 
@@ -249,7 +252,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(createAlexaResponse('Unbekannter Request-Typ.', { shouldEndSession: true }), {
-      status: 400,
+      status: 200,
     })
   } catch (error) {
     console.error('[alexa] error:', error)
