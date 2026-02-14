@@ -49,6 +49,10 @@ function normalizeListName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }
 
+function stripForCompare(name: string): string {
+  return name.replace(/[^a-zA-Z0-9äöüß]/gi, '').toLowerCase()
+}
+
 export function createLinkCode() {
   const code = String(Math.floor(100000 + Math.random() * 900000))
   return {
@@ -222,10 +226,21 @@ export async function getShoppingListsForHousehold(householdId: string): Promise
 export async function findShoppingListByName(householdId: string, name: string): Promise<ShoppingListRow | null> {
   const normalized = normalizeListName(name).toLowerCase()
   const lists = await getShoppingListsForHousehold(householdId)
+
   const exact = lists.find((list) => list.name.trim().toLowerCase() === normalized)
   if (exact) return exact
+
   const partial = lists.find((list) => list.name.trim().toLowerCase().includes(normalized))
-  return partial || null
+  if (partial) return partial
+
+  // Fuzzy match: strip punctuation/spaces for cases like "d. m." -> "dm" matching "DM"
+  const stripped = stripForCompare(name)
+  if (stripped.length > 0) {
+    const fuzzy = lists.find((list) => stripForCompare(list.name) === stripped)
+    if (fuzzy) return fuzzy
+  }
+
+  return null
 }
 
 export async function createShoppingListForHousehold(
