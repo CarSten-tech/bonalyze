@@ -59,6 +59,16 @@ Diese Anleitung richtet den eigenen Alexa Skill gegen eure App ein.
 4. Liste vorlesen:
 - `was steht auf meiner Einkaufsliste`
 
+5. Zwischen Listen wechseln:
+- `oeffne liste DM`
+- `wechsle zu liste Kaufland`
+
+6. Neue Liste anlegen:
+- `erstelle liste Wochenmarkt`
+
+7. Vorhandene Listen nennen:
+- `welche listen habe ich`
+
 ## 5. Security Notes
 
 1. Alexa Request-Signatur wird serverseitig validiert.

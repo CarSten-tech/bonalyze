@@ -117,6 +117,49 @@
           ]
         },
         {
+          "name": "OpenListIntent",
+          "slots": [
+            {
+              "name": "listName",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "oeffne liste {listName}",
+            "wechsle zu liste {listName}",
+            "nutze liste {listName}",
+            "setze aktive liste auf {listName}",
+            "gehe auf liste {listName}",
+            "bitte liste {listName} oeffnen"
+          ]
+        },
+        {
+          "name": "CreateListIntent",
+          "slots": [
+            {
+              "name": "listName",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "erstelle liste {listName}",
+            "lege liste {listName} an",
+            "neue liste {listName}",
+            "erstelle neue einkaufsliste {listName}",
+            "bonalyze erstelle liste {listName}"
+          ]
+        },
+        {
+          "name": "ListListsIntent",
+          "samples": [
+            "welche listen habe ich",
+            "zeige meine listen",
+            "welche einkaufslisten gibt es",
+            "lies meine listen vor",
+            "nenne mir meine listen"
+          ]
+        },
+        {
           "name": "AMAZON.HelpIntent",
           "samples": []
         },

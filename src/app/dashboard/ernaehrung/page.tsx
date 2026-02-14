@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Camera } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addDays, subDays, isToday } from 'date-fns'
 import { de } from 'date-fns/locale'
 
@@ -17,7 +17,6 @@ import {
   FluidCard,
   DailyMeals,
   SmartSuggestionCard,
-  FoodPhotoModal,
 } from '@/components/nutrition'
 import { cn } from '@/lib/utils'
 
@@ -115,20 +114,6 @@ export default function ErnaehrungPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const { data, isLoading, addLog, removeLog } = useNutritionData(selectedDate)
   const { suggestion, logSuggestion, dismissSuggestion } = useSmartSuggestions()
-  const [isFoodPhotoOpen, setIsFoodPhotoOpen] = useState(false)
-
-  const handleSaveFoodPhoto = useCallback(async (items: Array<{
-    meal_type: string
-    item_name: string
-    calories_kcal: number
-    protein_g: number
-    carbs_g: number
-    fat_g: number
-  }>) => {
-    for (const item of items) {
-      await addLog(item)
-    }
-  }, [addLog])
 
   const handleDateChange = useCallback((date: Date) => {
     setSelectedDate(date)
@@ -208,23 +193,6 @@ export default function ErnaehrungPage() {
           onDeleteLog={removeLog}
         />
       </section>
-
-      {/* Floating Action Button - Food Photo */}
-      <button
-        onClick={() => setIsFoodPhotoOpen(true)}
-        className="fixed bottom-24 right-5 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-all"
-        aria-label="Essen fotografieren"
-      >
-        <Camera className="h-6 w-6" />
-      </button>
-
-      {/* Food Photo Modal */}
-      <FoodPhotoModal
-        isOpen={isFoodPhotoOpen}
-        onClose={() => setIsFoodPhotoOpen(false)}
-        onSave={handleSaveFoodPhoto}
-        mealType="snacks"
-      />
     </div>
   )
 }

@@ -62,13 +62,15 @@ function DashboardContent({ children }: DashboardLayoutProps) {
 
   // Handlers for scan actions
   const handleScanFromCamera = () => {
-    // TODO: Implement camera capture
     router.push('/dashboard/receipts/new?source=camera')
   }
 
   const handleScanFromGallery = () => {
-    // TODO: Implement gallery picker
     router.push('/dashboard/receipts/new?source=gallery')
+  }
+
+  const handleFoodPhoto = () => {
+    router.push('/dashboard/ernaehrung/food-scan')
   }
 
   if (isLoading || isHouseholdLoading) {
@@ -84,7 +86,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   // Determine if we should show the global header
   // Hide on detail pages where we have specific headers (Category Detail, Product Detail)
   const isDetailPage = pathname.includes('/ausgaben/kategorie/') || pathname.includes('/ausgaben/produkt/') || pathname.includes('/ernaehrung/mahlzeit/')
-  const isCameraPage = pathname.includes('/dashboard/receipts/new')
+  const isCameraPage = pathname.includes('/dashboard/receipts/new') || pathname.includes('/ernaehrung/food-scan')
   // Hide bottom nav on meal entry page too, as requested by user for better search experience
   const isMealEntryPage = pathname.includes('/ernaehrung/mahlzeit/')
 
@@ -121,6 +123,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
         <BottomNav
             onScanFromCamera={handleScanFromCamera}
             onScanFromGallery={handleScanFromGallery}
+            onFoodPhoto={handleFoodPhoto}
         />
       )}
 

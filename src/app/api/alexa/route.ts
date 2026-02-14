@@ -3,10 +3,15 @@ import { createAlexaResponse } from '@/lib/alexa/response'
 import { formatListForSpeech, parseProductList } from '@/lib/alexa/parser'
 import {
   addProductsToList,
+  createShoppingListForHousehold,
   consumeLinkCode,
+  findShoppingListByName,
   getAlexaLinkByAlexaUserId,
+  getShoppingListById,
+  getShoppingListsForHousehold,
   readShoppingList,
   removeProductsFromList,
+  setActiveAlexaShoppingList,
   setQuantitiesOnList,
   touchAlexaLink,
 } from '@/lib/alexa/shopping-service'
@@ -15,7 +20,8 @@ import type { AlexaRequestEnvelope } from '@/lib/alexa/types'
 
 export const runtime = 'nodejs'
 
-const HELP_TEXT = 'Du kannst sagen: fuege Milch und Eier zur Einkaufsliste hinzu, entferne Brot, setze Milch auf 2 Liter oder lies meine Einkaufsliste vor.'
+const HELP_TEXT =
+  'Du kannst sagen: fuege Milch und Eier hinzu, entferne Brot, setze Milch auf 2 Liter, oeffne Liste DM, erstelle Liste Wochenmarkt oder lies meine Einkaufsliste vor.'
 
 function getAppId(envelope: AlexaRequestEnvelope): string | undefined {
   return envelope.context?.System?.application?.applicationId || envelope.session?.application?.applicationId
@@ -90,7 +96,44 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
 
   if (intentName === 'ReadListIntent') {
     const items = await readShoppingList(link.shopping_list_id)
-    return createAlexaResponse(formatListForSpeech(items))
+    const currentList = await getShoppingListById(link.shopping_list_id)
+    const listPrefix = currentList ? `Aktive Liste ${sanitizeForSpeech(currentList.name)}. ` : ''
+    return createAlexaResponse(`${listPrefix}${formatListForSpeech(items)}`)
+  }
+
+  if (intentName === 'ListListsIntent') {
+    const lists = await getShoppingListsForHousehold(link.household_id)
+    if (lists.length === 0) {
+      return createAlexaResponse('Es gibt noch keine Einkaufslisten in deinem Haushalt.')
+    }
+    const names = lists.map((list) => sanitizeForSpeech(list.name)).join(', ')
+    return createAlexaResponse(`Verfuegbare Listen sind: ${names}.`)
+  }
+
+  if (intentName === 'OpenListIntent') {
+    const requestedName = extractSlotValue(envelope, ['listName', 'name', 'shoppingListName'])
+    if (!requestedName) {
+      return createAlexaResponse('Welche Liste soll ich oeffnen?')
+    }
+
+    const found = await findShoppingListByName(link.household_id, requestedName)
+    if (!found) {
+      return createAlexaResponse(`Ich habe keine Liste mit dem Namen ${sanitizeForSpeech(requestedName)} gefunden.`)
+    }
+
+    await setActiveAlexaShoppingList(alexaUserId, found.id)
+    return createAlexaResponse(`Liste ${sanitizeForSpeech(found.name)} ist jetzt aktiv.`)
+  }
+
+  if (intentName === 'CreateListIntent') {
+    const requestedName = extractSlotValue(envelope, ['listName', 'name', 'shoppingListName'])
+    if (!requestedName) {
+      return createAlexaResponse('Wie soll die neue Liste heissen?')
+    }
+
+    const created = await createShoppingListForHousehold(link.user_id, link.household_id, requestedName)
+    await setActiveAlexaShoppingList(alexaUserId, created.id)
+    return createAlexaResponse(`Liste ${sanitizeForSpeech(created.name)} ist angelegt und aktiv.`)
   }
 
   if (intentName === 'AddItemsIntent') {

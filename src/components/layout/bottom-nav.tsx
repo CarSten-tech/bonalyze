@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Receipt, ShoppingCart, Menu, Camera, Image, Shield } from "lucide-react"
+import { Home, Receipt, ShoppingCart, Menu, Camera, Image, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -37,9 +37,10 @@ const navItems: NavItem[] = [
 interface BottomNavProps {
   onScanFromCamera?: () => void
   onScanFromGallery?: () => void
+  onFoodPhoto?: () => void
 }
 
-export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProps) {
+export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: BottomNavProps) {
   const pathname = usePathname()
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false)
   const [menuSheetOpen, setMenuSheetOpen] = useState(false)
@@ -65,6 +66,11 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
   const handleGalleryClick = () => {
     setCameraSheetOpen(false)
     onScanFromGallery?.()
+  }
+
+  const handleFoodPhotoClick = () => {
+    setCameraSheetOpen(false)
+    onFoodPhoto?.()
   }
 
   return (
@@ -112,9 +118,21 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
             </SheetTrigger>
             <SheetContent side="bottom" className="rounded-t-2xl">
               <SheetTitle className="text-lg font-semibold mb-4">
-                Kassenbon erfassen
+                Was möchtest du tun?
               </SheetTitle>
               <div className="flex flex-col gap-3 pb-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  onClick={handleFoodPhotoClick}
+                >
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold">Essen erkennen (AI)</span>
+                    <span className="text-[10px] text-muted-foreground">Kalorien & Nährwerte per Foto</span>
+                  </div>
+                </Button>
                 <Button
                   variant="outline"
                   size="lg"
@@ -122,7 +140,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
                   onClick={handleCameraClick}
                 >
                   <Camera className="w-5 h-5" />
-                  <span>Foto aufnehmen</span>
+                  <span>Kassenbon scannen</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -131,7 +149,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery }: BottomNavProp
                   onClick={handleGalleryClick}
                 >
                   <Image className="w-5 h-5" />
-                  <span>Aus Galerie wählen</span>
+                  <span>Kassenbon aus Galerie</span>
                 </Button>
               </div>
             </SheetContent>

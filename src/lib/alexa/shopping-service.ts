@@ -28,6 +28,12 @@ interface ShoppingListItemRow {
   created_at: string
 }
 
+interface ShoppingListRow {
+  id: string
+  name: string
+  household_id: string
+}
+
 const CODE_TTL_MINUTES = 10
 const MISSING_TABLE_CODE = '42P01'
 
@@ -37,6 +43,10 @@ function codeSalt(): string {
 
 function hashCode(code: string): string {
   return crypto.createHash('sha256').update(`${code}:${codeSalt()}`).digest('hex')
+}
+
+function normalizeListName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
 }
 
 export function createLinkCode() {
@@ -89,14 +99,29 @@ export async function createAlexaLinkCodeForUser(userId: string) {
 
   const householdId = membership.household_id
 
-  const { data: list, error: listError } = await supabase
+  let { data: list, error: listError } = await supabase
     .from('shopping_lists')
-    .select('id')
+    .select('id, name, household_id')
     .eq('household_id', householdId)
-    .order('is_default', { ascending: false })
+    .eq('name', 'Einkaufsliste')
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
+
+  if (listError) throw listError
+
+  if (!list?.id) {
+    const fallbackQuery = await supabase
+      .from('shopping_lists')
+      .select('id, name, household_id')
+      .eq('household_id', householdId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    list = fallbackQuery.data
+    listError = fallbackQuery.error
+  }
 
   if (listError) throw listError
   if (!list?.id) {
@@ -105,7 +130,7 @@ export async function createAlexaLinkCodeForUser(userId: string) {
       .insert({
         household_id: householdId,
         name: 'Einkaufsliste',
-        is_default: true,
+        is_completed: false,
         created_by: userId,
       })
       .select('id')
@@ -149,6 +174,7 @@ export async function createAlexaLinkCodeForUser(userId: string) {
     }
   }
 
+  const selectedList = list as ShoppingListRow
   const { code, codeHash, expiresAt } = createLinkCode()
 
   await supabase
@@ -162,7 +188,7 @@ export async function createAlexaLinkCodeForUser(userId: string) {
     .insert({
       user_id: userId,
       household_id: householdId,
-      shopping_list_id: list.id,
+      shopping_list_id: selectedList.id,
       code_hash: codeHash,
       expires_at: expiresAt,
     })
@@ -178,8 +204,79 @@ export async function createAlexaLinkCodeForUser(userId: string) {
     code,
     expiresAt,
     householdId,
-    shoppingListId: list.id,
+    shoppingListId: selectedList.id,
   }
+}
+
+export async function getShoppingListsForHousehold(householdId: string): Promise<ShoppingListRow[]> {
+  const supabase = createAdminClient() as any
+  const { data, error } = await supabase
+    .from('shopping_lists')
+    .select('id, name, household_id')
+    .eq('household_id', householdId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data || []) as ShoppingListRow[]
+}
+
+export async function findShoppingListByName(householdId: string, name: string): Promise<ShoppingListRow | null> {
+  const normalized = normalizeListName(name).toLowerCase()
+  const lists = await getShoppingListsForHousehold(householdId)
+  const exact = lists.find((list) => list.name.trim().toLowerCase() === normalized)
+  if (exact) return exact
+  const partial = lists.find((list) => list.name.trim().toLowerCase().includes(normalized))
+  return partial || null
+}
+
+export async function createShoppingListForHousehold(
+  userId: string,
+  householdId: string,
+  name: string
+): Promise<ShoppingListRow> {
+  const supabase = createAdminClient() as any
+  const normalizedName = normalizeListName(name)
+
+  const existing = await findShoppingListByName(householdId, normalizedName)
+  if (existing) return existing
+
+  const { data, error } = await supabase
+    .from('shopping_lists')
+    .insert({
+      household_id: householdId,
+      created_by: userId,
+      name: normalizedName,
+      is_completed: false,
+    })
+    .select('id, name, household_id')
+    .single()
+
+  if (error) throw error
+  return data as ShoppingListRow
+}
+
+export async function setActiveAlexaShoppingList(alexaUserId: string, shoppingListId: string) {
+  const supabase = createAdminClient() as any
+  const { error } = await supabase
+    .from('alexa_user_links' as never)
+    .update({
+      shopping_list_id: shoppingListId,
+      last_seen_at: new Date().toISOString(),
+    })
+    .eq('alexa_user_id', alexaUserId)
+    .eq('is_active', true)
+
+  if (error) throw error
+}
+
+export async function getShoppingListById(listId: string): Promise<ShoppingListRow | null> {
+  const supabase = createAdminClient() as any
+  const { data, error } = await supabase
+    .from('shopping_lists')
+    .select('id, name, household_id')
+    .eq('id', listId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as ShoppingListRow | null) || null
 }
 
 export async function consumeLinkCode(alexaUserId: string, code: string, locale?: string) {

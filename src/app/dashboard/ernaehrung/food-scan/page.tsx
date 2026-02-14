@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Camera,
-  X,
+  ArrowLeft,
   Loader2,
   Check,
   Trash2,
@@ -11,16 +12,19 @@ import {
   Sparkles,
   ImageIcon,
   SwitchCamera,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useHousehold } from '@/contexts/household-context'
+import { addNutritionLog } from '@/app/actions/nutrition'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface FoodItem {
+interface FoodItem {
   id: string
   name: string
   quantity_g: number
@@ -44,19 +48,12 @@ interface FoodScanResult {
 
 type Phase = 'capture' | 'analyzing' | 'review'
 
-interface FoodPhotoModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (items: Array<{
-    meal_type: string
-    item_name: string
-    calories_kcal: number
-    protein_g: number
-    carbs_g: number
-    fat_g: number
-  }>) => Promise<void>
-  mealType?: string
-}
+const MEAL_TYPES = [
+  { value: 'fruehstueck', label: 'Frühstück', emoji: '🌅' },
+  { value: 'mittagessen', label: 'Mittagessen', emoji: '☀️' },
+  { value: 'abendessen', label: 'Abendessen', emoji: '🌙' },
+  { value: 'snacks', label: 'Snacks', emoji: '🍿' },
+] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,14 +73,21 @@ function generateId() {
   return Math.random().toString(36).substring(2, 9)
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Select the most likely meal type based on current hour
+function getDefaultMealType(): string {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 11) return 'fruehstueck'
+  if (hour >= 11 && hour < 15) return 'mittagessen'
+  if (hour >= 17 && hour < 22) return 'abendessen'
+  return 'snacks'
+}
 
-export function FoodPhotoModal({
-  isOpen,
-  onClose,
-  onSave,
-  mealType = 'snacks',
-}: FoodPhotoModalProps) {
+// ─── Page Component ──────────────────────────────────────────────────────────
+
+export default function FoodScanPage() {
+  const router = useRouter()
+  const { currentHousehold } = useHousehold()
+
   const [phase, setPhase] = useState<Phase>('capture')
   const [items, setItems] = useState<FoodItem[]>([])
   const [mealDescription, setMealDescription] = useState('')
@@ -92,9 +96,10 @@ export function FoodPhotoModal({
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [selectedMealType, setSelectedMealType] = useState(getDefaultMealType)
+  const [showMealPicker, setShowMealPicker] = useState(false)
 
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
@@ -111,34 +116,26 @@ export function FoodPhotoModal({
     setCameraReady(false)
   }, [])
 
-  // Cleanup on unmount or when modal closes
+  // Cleanup on unmount
   useEffect(() => {
-    if (!isOpen) {
-      stopStream()
-      setCameraActive(false)
-      setCameraError(null)
-    }
     return () => stopStream()
-  }, [isOpen, stopStream])
+  }, [stopStream])
 
   // ─── Camera Logic ────────────────────────────────────────────────────────
-  // KEY FIX: We first set cameraActive=true to mount the <video> element,
-  // then use an effect to attach the stream once the ref is available.
 
   const startCamera = useCallback(() => {
     setCameraError(null)
     setCameraActive(true)
   }, [])
 
-  // Once cameraActive is true and the <video> element is mounted, start the stream
+  // Attach stream once video element is mounted
   useEffect(() => {
-    if (!cameraActive || !isOpen) return
+    if (!cameraActive) return
 
     let cancelled = false
 
     async function initStream() {
       try {
-        // Check for camera support
         if (!navigator.mediaDevices?.getUserMedia) {
           setCameraError('Kamera wird nicht unterstützt. Nutze die Galerie.')
           return
@@ -153,7 +150,6 @@ export function FoodPhotoModal({
         })
 
         if (cancelled) {
-          // Component unmounted or camera was stopped while waiting
           stream.getTracks().forEach((t) => t.stop())
           return
         }
@@ -163,12 +159,10 @@ export function FoodPhotoModal({
         if (videoRef.current) {
           videoRef.current.srcObject = stream
 
-          // Wait for video metadata to load before playing
           await new Promise<void>((resolve, reject) => {
             const video = videoRef.current!
             video.onloadedmetadata = () => resolve()
             video.onerror = () => reject(new Error('Video error'))
-            // Timeout fallback
             setTimeout(() => resolve(), 3000)
           })
 
@@ -182,9 +176,9 @@ export function FoodPhotoModal({
         }
       } catch (err) {
         if (cancelled) return
-        console.error('[food-photo] Camera error:', err)
+        console.error('[food-scan] Camera error:', err)
 
-        const msg = err instanceof Error ? err.message : 'Unbekannter Fehler'
+        const msg = err instanceof Error ? err.message : ''
         if (msg.includes('NotAllowed') || msg.includes('Permission')) {
           setCameraError('Kamera-Zugriff verweigert. Bitte erlaube den Zugriff in den Einstellungen.')
         } else if (msg.includes('NotFound') || msg.includes('DevicesNotFound')) {
@@ -197,11 +191,8 @@ export function FoodPhotoModal({
     }
 
     initStream()
-
-    return () => {
-      cancelled = true
-    }
-  }, [cameraActive, isOpen, stopStream])
+    return () => { cancelled = true }
+  }, [cameraActive, stopStream])
 
   const stopCamera = useCallback(() => {
     stopStream()
@@ -225,7 +216,6 @@ export function FoodPhotoModal({
     if (!ctx) return
     ctx.drawImage(video, 0, 0)
 
-    // Stop camera immediately
     stopCamera()
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
@@ -237,19 +227,15 @@ export function FoodPhotoModal({
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Reset input so user can select the same file again
     e.target.value = ''
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Bitte wähle ein Bild aus.')
       return
     }
 
-    // Limit file size to 10MB
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Bild ist zu groß (max 10MB). Bitte wähle ein kleineres Bild.')
+      toast.error('Bild ist zu groß (max 10MB).')
       return
     }
 
@@ -260,9 +246,7 @@ export function FoodPhotoModal({
       const base64 = dataUrl.split(',')[1]
       analyzeImage(base64, file.type || 'image/jpeg')
     }
-    reader.onerror = () => {
-      toast.error('Fehler beim Lesen des Bildes.')
-    }
+    reader.onerror = () => toast.error('Fehler beim Lesen des Bildes.')
     reader.readAsDataURL(file)
   }, [])
 
@@ -305,9 +289,7 @@ export function FoodPhotoModal({
 
   const updateQuantity = (id: string, newQuantity: number) => {
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? recalcItem(item, newQuantity) : item
-      )
+      prev.map((item) => (item.id === id ? recalcItem(item, newQuantity) : item))
     )
   }
 
@@ -316,22 +298,24 @@ export function FoodPhotoModal({
   }
 
   const handleSave = async () => {
-    if (items.length === 0) return
+    if (items.length === 0 || !currentHousehold) return
 
     setIsSaving(true)
     try {
-      const logItems = items.map((item) => ({
-        meal_type: mealType,
-        item_name: item.name,
-        calories_kcal: item.calories_kcal,
-        protein_g: item.protein_g,
-        carbs_g: item.carbs_g,
-        fat_g: item.fat_g,
-      }))
+      for (const item of items) {
+        await addNutritionLog({
+          household_id: currentHousehold.id,
+          meal_type: selectedMealType,
+          item_name: item.name,
+          calories_kcal: item.calories_kcal,
+          protein_g: item.protein_g,
+          carbs_g: item.carbs_g,
+          fat_g: item.fat_g,
+        })
+      }
 
-      await onSave(logItems)
-      toast.success(`${items.length} Lebensmittel gespeichert`)
-      handleClose()
+      toast.success(`${items.length} Lebensmittel als ${MEAL_TYPES.find(m => m.value === selectedMealType)?.label} gespeichert`)
+      router.push('/dashboard/ernaehrung')
     } catch {
       toast.error('Fehler beim Speichern')
     } finally {
@@ -349,16 +333,10 @@ export function FoodPhotoModal({
     setPreviewUrl(null)
   }
 
-  const handleClose = () => {
+  const handleBack = () => {
     stopCamera()
-    setPhase('capture')
-    setItems([])
-    setMealDescription('')
-    setPreviewUrl(null)
-    onClose()
+    router.back()
   }
-
-  if (!isOpen) return null
 
   // ─── Total Calculations ──────────────────────────────────────────────────
 
@@ -367,17 +345,19 @@ export function FoodPhotoModal({
   const totalCarbs = items.reduce((s, i) => s + i.carbs_g, 0)
   const totalFat = items.reduce((s, i) => s + i.fat_g, 0)
 
+  const currentMeal = MEAL_TYPES.find((m) => m.value === selectedMealType)!
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm safe-area-top">
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* ─── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
         <Button
           variant="ghost"
           size="icon"
           className="text-white hover:bg-white/10"
-          onClick={handleClose}
+          onClick={handleBack}
         >
-          <X className="h-6 w-6" />
+          <ArrowLeft className="h-6 w-6" />
         </Button>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-400" />
@@ -394,8 +374,7 @@ export function FoodPhotoModal({
       {phase === 'capture' && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           {cameraActive ? (
-            <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden bg-black">
-              {/* Video is ALWAYS mounted when cameraActive is true */}
+            <div className="relative w-full max-w-lg flex-1 max-h-[70vh] rounded-2xl overflow-hidden bg-black">
               <video
                 ref={videoRef}
                 autoPlay
@@ -404,7 +383,6 @@ export function FoodPhotoModal({
                 className="absolute inset-0 w-full h-full object-cover"
               />
 
-              {/* Loading overlay while camera initializes */}
               {!cameraReady && !cameraError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3">
                   <Loader2 className="h-8 w-8 text-white animate-spin" />
@@ -412,7 +390,6 @@ export function FoodPhotoModal({
                 </div>
               )}
 
-              {/* Error overlay */}
               {cameraError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 gap-4 px-8">
                   <Camera className="h-12 w-12 text-red-400" />
@@ -428,7 +405,6 @@ export function FoodPhotoModal({
                 </div>
               )}
 
-              {/* Viewfinder overlay (only when camera is ready) */}
               {cameraReady && (
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute inset-6 border-2 border-white/30 rounded-2xl" />
@@ -441,7 +417,7 @@ export function FoodPhotoModal({
               )}
             </div>
           ) : (
-            <div className="w-full max-w-md aspect-[3/4] rounded-2xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-4">
+            <div className="w-full max-w-lg flex-1 max-h-[70vh] rounded-2xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-4">
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
                 <Camera className="h-10 w-10 text-white/60" />
               </div>
@@ -452,7 +428,7 @@ export function FoodPhotoModal({
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 pb-8">
             {cameraActive && cameraReady ? (
               <>
                 <Button
@@ -471,7 +447,7 @@ export function FoodPhotoModal({
                 >
                   <div className="w-16 h-16 rounded-full bg-white" />
                 </button>
-                <div className="w-12" /> {/* spacer */}
+                <div className="w-12" />
               </>
             ) : cameraActive && !cameraReady ? null : (
               <>
@@ -483,10 +459,8 @@ export function FoodPhotoModal({
                   <Camera className="h-5 w-5" />
                   Kamera
                 </Button>
-
-                {/* Native camera capture for mobile (most reliable) */}
                 <Button
-                  onClick={() => cameraInputRef.current?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                   size="lg"
                   variant="outline"
                   className="rounded-full border-white/30 text-white hover:bg-white/10 gap-2 h-14 px-6"
@@ -498,16 +472,8 @@ export function FoodPhotoModal({
             )}
           </div>
 
-          {/* Hidden file inputs */}
           <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <input
-            ref={galleryInputRef}
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             className="hidden"
@@ -522,11 +488,7 @@ export function FoodPhotoModal({
           {previewUrl && (
             <div className="w-48 h-48 rounded-2xl overflow-hidden opacity-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Essen"
-                className="w-full h-full object-cover"
-              />
+              <img src={previewUrl} alt="Essen" className="w-full h-full object-cover" />
             </div>
           )}
           <div className="flex flex-col items-center gap-3">
@@ -580,12 +542,9 @@ export function FoodPhotoModal({
                 className="rounded-xl border-0 bg-white/10 backdrop-blur-sm overflow-hidden"
               >
                 <CardContent className="p-4 space-y-3">
-                  {/* Item header */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm truncate">
-                        {item.name}
-                      </p>
+                      <p className="text-white font-semibold text-sm truncate">{item.name}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <div
                           className={cn(
@@ -613,7 +572,6 @@ export function FoodPhotoModal({
                     </Button>
                   </div>
 
-                  {/* Editable quantity */}
                   <div className="flex items-center gap-3">
                     <label
                       htmlFor={`qty-${item.id}`}
@@ -641,7 +599,6 @@ export function FoodPhotoModal({
                     </span>
                   </div>
 
-                  {/* Macro summary */}
                   <div className="flex items-center gap-4 text-[10px] text-white/40">
                     <span>P: {item.protein_g}g</span>
                     <span>K: {item.carbs_g}g</span>
@@ -652,48 +609,72 @@ export function FoodPhotoModal({
             ))}
           </div>
 
-          {/* Sticky footer with totals & save */}
-          <div className="px-4 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10 space-y-3 safe-area-bottom">
+          {/* ── Sticky footer: meal picker + totals + save ─────────────── */}
+          <div className="px-4 py-4 bg-black/90 backdrop-blur-sm border-t border-white/10 space-y-3">
+            {/* Meal type picker */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMealPicker(!showMealPicker)}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <span>{currentMeal.emoji}</span>
+                  <span className="font-medium">Speichern als: {currentMeal.label}</span>
+                </span>
+                <ChevronDown className={cn('h-4 w-4 text-white/50 transition-transform', showMealPicker && 'rotate-180')} />
+              </button>
+
+              {showMealPicker && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 bg-slate-900 border border-white/20 rounded-xl overflow-hidden shadow-xl z-10">
+                  {MEAL_TYPES.map((meal) => (
+                    <button
+                      key={meal.value}
+                      onClick={() => {
+                        setSelectedMealType(meal.value)
+                        setShowMealPicker(false)
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors',
+                        selectedMealType === meal.value
+                          ? 'bg-primary/20 text-white'
+                          : 'text-white/70 hover:bg-white/10'
+                      )}
+                    >
+                      <span>{meal.emoji}</span>
+                      <span className="font-medium">{meal.label}</span>
+                      {selectedMealType === meal.value && (
+                        <Check className="h-4 w-4 text-primary ml-auto" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Totals */}
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>
-                <p className="text-white font-bold text-lg tabular-nums">
-                  {totalCalories}
-                </p>
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">
-                  kcal
-                </p>
+                <p className="text-white font-bold text-lg tabular-nums">{totalCalories}</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">kcal</p>
               </div>
               <div>
-                <p className="text-primary font-bold tabular-nums">
-                  {totalProtein.toFixed(1)}g
-                </p>
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">
-                  Protein
-                </p>
+                <p className="text-primary font-bold tabular-nums">{totalProtein.toFixed(1)}g</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">Protein</p>
               </div>
               <div>
-                <p className="text-amber-400 font-bold tabular-nums">
-                  {totalCarbs.toFixed(1)}g
-                </p>
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">
-                  Carbs
-                </p>
+                <p className="text-amber-400 font-bold tabular-nums">{totalCarbs.toFixed(1)}g</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">Carbs</p>
               </div>
               <div>
-                <p className="text-rose-400 font-bold tabular-nums">
-                  {totalFat.toFixed(1)}g
-                </p>
-                <p className="text-white/40 text-[10px] uppercase tracking-wider">
-                  Fett
-                </p>
+                <p className="text-rose-400 font-bold tabular-nums">{totalFat.toFixed(1)}g</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wider">Fett</p>
               </div>
             </div>
 
             {/* Save button */}
             <Button
               onClick={handleSave}
-              disabled={isSaving || items.length === 0}
+              disabled={isSaving || items.length === 0 || !currentHousehold}
               className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold gap-2"
             >
               {isSaving ? (
@@ -701,7 +682,9 @@ export function FoodPhotoModal({
               ) : (
                 <Check className="h-5 w-5" />
               )}
-              {isSaving ? 'Wird gespeichert...' : `${items.length} Zutaten speichern`}
+              {isSaving
+                ? 'Wird gespeichert...'
+                : `${items.length} ${items.length === 1 ? 'Zutat' : 'Zutaten'} speichern`}
             </Button>
           </div>
         </div>
