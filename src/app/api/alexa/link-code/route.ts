@@ -57,6 +57,7 @@ export async function POST() {
     })
   } catch (error) {
     console.error('[alexa/link-code][POST] error', error)
-    return NextResponse.json({ error: 'Link-Code konnte nicht erstellt werden' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Link-Code konnte nicht erstellt werden'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

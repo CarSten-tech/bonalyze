@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Camera,
   X,
@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles,
   ImageIcon,
+  SwitchCamera,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -88,47 +89,143 @@ export function FoodPhotoModal({
   const [mealDescription, setMealDescription] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const [cameraActive, setCameraActive] = useState(false)
 
-  // ─── Camera Logic ────────────────────────────────────────────────────────
+  // ─── Stream cleanup ──────────────────────────────────────────────────────
 
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-      setCameraActive(true)
-    } catch {
-      toast.error('Kamera konnte nicht gestartet werden')
-    }
-  }, [])
-
-  const stopCamera = useCallback(() => {
+  const stopStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-    setCameraActive(false)
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setCameraReady(false)
   }, [])
 
+  // Cleanup on unmount or when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      stopStream()
+      setCameraActive(false)
+      setCameraError(null)
+    }
+    return () => stopStream()
+  }, [isOpen, stopStream])
+
+  // ─── Camera Logic ────────────────────────────────────────────────────────
+  // KEY FIX: We first set cameraActive=true to mount the <video> element,
+  // then use an effect to attach the stream once the ref is available.
+
+  const startCamera = useCallback(() => {
+    setCameraError(null)
+    setCameraActive(true)
+  }, [])
+
+  // Once cameraActive is true and the <video> element is mounted, start the stream
+  useEffect(() => {
+    if (!cameraActive || !isOpen) return
+
+    let cancelled = false
+
+    async function initStream() {
+      try {
+        // Check for camera support
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCameraError('Kamera wird nicht unterstützt. Nutze die Galerie.')
+          return
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        })
+
+        if (cancelled) {
+          // Component unmounted or camera was stopped while waiting
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+
+        streamRef.current = stream
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+
+          // Wait for video metadata to load before playing
+          await new Promise<void>((resolve, reject) => {
+            const video = videoRef.current!
+            video.onloadedmetadata = () => resolve()
+            video.onerror = () => reject(new Error('Video error'))
+            // Timeout fallback
+            setTimeout(() => resolve(), 3000)
+          })
+
+          if (cancelled) {
+            stream.getTracks().forEach((t) => t.stop())
+            return
+          }
+
+          await videoRef.current.play()
+          setCameraReady(true)
+        }
+      } catch (err) {
+        if (cancelled) return
+        console.error('[food-photo] Camera error:', err)
+
+        const msg = err instanceof Error ? err.message : 'Unbekannter Fehler'
+        if (msg.includes('NotAllowed') || msg.includes('Permission')) {
+          setCameraError('Kamera-Zugriff verweigert. Bitte erlaube den Zugriff in den Einstellungen.')
+        } else if (msg.includes('NotFound') || msg.includes('DevicesNotFound')) {
+          setCameraError('Keine Kamera gefunden.')
+        } else {
+          setCameraError('Kamera konnte nicht gestartet werden. Nutze die Galerie.')
+        }
+        stopStream()
+      }
+    }
+
+    initStream()
+
+    return () => {
+      cancelled = true
+    }
+  }, [cameraActive, isOpen, stopStream])
+
+  const stopCamera = useCallback(() => {
+    stopStream()
+    setCameraActive(false)
+    setCameraError(null)
+  }, [stopStream])
+
+  // ─── Capture ─────────────────────────────────────────────────────────────
+
   const captureFromCamera = useCallback(() => {
-    if (!videoRef.current) return
+    const video = videoRef.current
+    if (!video || video.videoWidth === 0) {
+      toast.error('Kamera ist noch nicht bereit.')
+      return
+    }
 
     const canvas = document.createElement('canvas')
-    canvas.width = videoRef.current.videoWidth
-    canvas.height = videoRef.current.videoHeight
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.drawImage(videoRef.current, 0, 0)
+    ctx.drawImage(video, 0, 0)
 
+    // Stop camera immediately
     stopCamera()
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
@@ -141,12 +238,30 @@ export function FoodPhotoModal({
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Reset input so user can select the same file again
+    e.target.value = ''
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Bitte wähle ein Bild aus.')
+      return
+    }
+
+    // Limit file size to 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Bild ist zu groß (max 10MB). Bitte wähle ein kleineres Bild.')
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
       setPreviewUrl(dataUrl)
       const base64 = dataUrl.split(',')[1]
       analyzeImage(base64, file.type || 'image/jpeg')
+    }
+    reader.onerror = () => {
+      toast.error('Fehler beim Lesen des Bildes.')
     }
     reader.readAsDataURL(file)
   }, [])
@@ -227,6 +342,7 @@ export function FoodPhotoModal({
   // ─── Lifecycle ───────────────────────────────────────────────────────────
 
   const resetToCapture = () => {
+    stopCamera()
     setPhase('capture')
     setItems([])
     setMealDescription('')
@@ -235,7 +351,10 @@ export function FoodPhotoModal({
 
   const handleClose = () => {
     stopCamera()
-    resetToCapture()
+    setPhase('capture')
+    setItems([])
+    setMealDescription('')
+    setPreviewUrl(null)
     onClose()
   }
 
@@ -251,7 +370,7 @@ export function FoodPhotoModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm safe-area-top">
         <Button
           variant="ghost"
           size="icon"
@@ -268,7 +387,7 @@ export function FoodPhotoModal({
             {phase === 'review' && 'Ergebnis prüfen'}
           </span>
         </div>
-        <div className="w-10" /> {/* Spacer for centering */}
+        <div className="w-10" />
       </div>
 
       {/* ─── Capture Phase ──────────────────────────────────────────────── */}
@@ -276,6 +395,7 @@ export function FoodPhotoModal({
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           {cameraActive ? (
             <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden bg-black">
+              {/* Video is ALWAYS mounted when cameraActive is true */}
               <video
                 ref={videoRef}
                 autoPlay
@@ -283,15 +403,42 @@ export function FoodPhotoModal({
                 muted
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              {/* Viewfinder overlay */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute inset-6 border-2 border-white/30 rounded-2xl" />
-                <div className="absolute bottom-4 left-0 right-0 text-center">
-                  <p className="text-white/70 text-xs font-medium">
-                    Richte die Kamera auf dein Essen
-                  </p>
+
+              {/* Loading overlay while camera initializes */}
+              {!cameraReady && !cameraError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3">
+                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                  <p className="text-white/70 text-sm">Kamera wird gestartet...</p>
                 </div>
-              </div>
+              )}
+
+              {/* Error overlay */}
+              {cameraError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 gap-4 px-8">
+                  <Camera className="h-12 w-12 text-red-400" />
+                  <p className="text-white/80 text-sm text-center">{cameraError}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/30 text-white hover:bg-white/10"
+                    onClick={stopCamera}
+                  >
+                    Zurück
+                  </Button>
+                </div>
+              )}
+
+              {/* Viewfinder overlay (only when camera is ready) */}
+              {cameraReady && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-6 border-2 border-white/30 rounded-2xl" />
+                  <div className="absolute bottom-4 left-0 right-0 text-center">
+                    <p className="text-white/70 text-xs font-medium">
+                      Richte die Kamera auf dein Essen
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="w-full max-w-md aspect-[3/4] rounded-2xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-4">
@@ -306,15 +453,27 @@ export function FoodPhotoModal({
 
           {/* Action buttons */}
           <div className="flex items-center gap-4">
-            {cameraActive ? (
-              <button
-                onClick={captureFromCamera}
-                aria-label="Foto aufnehmen"
-                className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <div className="w-16 h-16 rounded-full bg-white" />
-              </button>
-            ) : (
+            {cameraActive && cameraReady ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/10 h-12 w-12"
+                  onClick={stopCamera}
+                  aria-label="Kamera schließen"
+                >
+                  <SwitchCamera className="h-5 w-5" />
+                </Button>
+                <button
+                  onClick={captureFromCamera}
+                  aria-label="Foto aufnehmen"
+                  className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform"
+                >
+                  <div className="w-16 h-16 rounded-full bg-white" />
+                </button>
+                <div className="w-12" /> {/* spacer */}
+              </>
+            ) : cameraActive && !cameraReady ? null : (
               <>
                 <Button
                   onClick={startCamera}
@@ -324,8 +483,10 @@ export function FoodPhotoModal({
                   <Camera className="h-5 w-5" />
                   Kamera
                 </Button>
+
+                {/* Native camera capture for mobile (most reliable) */}
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => cameraInputRef.current?.click()}
                   size="lg"
                   variant="outline"
                   className="rounded-full border-white/30 text-white hover:bg-white/10 gap-2 h-14 px-6"
@@ -337,8 +498,16 @@ export function FoodPhotoModal({
             )}
           </div>
 
+          {/* Hidden file inputs */}
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <input
+            ref={galleryInputRef}
             type="file"
             accept="image/*"
             className="hidden"
@@ -397,6 +566,7 @@ export function FoodPhotoModal({
               size="icon"
               className="text-white/60 hover:bg-white/10"
               onClick={resetToCapture}
+              aria-label="Neues Foto aufnehmen"
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
@@ -437,6 +607,7 @@ export function FoodPhotoModal({
                       size="icon"
                       className="text-red-400 hover:bg-red-500/20 h-8 w-8"
                       onClick={() => removeItem(item.id)}
+                      aria-label={`${item.name} entfernen`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -444,11 +615,15 @@ export function FoodPhotoModal({
 
                   {/* Editable quantity */}
                   <div className="flex items-center gap-3">
-                    <label className="text-white/60 text-xs font-medium min-w-[50px]">
+                    <label
+                      htmlFor={`qty-${item.id}`}
+                      className="text-white/60 text-xs font-medium min-w-[50px]"
+                    >
                       Menge
                     </label>
                     <div className="flex items-center gap-1.5 flex-1">
                       <Input
+                        id={`qty-${item.id}`}
                         type="number"
                         value={item.quantity_g}
                         placeholder="Menge"
@@ -478,7 +653,7 @@ export function FoodPhotoModal({
           </div>
 
           {/* Sticky footer with totals & save */}
-          <div className="px-4 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10 space-y-3">
+          <div className="px-4 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10 space-y-3 safe-area-bottom">
             {/* Totals */}
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>

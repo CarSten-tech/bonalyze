@@ -29,6 +29,7 @@ interface ShoppingListItemRow {
 }
 
 const CODE_TTL_MINUTES = 10
+const MISSING_TABLE_CODE = '42P01'
 
 function codeSalt(): string {
   return process.env.ALEXA_LINK_CODE_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'bonalyze-alexa-default-salt'
@@ -83,7 +84,7 @@ export async function createAlexaLinkCodeForUser(userId: string) {
 
   if (membershipError) throw membershipError
   if (!membership?.household_id) {
-    throw new Error('User has no household membership.')
+    throw new Error('Du bist keinem Haushalt zugeordnet.')
   }
 
   const householdId = membership.household_id
@@ -99,7 +100,53 @@ export async function createAlexaLinkCodeForUser(userId: string) {
 
   if (listError) throw listError
   if (!list?.id) {
-    throw new Error('Household has no shopping list.')
+    const { data: createdList, error: createListError } = await supabase
+      .from('shopping_lists')
+      .insert({
+        household_id: householdId,
+        name: 'Einkaufsliste',
+        is_default: true,
+        created_by: userId,
+      })
+      .select('id')
+      .single()
+
+    if (createListError || !createdList?.id) {
+      throw new Error('Es konnte keine Einkaufsliste fuer den Haushalt angelegt werden.')
+    }
+
+    const fallbackListId = createdList.id
+    const { code, codeHash, expiresAt } = createLinkCode()
+
+    await supabase
+      .from('alexa_link_codes' as never)
+      .delete()
+      .eq('user_id', userId)
+      .is('used_at', null)
+
+    const { error: insertFallbackError } = await supabase
+      .from('alexa_link_codes' as never)
+      .insert({
+        user_id: userId,
+        household_id: householdId,
+        shopping_list_id: fallbackListId,
+        code_hash: codeHash,
+        expires_at: expiresAt,
+      })
+
+    if (insertFallbackError) {
+      if (insertFallbackError.code === MISSING_TABLE_CODE) {
+        throw new Error('Alexa Tabellen fehlen. Bitte Migration 018_alexa_shopping_integration.sql in Supabase ausfuehren.')
+      }
+      throw insertFallbackError
+    }
+
+    return {
+      code,
+      expiresAt,
+      householdId,
+      shoppingListId: fallbackListId,
+    }
   }
 
   const { code, codeHash, expiresAt } = createLinkCode()
@@ -120,7 +167,12 @@ export async function createAlexaLinkCodeForUser(userId: string) {
       expires_at: expiresAt,
     })
 
-  if (insertError) throw insertError
+  if (insertError) {
+    if (insertError.code === MISSING_TABLE_CODE) {
+      throw new Error('Alexa Tabellen fehlen. Bitte Migration 018_alexa_shopping_integration.sql in Supabase ausfuehren.')
+    }
+    throw insertError
+  }
 
   return {
     code,
