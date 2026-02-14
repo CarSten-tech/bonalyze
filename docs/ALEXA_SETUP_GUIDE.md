@@ -32,7 +32,7 @@ Jetzt bringen wir Alexa bei, was sie verstehen soll.
 4. Klicke oben auf **Save Model**.
 5. Klicke dann auf **Build Model**. Das dauert ca. 1-2 Minuten.
 
-> **Hinweis**: Der "Invocation Name" ist das Wort, mit dem du den Skill startest. Er ist auf `bonalyze liste` eingestellt. Du sagst also später: _"Alexa, öffne Bonalyze Liste"_.
+> **Hinweis**: Der "Invocation Name" ist das Wort, mit dem du den Skill startest. Er ist auf `bonalyze` eingestellt. Du sagst also später: _"Alexa, öffne Bonalyze"_.
 
 ---
 
@@ -56,7 +56,7 @@ Jetzt sagen wir Alexa, wo sie die Antworten herbekommt.
 
 1. Klicke oben im Reiter auf **Test**.
 2. Stelle "Skill testing is enabled in:" von `Off` auf `Development`.
-3. Tippe oder spreche in den Simulator: `öffne bonalyze liste`.
+3. Tippe oder spreche in den Simulator: `öffne bonalyze`.
 4. Wenn alles klappt, antwortet Alexa: _"Willkommen bei Bonalyze..."_ oder fragt nach einer Verknüpfung.
 
 ---
@@ -70,7 +70,7 @@ Damit Alexa weiß, WELCHE Einkaufsliste sie bearbeiten soll, musst du sie einmal
 3. Scrolle zu "Alexa Verknüpfung" und klicke auf **Code erstellen**.
 4. Merke dir den 6-stelligen Code (er ist 10 Minuten gültig).
 5. Sage zu Alexa (oder tippe im Simulator):
-   _"Alexa, öffne Bonalyze Liste"_
+   _"Alexa, öffne Bonalyze"_
    Alexa fragt was du tun möchtest.
 6. Sage: _"Verknüpfen mit Code 123456"_ (dein Code).
 7. Alexa sollte bestätigen: _"Gerät erfolgreich mit deiner Bonalyze Einkaufsliste verknüpft."_
@@ -79,7 +79,7 @@ Damit Alexa weiß, WELCHE Einkaufsliste sie bearbeiten soll, musst du sie einmal
 
 ## Fertig! 🎉 So nutzt du es:
 
-Du kannst jetzt folgende Befehle nutzen. Starte immer mit _"Alexa, öffne Bonalyze Liste"_, oder sage den Befehl direkt: _"Alexa, sage Bonalyze Liste, dass..."_
+Du kannst jetzt folgende Befehle nutzen. Starte immer mit _"Alexa, öffne Bonalyze"_, oder sage den Befehl direkt: _"Alexa, sage Bonalyze, dass..."_
 
 ### 🛒 Produkte hinzufügen (auch mehrere!)
 
