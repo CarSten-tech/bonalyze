@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "bonalyze liste",
+      "invocationName": "bonalyze",
       "intents": [
         {
           "name": "LinkAccountIntent",
