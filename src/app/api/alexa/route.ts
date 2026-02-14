@@ -237,9 +237,34 @@ export async function POST(request: NextRequest) {
     }
 
     if (envelope.request.type === 'LaunchRequest') {
-      return NextResponse.json(
-        createAlexaResponse('Willkommen bei Bonalyze. Sage zum Beispiel: fuege Milch und Eier zur Einkaufsliste hinzu.')
-      )
+      const link = await getAlexaLinkByAlexaUserId(alexaUserId)
+
+      if (!link) {
+        return NextResponse.json(
+          createAlexaResponse(
+            'Willkommen bei Bonalyze. Bitte verknuepfe zuerst dein Konto. Sage: verknuepfen und dann deinen sechsstelligen Code.'
+          )
+        )
+      }
+
+      await touchAlexaLink(alexaUserId)
+
+      const currentList = await getShoppingListById(link.shopping_list_id)
+      const allLists = await getShoppingListsForHousehold(link.household_id)
+      const activeListName = currentList ? sanitizeForSpeech(currentList.name) : 'Unbekannt'
+
+      let speech: string
+      if (allLists.length <= 1) {
+        speech = `Willkommen bei Bonalyze. Deine aktive Liste ist ${activeListName}. Was moechtest du tun?`
+      } else {
+        const otherLists = allLists
+          .filter((l) => l.id !== link.shopping_list_id)
+          .map((l) => sanitizeForSpeech(l.name))
+          .join(', ')
+        speech = `Willkommen bei Bonalyze. Deine aktive Liste ist ${activeListName}. Weitere Listen: ${otherLists}. Sage oeffne Liste und den Namen zum Wechseln, oder erstelle Liste fuer eine neue.`
+      }
+
+      return NextResponse.json(createAlexaResponse(speech))
     }
 
     if (envelope.request.type === 'SessionEndedRequest') {

@@ -39,19 +39,19 @@ export interface AlexaRequestEnvelope {
   }
 }
 
+export interface AlexaOutputSpeech {
+  type: 'PlainText' | 'SSML'
+  text?: string
+  ssml?: string
+}
+
 export interface AlexaResponseEnvelope {
   version: '1.0'
   response: {
     shouldEndSession: boolean
-    outputSpeech: {
-      type: 'PlainText'
-      text: string
-    }
+    outputSpeech: AlexaOutputSpeech
     reprompt?: {
-      outputSpeech: {
-        type: 'PlainText'
-        text: string
-      }
+      outputSpeech: AlexaOutputSpeech
     }
     card?: {
       type: 'Simple'

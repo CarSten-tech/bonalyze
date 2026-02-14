@@ -2,6 +2,11 @@ import type { AlexaResponseEnvelope } from './types'
 
 const DEFAULT_TITLE = 'Bonalyze Einkaufsliste'
 
+function toSsml(text: string): string {
+  const ssmlText = text.replace(/Bonalyze/gi, '<lang xml:lang="en-US">Bonalyze</lang>')
+  return `<speak>${ssmlText}</speak>`
+}
+
 export function createAlexaResponse(
   text: string,
   options?: {
@@ -11,21 +16,22 @@ export function createAlexaResponse(
   }
 ): AlexaResponseEnvelope {
   const shouldEndSession = options?.shouldEndSession ?? false
+  const repromptText = options?.reprompt || 'Was soll ich mit deiner Einkaufsliste machen?'
 
   return {
     version: '1.0',
     response: {
       shouldEndSession,
       outputSpeech: {
-        type: 'PlainText',
-        text,
+        type: 'SSML',
+        ssml: toSsml(text),
       },
       reprompt: shouldEndSession
         ? undefined
         : {
             outputSpeech: {
-              type: 'PlainText',
-              text: options?.reprompt || 'Was soll ich mit deiner Einkaufsliste machen?',
+              type: 'SSML',
+              ssml: toSsml(repromptText),
             },
           },
       card: {
