@@ -171,7 +171,11 @@
             "zeige liste {listName}",
             "nimm liste {listName}",
             "wechsle auf liste {listName}",
-            "ich moechte liste {listName}"
+            "ich moechte liste {listName}",
+            "oeffne liste {listName} und fuege hinzu",
+            "liste {listName} und fuege hinzu",
+            "wechsle zu liste {listName} und fuege hinzu",
+            "oeffne liste {listName} und setze drauf"
           ]
         },
         {

@@ -111,17 +111,34 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
   }
 
   if (intentName === 'OpenListIntent') {
-    const requestedName = extractSlotValue(envelope, ['listName', 'name', 'shoppingListName'])
-    if (!requestedName) {
+    const rawName = extractSlotValue(envelope, ['listName', 'name', 'shoppingListName'])
+    if (!rawName) {
       return createAlexaResponse('Welche Liste soll ich oeffnen?')
     }
 
-    const found = await findShoppingListByName(link.household_id, requestedName)
+    // Support combo commands like "öffne liste DM und füge Milch hinzu"
+    const comboMatch = rawName.match(/^(.+?)\s+und\s+(?:fuege|füge|setze|schreibe|pack|trage|notiere)\s+(.+?)(?:\s+hinzu|\s+auf die liste|\s+auf die einkaufsliste|\s+ein)?$/i)
+    const listNamePart = comboMatch ? comboMatch[1].trim() : rawName
+    const addItemsPart = comboMatch ? comboMatch[2].trim() : null
+
+    const found = await findShoppingListByName(link.household_id, listNamePart)
     if (!found) {
-      return createAlexaResponse(`Ich habe keine Liste mit dem Namen ${sanitizeForSpeech(requestedName)} gefunden.`)
+      return createAlexaResponse(`Ich habe keine Liste mit dem Namen ${sanitizeForSpeech(listNamePart)} gefunden.`)
     }
 
     await setActiveAlexaShoppingList(alexaUserId, found.id)
+
+    if (addItemsPart) {
+      const parsed = parseProductList(addItemsPart)
+      if (parsed.length > 0) {
+        const result = await addProductsToList(found.id, parsed)
+        const productNames = parsed.map((p) => sanitizeForSpeech(p.productName)).join(', ')
+        return createAlexaResponse(
+          `Liste ${sanitizeForSpeech(found.name)} ist jetzt aktiv. ${result.addedCount + result.updatedCount} Produkte hinzugefuegt: ${productNames}.`
+        )
+      }
+    }
+
     return createAlexaResponse(`Liste ${sanitizeForSpeech(found.name)} ist jetzt aktiv.`)
   }
 
