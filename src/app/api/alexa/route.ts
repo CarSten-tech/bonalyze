@@ -253,9 +253,10 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('[alexa] error:', error)
+    const activeError = error instanceof Error ? error.message : 'Unbekannter Fehler'
     return NextResponse.json(
-      createAlexaResponse('Es gab ein technisches Problem. Bitte versuche es gleich erneut.'),
-      { status: 500 }
+      createAlexaResponse(`Systemfehler: ${activeError}`),
+      { status: 200 }
     )
   }
 }
