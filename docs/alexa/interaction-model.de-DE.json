@@ -21,7 +21,10 @@
             "ich moechte mich mit code {code} verbinden",
             "koppel mich mit code {code}",
             "konto verknuepfen code {code}",
-            "link code {code}"
+            "link code {code}",
+            "verknuepfe mein konto mit {code}",
+            "koppeln mit code {code}",
+            "registriere mich mit code {code}"
           ]
         },
         {
@@ -47,7 +50,17 @@
             "trage {items} ein",
             "setze bitte {items} auf meine einkaufsliste",
             "nimm {items} mit auf",
-            "bonalyze fuege {items} hinzu"
+            "bonalyze fuege {items} hinzu",
+            "wir brauchen noch {items}",
+            "bitte {items} hinzufuegen",
+            "schreib {items} auf",
+            "auf die liste bitte {items}",
+            "ich haette gerne {items}",
+            "wir muessen {items} kaufen",
+            "bitte {items} auf die einkaufsliste",
+            "kannst du {items} aufschreiben",
+            "merke dir {items}",
+            "denk an {items}"
           ]
         },
         {
@@ -70,7 +83,14 @@
             "raeume {items} von der einkaufsliste",
             "bonalyze entferne {items}",
             "streiche bitte {items} von meiner liste",
-            "wir haben {items} schon"
+            "wir haben {items} schon",
+            "hake {items} ab",
+            "streich {items} durch",
+            "loesche bitte {items}",
+            "{items} brauchen wir nicht mehr",
+            "{items} haben wir schon",
+            "{items} ist erledigt",
+            "{items} von der liste nehmen"
           ]
         },
         {
@@ -82,18 +102,22 @@
             }
           ],
           "samples": [
-            "setze {items}",
             "aendere menge fuer {items}",
-            "aktualisiere {items}",
+            "aendere die menge von {items}",
+            "aendere menge von {items}",
             "setze die menge auf {items}",
-            "aendere {items}",
-            "mach aus {items}",
+            "setze menge auf {items}",
+            "setze die menge von {items}",
             "korrigiere die menge fuer {items}",
-            "stell auf {items}",
-            "bonalyze setze {items}",
-            "aendere bitte auf {items}",
-            "stelle die einkaufsliste auf {items}",
-            "setze produktmenge {items}"
+            "korrigiere menge von {items}",
+            "stelle die menge auf {items}",
+            "menge aendern fuer {items}",
+            "menge von {items} aendern",
+            "mach die menge von {items}",
+            "ich brauche davon {items}",
+            "wir brauchen eigentlich {items}",
+            "aendere bitte menge auf {items}",
+            "korrigiere auf {items}"
           ]
         },
         {
@@ -113,7 +137,17 @@
             "was steht aktuell auf der liste",
             "sag mir meine einkaufsliste",
             "was habe ich noch offen",
-            "bonalyze liste vorlesen"
+            "bonalyze liste vorlesen",
+            "einkaufsliste vorlesen",
+            "was brauche ich noch",
+            "was muss ich noch kaufen",
+            "was steht auf der liste",
+            "liste vorlesen bitte",
+            "was brauchen wir",
+            "was ist auf der einkaufsliste",
+            "was haben wir auf der liste",
+            "zeig mir die liste",
+            "was steht drauf"
           ]
         },
         {
@@ -130,7 +164,14 @@
             "nutze liste {listName}",
             "setze aktive liste auf {listName}",
             "gehe auf liste {listName}",
-            "bitte liste {listName} oeffnen"
+            "bitte liste {listName} oeffnen",
+            "wechsel auf {listName}",
+            "liste {listName} oeffnen",
+            "aktiviere liste {listName}",
+            "zeige liste {listName}",
+            "nimm liste {listName}",
+            "wechsle auf liste {listName}",
+            "ich moechte liste {listName}"
           ]
         },
         {
@@ -146,7 +187,12 @@
             "lege liste {listName} an",
             "neue liste {listName}",
             "erstelle neue einkaufsliste {listName}",
-            "bonalyze erstelle liste {listName}"
+            "bonalyze erstelle liste {listName}",
+            "mach eine neue liste {listName}",
+            "liste {listName} erstellen",
+            "leg mir liste {listName} an",
+            "ich brauche eine neue liste {listName}",
+            "erstelle einkaufsliste {listName}"
           ]
         },
         {
@@ -156,7 +202,12 @@
             "zeige meine listen",
             "welche einkaufslisten gibt es",
             "lies meine listen vor",
-            "nenne mir meine listen"
+            "nenne mir meine listen",
+            "alle listen",
+            "welche listen gibt es",
+            "was fuer listen habe ich",
+            "zeig mir alle listen",
+            "liste aller einkaufslisten"
           ]
         },
         {
