@@ -92,7 +92,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
           </span>
         )}
         {offerHints && offerHints.length > 0 && !item.is_checked && (
-          <span className="text-[11px] text-green-600 font-medium mt-0.5">
+          <span className="text-[11px] text-green-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
             🏷 {offerHints.map((h, i) => (
               <span key={h.store}>
                 {i > 0 && ' · '}
