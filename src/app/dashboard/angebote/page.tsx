@@ -2,57 +2,73 @@
 
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Tag, ChevronLeft, ShoppingCart, Loader2 } from 'lucide-react'
+import { Search, Tag, ChevronLeft, Loader2, Store } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { getDeals, type Deal } from '@/app/actions/deals'
+import { getOffers, type Offer } from '@/app/actions/offers'
+import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
 
-function DealCard({ deal }: { deal: Deal }) {
+function OfferCard({ offer }: { offer: Offer }) {
   return (
     <Card className="overflow-hidden hover:bg-accent/30 transition-colors">
       <CardContent className="p-0">
         <div className="flex gap-3 p-3">
           {/* Product Image */}
-          <div className="relative w-20 h-20 flex-shrink-0 rounded-lg bg-muted overflow-hidden">
-            {deal.image_url ? (
+          <div className="relative w-20 h-20 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-border/50">
+            {offer.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={deal.image_url}
-                alt={deal.product_name}
+                src={offer.image_url}
+                alt={offer.title}
                 className="w-full h-full object-contain p-1"
                 loading="lazy"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center bg-muted">
                 <Tag className="w-8 h-8 text-muted-foreground/40" />
+              </div>
+            )}
+            {offer.discount_percent && (
+              <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-br-md">
+                -{offer.discount_percent}%
               </div>
             )}
           </div>
 
           {/* Product Info */}
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm leading-snug line-clamp-2">
-              {deal.product_name}
-            </p>
-            {deal.brand && (
-              <p className="text-xs text-muted-foreground mt-0.5">{deal.brand}</p>
-            )}
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold text-primary">
-                  {deal.price.toFixed(2).replace('.', ',')} €
-                </span>
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-sm leading-snug line-clamp-2">
+                  {offer.title}
+                </p>
+                <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 h-5 font-normal flex items-center gap-1">
+                 {getStoreIcon(offer.store)}
+                 <span>{offer.store}</span>
+                </Badge>
               </div>
-              {deal.grammage && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                  {deal.grammage}
-                </span>
+              {offer.description && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{offer.description}</p>
               )}
+            </div>
+            
+            <div className="flex items-end justify-between mt-2">
+              <div className="flex flex-col">
+                 <span className="text-lg font-bold text-primary leading-none">
+                  {offer.price.toFixed(2).replace('.', ',')} €
+                </span>
+                {offer.valid_to && (
+                  <span className="text-[10px] text-muted-foreground mt-1">
+                    Bis {new Date(offer.valid_to).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -61,7 +77,7 @@ function DealCard({ deal }: { deal: Deal }) {
   )
 }
 
-function CategoryPill({
+function FilterPill({
   label,
   active,
   onClick,
@@ -74,10 +90,10 @@ function CategoryPill({
     <button
       onClick={onClick}
       className={cn(
-        'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap',
+        'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap border',
         active
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-background text-muted-foreground border-border hover:bg-muted'
       )}
     >
       {label}
@@ -85,15 +101,18 @@ function CategoryPill({
   )
 }
 
-function DealCardSkeleton() {
+function OfferCardSkeleton() {
   return (
     <Card>
       <CardContent className="p-3">
         <div className="flex gap-3">
           <Skeleton className="w-20 h-20 rounded-lg" />
           <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/3" />
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <Skeleton className="h-3 w-3/4" />
             <Skeleton className="h-6 w-1/4 mt-2" />
           </div>
         </div>
@@ -106,19 +125,21 @@ export default function AngebotePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [deals, setDeals] = useState<Deal[]>([])
-  const [categories, setCategories] = useState<string[]>([])
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [stores, setStores] = useState<string[]>([])
   const [total, setTotal] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  
+  const [selectedStore, setSelectedStore] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const LIMIT = 30
 
-  const loadDeals = useCallback(async (
-    category: string,
+  const loadOffers = useCallback(async (
+    store: string,
     search: string,
     offset = 0,
     append = false
@@ -127,22 +148,23 @@ export default function AngebotePage() {
     else setIsLoadingMore(true)
 
     try {
-      const result = await getDeals(
-        category === 'all' ? undefined : category,
+      const result = await getOffers(
+        store === 'all' ? undefined : store,
+        undefined, // category
         search || undefined,
         LIMIT,
         offset
       )
 
       if (append) {
-        setDeals(prev => [...prev, ...result.deals])
+        setOffers(prev => [...prev, ...result.offers])
       } else {
-        setDeals(result.deals)
+        setOffers(result.offers)
       }
-      setCategories(result.categories)
+      setStores(result.stores)
       setTotal(result.total)
     } catch (err) {
-      console.error('Error loading deals:', err)
+      console.error('Error loading offers:', err)
       toast.error('Fehler beim Laden der Angebote')
     } finally {
       setIsLoading(false)
@@ -152,31 +174,31 @@ export default function AngebotePage() {
 
   // Initial load
   useEffect(() => {
-    const cat = searchParams.get('category') || 'all'
-    setSelectedCategory(cat)
-    loadDeals(cat, '')
-  }, [searchParams, loadDeals])
+    const store = searchParams.get('store') || 'all'
+    setSelectedStore(store)
+    loadOffers(store, '')
+  }, [searchParams, loadOffers])
 
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category)
+  const handleStoreChange = (store: string) => {
+    setSelectedStore(store)
     setSearchQuery('')
     startTransition(() => {
-      loadDeals(category, '')
+      loadOffers(store, '')
     })
   }
 
   const handleSearch = (value: string) => {
     setSearchQuery(value)
     startTransition(() => {
-      loadDeals(selectedCategory, value)
+      loadOffers(selectedStore, value)
     })
   }
 
   const handleLoadMore = () => {
-    loadDeals(selectedCategory, searchQuery, deals.length, true)
+    loadOffers(selectedStore, searchQuery, offers.length, true)
   }
 
-  const hasMore = deals.length < total
+  const hasMore = offers.length < total
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -195,13 +217,13 @@ export default function AngebotePage() {
             <div>
               <h1 className="text-xl font-bold">Angebote</h1>
               <p className="text-xs text-muted-foreground">
-                {total} REWE Angebote · Täglich aktualisiert
+                {total} Angebote in deiner Nähe
               </p>
             </div>
           </div>
 
           {/* Search */}
-          <div className="relative">
+          <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Produkt suchen..."
@@ -210,44 +232,44 @@ export default function AngebotePage() {
               className="pl-9 bg-card border-border"
             />
           </div>
-        </div>
 
-        {/* Category pills */}
-        <div className="flex gap-2 overflow-x-auto px-4 pb-3 scrollbar-hide">
-          <CategoryPill
-            label="Alle"
-            active={selectedCategory === 'all'}
-            onClick={() => handleCategoryChange('all')}
-          />
-          {categories.map((cat) => (
-            <CategoryPill
-              key={cat}
-              label={cat}
-              active={selectedCategory === cat}
-              onClick={() => handleCategoryChange(cat)}
+          {/* Store Filters */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <FilterPill
+              label="Alle Märkte"
+              active={selectedStore === 'all'}
+              onClick={() => handleStoreChange('all')}
             />
-          ))}
+            {stores.map((store) => (
+              <FilterPill
+                key={store}
+                label={store}
+                active={selectedStore === store}
+                onClick={() => handleStoreChange(store)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Deal Grid */}
+      {/* Offers Grid */}
       <div className="px-4 pt-4 space-y-3">
         {isLoading ? (
           Array.from({ length: 8 }).map((_, i) => (
-            <DealCardSkeleton key={i} />
+            <OfferCardSkeleton key={i} />
           ))
-        ) : deals.length === 0 ? (
+        ) : offers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Tag className="w-12 h-12 text-muted-foreground/40 mb-4" />
             <p className="font-medium">Keine Angebote gefunden</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Versuche eine andere Kategorie oder Suche
+              Versuche einen anderen Markt oder Suche
             </p>
           </div>
         ) : (
           <>
-            {deals.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
+            {offers.map((offer) => (
+              <OfferCard key={offer.id} offer={offer} />
             ))}
 
             {hasMore && (
@@ -260,7 +282,7 @@ export default function AngebotePage() {
                 {isLoadingMore ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
-                Mehr laden ({total - deals.length} weitere)
+                Mehr laden ({total - offers.length} weitere)
               </Button>
             )}
           </>

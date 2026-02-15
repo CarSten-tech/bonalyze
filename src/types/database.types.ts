@@ -259,42 +259,45 @@ export type Database = {
           },
         ]
       }
-      deals: {
+      offers: {
         Row: {
-          brand: string | null
           category: string | null
-          ean: string | null
-          grammage: string | null
+          description: string | null
+          discount_percent: number | null
           id: string
           image_url: string | null
           price: number
-          product_name: string
           store: string
-          synced_at: string
+          title: string
+          url: string | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Insert: {
-          brand?: string | null
           category?: string | null
-          ean?: string | null
-          grammage?: string | null
+          description?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           price: number
-          product_name: string
-          store?: string
-          synced_at?: string
+          store: string
+          title: string
+          url?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Update: {
-          brand?: string | null
           category?: string | null
-          ean?: string | null
-          grammage?: string | null
+          description?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           price?: number
-          product_name?: string
           store?: string
-          synced_at?: string
+          title?: string
+          url?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: []
       }
