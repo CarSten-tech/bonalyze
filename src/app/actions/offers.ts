@@ -74,7 +74,12 @@ export async function getOffers(
   const stores = [...new Set(storeData?.map(s => s.store).filter(Boolean) as string[])].sort()
 
   return {
-    offers: data as Offer[],
+    offers: (data as Offer[]).map(o => ({
+      ...o,
+      image_url: o.image_url?.startsWith('./') 
+        ? `https://www.aktionspreis.de${o.image_url.substring(1)}`
+        : o.image_url
+    })),
     categories,
     stores,
     total: count ?? 0,
