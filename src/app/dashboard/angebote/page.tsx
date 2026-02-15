@@ -15,19 +15,22 @@ import { getOffers, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
 
 function OfferCard({ offer }: { offer: Offer }) {
+  const [imageError, setImageError] = useState(false)
+
   return (
     <Card className="overflow-hidden hover:bg-accent/30 transition-colors">
       <CardContent className="p-0">
         <div className="flex gap-3 p-3">
           {/* Product Image */}
           <div className="relative w-20 h-20 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-border/50">
-            {offer.image_url ? (
+            {offer.image_url && !imageError ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={offer.image_url}
-                alt={offer.title}
+                alt={offer.product_name}
                 className="w-full h-full object-contain p-1"
                 loading="lazy"
+                onError={() => setImageError(true)}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -46,15 +49,15 @@ function OfferCard({ offer }: { offer: Offer }) {
             <div>
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold text-sm leading-snug line-clamp-2">
-                  {offer.title}
+                  {offer.product_name}
                 </p>
                 <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 h-5 font-normal flex items-center gap-1">
                  {getStoreIcon(offer.store)}
                  <span>{offer.store}</span>
                 </Badge>
               </div>
-              {offer.description && (
-                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{offer.description}</p>
+              {offer.price_per_unit && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{offer.price_per_unit}</p>
               )}
             </div>
             
@@ -63,9 +66,9 @@ function OfferCard({ offer }: { offer: Offer }) {
                  <span className="text-lg font-bold text-primary leading-none">
                   {offer.price.toFixed(2).replace('.', ',')} €
                 </span>
-                {offer.valid_to && (
+                {offer.valid_until && (
                   <span className="text-[10px] text-muted-foreground mt-1">
-                    Bis {new Date(offer.valid_to).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                    Bis {new Date(offer.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                   </span>
                 )}
               </div>

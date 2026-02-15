@@ -262,42 +262,60 @@ export type Database = {
       offers: {
         Row: {
           category: string | null
-          description: string | null
+          created_at: string
           discount_percent: number | null
           id: string
           image_url: string | null
+          original_price: number | null
+          postal_code: string | null
           price: number
+          price_per_unit: string | null
+          product_name: string
+          product_slug: string | null
+          scraped_at: string
+          source_url: string | null
           store: string
-          title: string
-          url: string | null
           valid_from: string | null
-          valid_to: string | null
+          valid_until: string | null
+          weight_volume: string | null
         }
         Insert: {
           category?: string | null
-          description?: string | null
+          created_at?: string
           discount_percent?: number | null
           id?: string
           image_url?: string | null
+          original_price?: number | null
+          postal_code?: string | null
           price: number
+          price_per_unit?: string | null
+          product_name: string
+          product_slug?: string | null
+          scraped_at?: string
+          source_url?: string | null
           store: string
-          title: string
-          url?: string | null
           valid_from?: string | null
-          valid_to?: string | null
+          valid_until?: string | null
+          weight_volume?: string | null
         }
         Update: {
           category?: string | null
-          description?: string | null
+          created_at?: string
           discount_percent?: number | null
           id?: string
           image_url?: string | null
+          original_price?: number | null
+          postal_code?: string | null
           price?: number
+          price_per_unit?: string | null
+          product_name?: string
+          product_slug?: string | null
+          scraped_at?: string
+          source_url?: string | null
           store?: string
-          title?: string
-          url?: string | null
           valid_from?: string | null
-          valid_to?: string | null
+          valid_until?: string | null
+          weight_volume?: string | null
         }
         Relationships: []
       }

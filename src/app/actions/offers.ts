@@ -4,16 +4,17 @@ import { createAdminClient } from '@/lib/supabase-admin'
 
 export interface Offer {
   id: string
-  title: string
+  product_name: string
   price: number
   store: string
-  description: string | null
   image_url: string | null
   valid_from: string | null
-  valid_to: string | null
+  valid_until: string | null
   discount_percent: number | null
   category: string | null
-  url: string | null
+  source_url: string | null
+  price_per_unit: string | null
+  weight_volume: string | null
 }
 
 interface OffersResult {
@@ -46,10 +47,10 @@ export async function getOffers(
   }
 
   if (search && search.trim().length > 0) {
-    query = query.ilike('title', `%${search.trim()}%`)
+    query = query.ilike('product_name', `%${search.trim()}%`)
   }
 
-  query = query.range(offset, offset + limit - 1)
+  query = query.range(offset, offset + limit * 2 - 1) // Fetch more to handle dedup
 
   const { data, error, count } = await query
 
@@ -58,7 +59,21 @@ export async function getOffers(
     return { offers: [], categories: [], stores: [], total: 0 }
   }
 
-  // Fetch distinct categories and stores (cached ideally, but direct for now)
+  // Deduplicate by store + product_name
+  const uniqueOffersMap = new Map<string, any>();
+  if (data) {
+    data.forEach((item) => {
+      const key = `${item.store}-${item.product_name}`;
+      if (!uniqueOffersMap.has(key)) {
+        uniqueOffersMap.set(key, item);
+      }
+    });
+  }
+
+  // Convert to array and slice to limit
+  const uniqueData = Array.from(uniqueOffersMap.values()).slice(0, limit);
+
+  // Fetch distinct categories and stores
   const { data: catData } = await supabase
     .from('offers')
     .select('category')
@@ -73,22 +88,33 @@ export async function getOffers(
 
   const stores = [...new Set(storeData?.map(s => s.store).filter(Boolean) as string[])].sort()
 
-  return {
-    offers: (data as Offer[]).map(o => {
+  const offers: Offer[] = uniqueData.map((o: any) => {
       let imageUrl = o.image_url;
       if (imageUrl) {
         if (imageUrl.startsWith('./')) {
           imageUrl = `https://www.aktionspreis.de${imageUrl.substring(1)}`;
         } else if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-           // Handle cases like "produkt_bilder/foo.webp"
           imageUrl = `https://www.aktionspreis.de/${imageUrl}`;
         }
       }
       return {
-        ...o,
-        image_url: imageUrl
+        id: o.id,
+        product_name: o.product_name,
+        price: o.price,
+        store: o.store,
+        image_url: imageUrl,
+        valid_from: o.valid_from,
+        valid_until: o.valid_until,
+        discount_percent: o.discount_percent,
+        category: o.category,
+        source_url: o.source_url,
+        price_per_unit: o.price_per_unit,
+        weight_volume: o.weight_volume
       };
-    }),
+    });
+
+  return {
+    offers,
     categories,
     stores,
     total: count ?? 0,
