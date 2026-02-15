@@ -163,7 +163,10 @@
             "anzahl ändern von {items}",
             "anzahl aendern von {items}",
             "anzahl von {items} ändern",
-            "anzahl von {items} aendern"
+            "anzahl von {items} aendern",
+            "setze {items}",
+            "ändere {items}",
+            "aendere {items}"
           ]
         },
         {
