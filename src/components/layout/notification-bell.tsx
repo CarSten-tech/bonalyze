@@ -97,6 +97,7 @@ export function NotificationBell() {
     switch (type) {
       case 'receipt': return <Receipt className="h-4 w-4 text-blue-500" />
       case 'budget': return <Wallet className="h-4 w-4 text-orange-500" />
+      case 'info': return <ShoppingBag className="h-4 w-4 text-green-500" />
       default: return <Info className="h-4 w-4 text-muted-foreground" />
     }
   }
