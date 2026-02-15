@@ -31,10 +31,15 @@ function normalizeSpacing(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function capitalizeWords(text: string): string {
+  return text.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 function normalizeProductName(name: string): string {
-  return normalizeSpacing(name)
+  const cleaned = normalizeSpacing(name)
     .replace(/^(ein|eine|einen|den|die|das)\s+/i, '')
     .replace(/[.,;:!?]+$/g, '')
+  return capitalizeWords(cleaned)
 }
 
 function normalizeUnit(unit: string | undefined): string | null {
