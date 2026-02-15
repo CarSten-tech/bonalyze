@@ -10,14 +10,14 @@ interface ItemListRowProps {
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
   estimatedPrice?: number
-  offerHint?: {
+  offerHints?: Array<{
     store: string
     price: number | null
     valid_until: string | null
-  }
+  }>
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offerHint }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offerHints }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -91,11 +91,19 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
             ~{(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
           </span>
         )}
-        {offerHint && !item.is_checked && (
+        {offerHints && offerHints.length > 0 && !item.is_checked && (
           <span className="text-[11px] text-green-600 font-medium mt-0.5">
-            🏷 Im Angebot bei {offerHint.store}
-            {offerHint.price != null && ` — ${offerHint.price.toFixed(2).replace('.', ',')} €`}
-            {offerHint.valid_until && ` (bis ${new Date(offerHint.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`}
+            🏷 {offerHints.map((h, i) => (
+              <span key={h.store}>
+                {i > 0 && ' · '}
+                <span className={i === 0 ? 'font-bold' : 'font-normal text-green-500/80'}>
+                  {h.store}{h.price != null ? ` ${h.price.toFixed(2).replace('.', ',')} €` : ''}
+                </span>
+              </span>
+            ))}
+            {offerHints[0]?.valid_until && (
+              <span className="text-green-500/70"> (bis {new Date(offerHints[0].valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})</span>
+            )}
           </span>
         )}
       </div>

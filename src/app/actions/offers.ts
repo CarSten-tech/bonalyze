@@ -242,15 +242,15 @@ export interface ShoppingListOfferHint {
 
 /**
  * For a list of shopping list item names, find matching offers.
- * Returns a map: itemName → best offer hint.
+ * Returns a map: itemName → offer hints (cheapest first).
  */
 export async function getShoppingListOfferMatches(
   itemNames: string[]
-): Promise<Record<string, ShoppingListOfferHint>> {
+): Promise<Record<string, ShoppingListOfferHint[]>> {
   if (itemNames.length === 0) return {}
 
   const supabase = createAdminClient()
-  const result: Record<string, ShoppingListOfferHint> = {}
+  const result: Record<string, ShoppingListOfferHint[]> = {}
 
   for (const name of itemNames) {
     const keyword = name
@@ -266,16 +266,25 @@ export async function getShoppingListOfferMatches(
       .select('product_name, store, price, valid_until, discount_percent')
       .ilike('product_name', `%${keyword}%`)
       .order('price', { ascending: true })
-      .limit(1)
+      .limit(5)
 
     if (data && data.length > 0) {
-      const offer = data[0]
-      result[name] = {
-        item_name: offer.product_name,
-        store: offer.store,
-        price: offer.price,
-        valid_until: offer.valid_until,
-        discount_percent: offer.discount_percent,
+      // Deduplicate by store (keep cheapest per store)
+      const seenStores = new Set<string>()
+      const hints: ShoppingListOfferHint[] = []
+      for (const offer of data) {
+        if (seenStores.has(offer.store)) continue
+        seenStores.add(offer.store)
+        hints.push({
+          item_name: offer.product_name,
+          store: offer.store,
+          price: offer.price,
+          valid_until: offer.valid_until,
+          discount_percent: offer.discount_percent,
+        })
+      }
+      if (hints.length > 0) {
+        result[name] = hints
       }
     }
   }

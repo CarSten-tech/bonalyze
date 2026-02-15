@@ -28,7 +28,7 @@ export default function ShoppingListPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
-  const [offerHints, setOfferHints] = useState<Record<string, ShoppingListOfferHint>>({})
+  const [offerHints, setOfferHints] = useState<Record<string, ShoppingListOfferHint[]>>({})
   const supabase = createClient()
 
   // Load view preference from localStorage
@@ -231,7 +231,7 @@ export default function ShoppingListPage() {
                     onUncheck={uncheckItem}
                     onDetailsClick={handleDetailsClick}
                     estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                    offerHint={offerHints[item.product_name]}
+                    offerHints={offerHints[item.product_name]}
                   />
                 ))}
               </div>
