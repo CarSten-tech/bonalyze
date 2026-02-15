@@ -25,11 +25,11 @@ export default function ProductPage({ params }: ProductPageProps) {
   if (isLoading) {
       return (
           <div className="p-6 space-y-6 animate-pulse">
-              <div className="h-8 bg-slate-100 w-1/2 rounded-lg" />
-              <div className="h-64 bg-slate-100 rounded-2xl" />
+              <div className="h-8 bg-muted w-1/2 rounded-lg" />
+              <div className="h-64 bg-muted rounded-2xl" />
               <div className="grid grid-cols-2 gap-4">
-                  <div className="h-32 bg-slate-100 rounded-2xl" />
-                  <div className="h-32 bg-slate-100 rounded-2xl" />
+                  <div className="h-32 bg-muted rounded-2xl" />
+                  <div className="h-32 bg-muted rounded-2xl" />
               </div>
           </div>
       )
@@ -57,12 +57,12 @@ export default function ProductPage({ params }: ProductPageProps) {
           variant="ghost" 
           size="icon" 
           onClick={() => router.back()}
-          className="-ml-2 text-slate-400 hover:text-slate-800 hover:bg-transparent"
+          className="-ml-2 text-muted-foreground hover:text-foreground hover:bg-transparent"
         >
           <ChevronLeft className="h-6 w-6" />
           <span className="sr-only">Zurück</span>
         </Button>
-        <span className="text-sm font-medium text-slate-400" onClick={() => router.back()}>Zurück</span>
+        <span className="text-sm font-medium text-muted-foreground" onClick={() => router.back()}>Zurück</span>
         <div className="flex-1" />
         <Button variant="default" size="sm" className="rounded-full px-4 bg-emerald-500 hover:bg-emerald-600">
             Bearbeiten
@@ -70,15 +70,15 @@ export default function ProductPage({ params }: ProductPageProps) {
       </div>
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+        <h1 className="text-2xl font-bold text-foreground leading-tight">
             {decodedName}
         </h1>
         {data.categoryName && (
-            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 mb-1">
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground mb-1">
                 {data.categoryName}
             </div>
         )}
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
             Produktinformationen und Statistiken
         </p>
       </div>

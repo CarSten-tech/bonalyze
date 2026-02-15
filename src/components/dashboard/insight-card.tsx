@@ -45,7 +45,7 @@ export function InsightCard({
 }: InsightCardProps) {
   if (isLoading) {
     return (
-      <Card className={cn('rounded-2xl border-l-4 border-l-muted border-0 shadow-elevation-1 bg-white', className)}>
+      <Card className={cn('rounded-2xl border-l-4 border-l-muted border-0 shadow-elevation-1 bg-card', className)}>
         <CardContent className="p-4 space-y-2">
           <div className="flex items-start gap-3">
             <Skeleton className="h-6 w-6 shrink-0" />
@@ -85,9 +85,9 @@ export function InsightCard({
   return (
     <Card
       className={cn(
-        'rounded-2xl border-l-4 border-0 shadow-elevation-1 bg-white',
+        'rounded-2xl border-l-4 border-0 shadow-elevation-1 bg-card',
         borderColors[variant],
-        onClick && 'cursor-pointer hover:bg-slate-50 transition-colors',
+        onClick && 'cursor-pointer hover:bg-muted/50 transition-colors',
         className
       )}
       onClick={onClick}

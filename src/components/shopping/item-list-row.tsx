@@ -36,8 +36,8 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
       className={cn(
         "flex items-center gap-3 p-3 rounded-lg border transition-all",
         item.is_checked
-          ? "bg-slate-50 border-slate-200 opacity-60"
-          : "bg-white border-slate-200 hover:border-primary/50"
+          ? "bg-muted border-border opacity-60"
+          : "bg-card border-border hover:border-primary/50"
       )}
     >
       {/* Checkbox area */}
@@ -61,7 +61,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
           "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
           item.is_checked
             ? "bg-green-100 text-green-600"
-            : "bg-slate-100 text-slate-500"
+            : "bg-muted text-muted-foreground"
         )}
       >
         {item.is_checked ? (
@@ -76,29 +76,29 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
         <span
           className={cn(
             "text-sm font-medium block truncate leading-tight",
-            item.is_checked && "line-through text-slate-400"
+            item.is_checked && "line-through text-muted-foreground"
           )}
         >
           {item.product_name}
         </span>
         {estimatedPrice !== undefined && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-muted-foreground">
             ~{(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
           </span>
         )}
         {/* Placeholder for subtitle/category if we had it */}
-        {/* <span className="text-xs text-slate-400">Gemüse</span> */}
+        {/* <span className="text-xs text-muted-foreground">Gemüse</span> */}
       </div>
 
       {/* Quantity Badge */}
       {quantityDisplay && (
         <div 
           className={cn(
-            "flex items-center px-2 py-1 rounded bg-slate-100 min-w-[2rem] justify-center mx-2",
+            "flex items-center px-2 py-1 rounded bg-muted min-w-[2rem] justify-center mx-2",
             item.is_checked && "opacity-50"
           )}
         >
-          <span className="text-xs font-bold text-slate-700 whitespace-nowrap">
+          <span className="text-xs font-bold text-foreground whitespace-nowrap">
             {quantityDisplay}
           </span>
         </div>
@@ -111,7 +111,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
         onClick={handleDetailsClick}
         className={cn(
           "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-          "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+          "text-muted-foreground hover:text-muted-foreground hover:bg-muted",
           "transition-colors"
         )}
       >

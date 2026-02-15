@@ -32,7 +32,7 @@ export function CheckedItemsSection({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="flex items-center justify-between">
-        <CollapsibleTrigger className="flex items-center gap-2 py-2 text-sm text-slate-500 hover:text-slate-700">
+        <CollapsibleTrigger className="flex items-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground">
           <ChevronDown
             className={cn(
               "w-4 h-4 transition-transform",
@@ -46,7 +46,7 @@ export function CheckedItemsSection({
           variant="ghost"
           size="sm"
           onClick={onClearAll}
-          className="text-xs text-slate-400 hover:text-red-500 gap-1"
+          className="text-xs text-muted-foreground hover:text-red-500 gap-1"
         >
           <Trash2 className="w-3 h-3" />
           Leeren

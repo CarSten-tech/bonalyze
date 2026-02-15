@@ -42,8 +42,8 @@ export function AddItemInput({
         disabled={isLoading}
         className={cn(
           "h-12 pr-12 rounded-xl",
-          "bg-white border-slate-200",
-          "placeholder:text-slate-400",
+          "bg-card border-border",
+          "placeholder:text-muted-foreground",
           "focus-visible:ring-primary"
         )}
       />

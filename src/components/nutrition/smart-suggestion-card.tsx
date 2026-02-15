@@ -18,7 +18,7 @@ export function SmartSuggestionCard({ suggestion, onLog, onDismiss }: SmartSugge
   const mealLabel = MEAL_TYPE_LABELS[suggestion.suggestedMealType] || 'Snacks'
 
   return (
-    <Card className="rounded-2xl border-0 border-l-4 border-l-primary shadow-elevation-1 bg-white overflow-hidden">
+    <Card className="rounded-2xl border-0 border-l-4 border-l-primary shadow-elevation-1 bg-card overflow-hidden">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-primary/10 shrink-0 mt-0.5">

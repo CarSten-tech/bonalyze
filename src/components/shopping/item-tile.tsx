@@ -40,7 +40,7 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileP
         className={cn(
           "absolute top-1 right-1 z-10",
           "w-6 h-6 rounded-full flex items-center justify-center",
-          "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+          "text-muted-foreground hover:text-muted-foreground hover:bg-muted",
           "transition-colors"
         )}
       >
@@ -57,8 +57,8 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileP
           "rounded-xl border transition-all",
           "active:scale-95",
           item.is_checked
-            ? "bg-slate-50 border-slate-200 opacity-60"
-            : "bg-white border-slate-200 hover:border-primary/50 hover:shadow-sm"
+            ? "bg-muted border-border opacity-60"
+            : "bg-card border-border hover:border-primary/50 hover:shadow-sm"
         )}
       >
         {/* Icon */}
@@ -67,7 +67,7 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileP
             "w-10 h-10 rounded-full flex items-center justify-center",
             item.is_checked
               ? "bg-green-100 text-green-600"
-              : "bg-slate-100 text-slate-500"
+              : "bg-muted text-muted-foreground"
           )}
         >
           {item.is_checked ? (
@@ -82,7 +82,7 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileP
           className={cn(
             "text-sm font-medium text-center leading-tight",
             "line-clamp-2 w-full",
-            item.is_checked && "line-through text-slate-400"
+            item.is_checked && "line-through text-muted-foreground"
           )}
         >
           {item.product_name}
@@ -92,7 +92,7 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileP
         {quantityDisplay && (
           <span
             className={cn(
-              "text-xs text-slate-400",
+              "text-xs text-muted-foreground",
               item.is_checked && "line-through"
             )}
           >

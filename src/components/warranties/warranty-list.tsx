@@ -11,7 +11,7 @@ export function WarrantyList({ items, isLoading }: WarrantyListProps) {
   if (isLoading) {
     return <div className="space-y-4">
        {[1, 2, 3].map(i => (
-         <div key={i} className="h-48 bg-slate-100 rounded-2xl animate-pulse" />
+         <div key={i} className="h-48 bg-muted rounded-2xl animate-pulse" />
        ))}
     </div>
   }

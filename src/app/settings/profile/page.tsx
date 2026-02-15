@@ -114,7 +114,7 @@ export default function ProfileSettingsPage() {
         <CardContent className="space-y-4">
           <div className="rounded-lg border p-4 space-y-2">
             <p className="text-sm">
-              Status: <span className={isLinked ? 'text-green-600 font-medium' : 'text-slate-600'}>{isLinked ? 'Verbunden' : 'Nicht verbunden'}</span>
+              Status: <span className={isLinked ? 'text-green-600 font-medium' : 'text-muted-foreground'}>{isLinked ? 'Verbunden' : 'Nicht verbunden'}</span>
             </p>
             <p className="text-sm text-muted-foreground">
               Erzeuge einen 6-stelligen Code und sage danach in Alexa: Verknuepfen mit Code {linkCode || '123456'}.

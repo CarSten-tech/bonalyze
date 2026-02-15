@@ -109,7 +109,7 @@ export function WarrantyWidget() {
             <ShieldAlert className="h-5 w-5 text-destructive" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-sm">
+            <h3 className="font-bold text-foreground text-sm">
               Garantie läuft ab: {expiringItem.product_name}
             </h3>
             <p className="text-xs text-destructive font-medium">
@@ -120,7 +120,7 @@ export function WarrantyWidget() {
         <Button 
            size="icon" 
            variant="ghost" 
-           className="h-8 w-8 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-full"
+           className="h-8 w-8 text-muted-foreground hover:text-green-600 hover:bg-green-50 rounded-full"
            onClick={handleDismiss}
            title="Gesehen / Ausblenden"
         >

@@ -66,11 +66,11 @@ export function MiniKPICard({
   }
 
   return (
-    <Card className={cn('rounded-xl shadow-sm border-0 bg-white h-full', className)}>
+    <Card className={cn('rounded-xl shadow-sm border-0 bg-card h-full', className)}>
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
         <div className="space-y-2">
           {/* Header */}
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
             {label}
           </p>
 
@@ -83,7 +83,7 @@ export function MiniKPICard({
           {progress !== undefined && (
             <Progress
               value={Math.min(progress, 100)}
-              className="h-1.5 bg-slate-100 [&>div]:bg-primary"
+              className="h-1.5 bg-muted [&>div]:bg-primary"
             />
           )}
 
@@ -94,7 +94,7 @@ export function MiniKPICard({
                   key={i}
                   className={cn(
                     'w-2.5 h-2.5 rounded-full transition-colors',
-                    i < dots.filled ? 'bg-primary' : 'bg-slate-200'
+                    i < dots.filled ? 'bg-primary' : 'bg-muted'
                   )}
                 />
               ))}
@@ -149,10 +149,10 @@ export function HeroKPICard({
   // For spending: down (negative) = good (green), up (positive) = bad (red) - wait, context matters.
   // Assuming "Total Spending": Lower is usually better for budget.
   const trendColor = isDown
-    ? 'text-emerald-600 bg-emerald-50'
+    ? 'text-emerald-400 bg-emerald-500/15'
     : isUp
-    ? 'text-rose-600 bg-rose-50'
-    : 'text-gray-500 bg-gray-50'
+    ? 'text-rose-400 bg-rose-500/15'
+    : 'text-muted-foreground bg-muted'
 
   const trendArrow = isDown ? '↘' : isUp ? '↗' : '→'
   const trendSign = isUp ? '+' : ''
@@ -161,7 +161,7 @@ export function HeroKPICard({
     <Card 
       onClick={onClick}
       className={cn(
-        'rounded-xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50', 
+        'rounded-xl shadow-sm border-0 bg-gradient-to-br from-card via-card to-muted/50', 
         onClick && 'cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] transition-transform',
         className
       )}
@@ -174,7 +174,7 @@ export function HeroKPICard({
               {label}
             </p>
             {icon && (
-              <div className="p-2.5 rounded-xl bg-slate-100/50 text-slate-500">
+              <div className="p-2.5 rounded-xl bg-muted/50 text-muted-foreground">
                 {React.isValidElement(icon) ? React.cloneElement(icon, { className: "w-6 h-6" } as any) : icon}
               </div>
             )}

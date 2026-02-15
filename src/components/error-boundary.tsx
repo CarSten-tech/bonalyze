@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="p-4 bg-red-50 rounded-full dark:bg-red-900/20">
             <AlertCircle className="w-12 h-12 text-red-500 dark:text-red-400" />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground dark:text-foreground">
             Da ist etwas schiefgelaufen
           </h2>
           <p className="text-sm text-muted-foreground max-w-[300px]">
@@ -56,11 +56,11 @@ export class ErrorBoundary extends Component<Props, State> {
             </Button>
           </div>
           {process.env.NODE_ENV === 'development' && this.state.error && (
-            <div className="p-4 mt-8 overflow-auto text-left text-xs font-mono bg-gray-100 rounded-md dark:bg-gray-800 max-w-full w-full max-h-[200px]">
+            <div className="p-4 mt-8 overflow-auto text-left text-xs font-mono bg-muted rounded-md dark:bg-muted max-w-full w-full max-h-[200px]">
               <p className="font-bold text-red-600 dark:text-red-400 mb-2">
                 {this.state.error.toString()}
               </p>
-              <pre className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+              <pre className="text-muted-foreground dark:text-muted-foreground whitespace-pre-wrap">
                 {this.state.error.stack}
               </pre>
             </div>

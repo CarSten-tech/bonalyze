@@ -47,7 +47,7 @@ export function CategoryItem({
   const [isExpanded, setIsExpanded] = useState(true)
 
   return (
-    <div className={cn('border-b border-slate-100 last:border-0', className)}>
+    <div className={cn('border-b border-border last:border-0', className)}>
       {/* Category Header */}
       <button
         type="button"
@@ -182,7 +182,7 @@ export function MonthAccordion({
     >
       <AccordionItem
         value={`month-${monthData.monthNumber}`}
-        className="border rounded-2xl shadow-elevation-1 bg-white overflow-hidden"
+        className="border rounded-2xl shadow-elevation-1 bg-card overflow-hidden"
       >
         <AccordionTrigger className="px-4 py-3 hover:no-underline [&>svg]:hidden">
           <div className="flex items-center justify-between w-full">
@@ -205,7 +205,7 @@ export function MonthAccordion({
 
         <AccordionContent className="px-4 pb-4">
           {/* Tabs */}
-          <div className="flex border-b border-slate-200 mb-4">
+          <div className="flex border-b border-border mb-4">
             <button
               type="button"
               onClick={() => setActiveTab('uebersicht')}
@@ -262,7 +262,7 @@ export function MonthAccordion({
                     key={receipt.id}
                     type="button"
                     onClick={() => handleReceiptClick(receipt.id)}
-                    className="flex items-center justify-between w-full p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors text-left"
+                    className="flex items-center justify-between w-full p-3 border border-border rounded-lg hover:bg-muted transition-colors text-left"
                   >
                     <div className="flex items-center gap-3">
                       <Receipt className="w-5 h-5 text-muted-foreground" />

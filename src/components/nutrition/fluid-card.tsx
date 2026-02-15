@@ -22,7 +22,7 @@ export function FluidCard({
 }: FluidCardProps) {
   if (isLoading) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
+      <Card className="rounded-xl shadow-sm border-0 bg-card h-full">
         <CardContent className="p-5 space-y-3">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-8 w-20" />
@@ -41,7 +41,7 @@ export function FluidCard({
   }
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white to-blue-50 h-full">
+    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-card to-blue-50 h-full">
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -49,7 +49,7 @@ export function FluidCard({
               <div className="p-1.5 rounded-lg bg-blue-100">
                 <Droplets className="h-4 w-4 text-blue-600" />
               </div>
-              <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                 Fluessigkeit
               </span>
             </div>

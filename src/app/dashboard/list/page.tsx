@@ -129,7 +129,7 @@ export default function ShoppingListPage() {
         />
         <div className="flex items-center gap-2">
           {/* View Toggle */}
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex bg-muted rounded-lg p-0.5">
             <Button
               variant="ghost"
               size="sm"
@@ -137,8 +137,8 @@ export default function ShoppingListPage() {
               className={cn(
                 "h-7 w-7 p-0 rounded-md",
                 viewMode === "grid" 
-                  ? "bg-white shadow-sm text-primary" 
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-card shadow-sm text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
               )}
               title="Kachelansicht"
             >
@@ -151,8 +151,8 @@ export default function ShoppingListPage() {
               className={cn(
                 "h-7 w-7 p-0 rounded-md",
                 viewMode === "list" 
-                  ? "bg-white shadow-sm text-primary" 
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-card shadow-sm text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
               )}
               title="Listenansicht"
             >
@@ -185,13 +185,13 @@ export default function ShoppingListPage() {
         {/* Empty State */}
         {!isLoading && uncheckedItems.length === 0 && checkedItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-              <ShoppingCart className="w-8 h-8 text-slate-400" />
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <ShoppingCart className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-slate-900 mb-1">
+            <h3 className="text-lg font-medium text-foreground mb-1">
               Liste ist leer
             </h3>
-            <p className="text-sm text-slate-500 max-w-[200px]">
+            <p className="text-sm text-muted-foreground max-w-[200px]">
               Füge Produkte hinzu, die du einkaufen möchtest
             </p>
           </div>
@@ -200,7 +200,7 @@ export default function ShoppingListPage() {
         {/* Unchecked Items */}
         {!isLoading && uncheckedItems.length > 0 && (
           <div>
-            <h2 className="text-sm font-medium text-slate-500 mb-3">
+            <h2 className="text-sm font-medium text-muted-foreground mb-3">
               Noch zu kaufen ({uncheckedItems.length})
             </h2>
             {viewMode === "grid" ? (
@@ -229,7 +229,7 @@ export default function ShoppingListPage() {
 
         {/* Divider */}
         {!isLoading && uncheckedItems.length > 0 && checkedItems.length > 0 && (
-          <hr className="border-slate-200" />
+          <hr className="border-border" />
         )}
 
         {/* Checked Items Section */}
@@ -256,19 +256,19 @@ export default function ShoppingListPage() {
 
           return (
             <div 
-              className="fixed left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 px-4 shadow-sm z-10 flex justify-between items-center text-sm"
+              className="fixed left-0 right-0 bg-card/95 backdrop-blur border-t border-border p-3 px-4 shadow-sm z-10 flex justify-between items-center text-sm"
               style={{ bottom: "var(--bottom-nav-height)" }}
             >
-              <span className="text-slate-500">Geschätzt (offen):</span>
+              <span className="text-muted-foreground">Geschätzt (offen):</span>
               <div className="flex items-center gap-2">
                 {isPartial ? (
                    <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
                      ⚠️ nur {count}/{total}
                    </span>
                 ) : (
-                   <span className="text-slate-400 text-xs">({count}/{total})</span>
+                   <span className="text-muted-foreground text-xs">({count}/{total})</span>
                 )}
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-foreground">
                     {(uncheckedItems.reduce((sum, item) => {
                         const price = (item.product_id ? productPrices[item.product_id] : undefined) 
                                 || productPrices[item.product_name.toLowerCase().trim()] 

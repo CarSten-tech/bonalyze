@@ -56,7 +56,7 @@ export function ReceiptListItem({
       onClick={onClick}
       className={cn(
         'w-full flex items-center gap-3 px-4 py-3',
-        'hover:bg-slate-50 transition-colors',
+        'hover:bg-muted transition-colors',
         'min-h-[64px] text-left',
         className
       )}
@@ -174,8 +174,8 @@ function getStoreStyle(storeName: string): StoreStyle {
 
   // Default styling
   return {
-    bgColor: 'bg-slate-100',
-    iconColor: 'text-slate-600',
+    bgColor: 'bg-muted',
+    iconColor: 'text-muted-foreground',
     icon: Store,
   }
 }

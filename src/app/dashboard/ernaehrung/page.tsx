@@ -83,7 +83,7 @@ function NutritionDeficitHero({ selectedDate }: { selectedDate: Date }) {
     <Card className="rounded-2xl shadow-sm border-0 bg-gradient-to-br from-white via-white to-slate-50 overflow-hidden">
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row">
-          <div className="flex-1 p-6 border-b sm:border-b-0 sm:border-r border-slate-100">
+          <div className="flex-1 p-6 border-b sm:border-b-0 sm:border-r border-border">
              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Defizit Heute</p>
              <div className="flex items-baseline gap-1">
                 <span className={cn("text-5xl font-black tabular-nums tracking-tighter", data.dailyDeficit >= 0 ? "text-primary" : "text-destructive")}>
@@ -92,7 +92,7 @@ function NutritionDeficitHero({ selectedDate }: { selectedDate: Date }) {
                 <span className="text-xl font-bold text-muted-foreground/60">kcal</span>
              </div>
           </div>
-          <div className="flex-1 p-6 bg-slate-50/30">
+          <div className="flex-1 p-6 bg-background">
              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Defizit Gesamt</p>
              <div className="flex items-baseline gap-1">
                 <span className={cn("text-3xl font-bold tabular-nums tracking-tighter", data.totalDeficit >= 0 ? "text-emerald-600" : "text-destructive")}>

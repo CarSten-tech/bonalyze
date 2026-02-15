@@ -46,7 +46,7 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
 
   return (
     <Link href={`/dashboard/warranties/${item.id}`} className="block mb-4">
-      <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl overflow-hidden hover:shadow-elevation-2 transition-shadow">
+      <Card className="shadow-none border-0 bg-card shadow-elevation-1 rounded-2xl overflow-hidden hover:shadow-elevation-2 transition-shadow">
         <CardContent className="p-4">
           {/* Top Section: Info & Image */}
           <div className="flex justify-between items-start mb-6">
@@ -59,29 +59,29 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
                 </div>
               )}
               <div>
-                <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                <h3 className="text-lg font-bold text-foreground leading-tight">
                   {item.product_name}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Kaufdatum: {format(purchaseDate, 'dd.MM.yyyy')} • {item.merchant_name || 'Unbekannt'}
                 </p>
               </div>
             </div>
 
             {/* Thumbnail */}
-            <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
+            <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden border border-border">
                {item.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover opacity-80" />
                ) : (
-                  <Shield className="w-8 h-8 text-slate-300" />
+                  <Shield className="w-8 h-8 text-muted-foreground" />
                )}
             </div>
           </div>
 
           {/* Status Bar */}
           <div className="space-y-2 mb-4 mt-6">
-            <div className="flex justify-between items-center text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <div className="flex justify-between items-center text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               <span>Garantie-Status</span>
               <span className={isExpiringSoon ? "text-destructive" : "text-primary"}>
                 {isExpired ? 'ABGELAUFEN' : `${Math.round(percentRemaining)}% Verbleibend`}
@@ -89,7 +89,7 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
             </div>
             <Progress 
               value={percentRemaining} 
-              className="h-2 bg-slate-100" 
+              className="h-2 bg-muted" 
               indicatorClassName={cn(
                 "transition-all duration-500",
                 isExpiringSoon ? "bg-destructive" : "bg-primary" // Green/Blue for safe, Red for danger
@@ -99,7 +99,7 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
 
           {/* Action / Badge */}
           {isExpired ? (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 shadow-sm border border-slate-200/50">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground shadow-sm border border-border/50">
                <ShieldAlert className="w-3.5 h-3.5" />
                <span className="text-sm font-semibold">Garantie abgelaufen</span>
             </div>
@@ -109,7 +109,7 @@ export function WarrantyCard({ item }: WarrantyCardProps) {
                <AlertTriangle className="w-3.5 h-3.5 fill-destructive" />
             </div>
           ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 text-slate-700 shadow-sm border border-slate-200/50">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-foreground shadow-sm border border-border/50">
                <span className="text-sm font-semibold">Noch {monthsLeft} Monate</span>
                <Timer className="w-3.5 h-3.5 text-primary" />
             </div>

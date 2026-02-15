@@ -11,9 +11,9 @@ interface WarrantyStatsProps {
 export function WarrantyStats({ activeCount, expiringCount }: WarrantyStatsProps) {
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl">
+      <Card className="shadow-none border-0 bg-card shadow-elevation-1 rounded-2xl">
         <CardContent className="p-5 flex flex-col justify-center h-full min-h-[110px]">
-          <span className="text-sm font-medium text-slate-500 mb-1">
+          <span className="text-sm font-medium text-muted-foreground mb-1">
             Aktive Garantien
           </span>
           <span className="text-4xl font-bold text-primary">
@@ -22,9 +22,9 @@ export function WarrantyStats({ activeCount, expiringCount }: WarrantyStatsProps
         </CardContent>
       </Card>
 
-      <Card className="shadow-none border-0 bg-white shadow-elevation-1 rounded-2xl">
+      <Card className="shadow-none border-0 bg-card shadow-elevation-1 rounded-2xl">
         <CardContent className="p-5 flex flex-col justify-center h-full min-h-[110px]">
-          <span className="text-sm font-medium text-slate-500 mb-1">
+          <span className="text-sm font-medium text-muted-foreground mb-1">
             Ablaufende (30T)
           </span>
           <div className="flex items-center gap-2">

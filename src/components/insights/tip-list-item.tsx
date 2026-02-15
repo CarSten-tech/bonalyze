@@ -30,8 +30,8 @@ export function TipListItem({
   icon,
   title,
   description,
-  iconBgColor = 'bg-slate-100',
-  iconColor = 'text-slate-600',
+  iconBgColor = 'bg-muted',
+  iconColor = 'text-muted-foreground',
   onClick,
   className,
 }: TipListItemProps) {
@@ -41,8 +41,8 @@ export function TipListItem({
       onClick={onClick}
       className={cn(
         'flex items-center gap-3 w-full p-4 text-left',
-        'bg-white rounded-2xl shadow-elevation-1',
-        'transition-colors hover:bg-slate-50',
+        'bg-card rounded-2xl shadow-elevation-1',
+        'transition-colors hover:bg-muted',
         className
       )}
     >

@@ -135,13 +135,13 @@ export default function WarrantyPage() {
   const hasActiveFilters = searchQuery || selectedMonth !== 'all' || selectedYear !== 'all'
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-24">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/50 px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-card/80 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
         <Button variant="ghost" size="icon" className="-ml-2" onClick={() => window.history.back()}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 12H5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 19L5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </Button>
-        <span className="font-semibold text-slate-900">Garantie-Safe</span>
+        <span className="font-semibold text-foreground">Garantie-Safe</span>
         <Button variant="ghost" size="icon" className="-mr-2 text-primary">
           <Bell className="w-5 h-5 fill-current" />
         </Button>
@@ -163,12 +163,12 @@ export default function WarrantyPage() {
               placeholder="Suchen (z.B. Dyson, MediaMarkt)..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-white border-slate-200/60 shadow-sm focus-visible:ring-primary/20"
+              className="pl-9 bg-card border-border shadow-sm focus-visible:ring-primary/20"
             />
             {searchQuery && (
                <button 
                  onClick={() => setSearchQuery('')} 
-                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                  aria-label="Suche löschen"
                >
                  <X className="h-4 w-4" />
@@ -179,7 +179,7 @@ export default function WarrantyPage() {
           {/* Date Filters */}
           <div className="flex gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="flex-1 bg-white border-slate-200/60 shadow-sm">
+              <SelectTrigger className="flex-1 bg-card border-border shadow-sm">
                 <SelectValue placeholder="Monat" />
               </SelectTrigger>
               <SelectContent>
@@ -191,7 +191,7 @@ export default function WarrantyPage() {
             </Select>
 
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="flex-1 bg-white border-slate-200/60 shadow-sm">
+              <SelectTrigger className="flex-1 bg-card border-border shadow-sm">
                 <SelectValue placeholder="Jahr" />
               </SelectTrigger>
               <SelectContent>
@@ -224,7 +224,7 @@ export default function WarrantyPage() {
         {/* List Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg font-bold text-foreground">
                {hasActiveFilters ? 'Suchergebnisse' : 'Garantie-Dokumente'}
             </h2>
           </div>

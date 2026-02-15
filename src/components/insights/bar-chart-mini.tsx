@@ -43,7 +43,7 @@ export function BarChartMini({ data, className }: BarChartMiniProps) {
                 'w-full max-w-[24px] rounded-t transition-all duration-300',
                 bar.isHighlighted
                   ? 'bg-primary'
-                  : 'bg-slate-200'
+                  : 'bg-muted'
               )}
               style={{ height: `${Math.max(heightPercent, 8)}%` }}
             />

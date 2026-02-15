@@ -16,7 +16,7 @@ export function ProductList({ items, isLoading }: ProductListProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-16 bg-slate-100 rounded-lg animate-pulse" />
+          <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
         ))}
       </div>
     )
@@ -24,7 +24,7 @@ export function ProductList({ items, isLoading }: ProductListProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground bg-slate-50 rounded-xl border border-dashed border-slate-200">
+      <div className="text-center py-12 text-muted-foreground bg-muted rounded-xl border border-dashed border-border">
         <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-20" />
         <p>Keine Produkte in dieser Kategorie gefunden.</p>
       </div>
@@ -41,11 +41,11 @@ export function ProductList({ items, isLoading }: ProductListProps) {
               // but cleaner is to modify component to accept onProductClick or use useRouter
               window.location.href = `/dashboard/ausgaben/produkt/${encodeURIComponent(item.productName)}`
           }}
-          className="w-full bg-white rounded-xl p-4 border border-slate-100 shadow-sm flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
+          className="w-full bg-card rounded-xl p-4 border border-border shadow-sm flex items-center justify-between hover:bg-muted transition-colors text-left"
         >
           <div className="flex items-center gap-4 overflow-hidden">
             {/* Date Box */}
-            <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg w-12 h-12 min-w-[3rem] text-xs font-medium text-slate-500 border border-slate-100">
+            <div className="flex flex-col items-center justify-center bg-muted rounded-lg w-12 h-12 min-w-[3rem] text-xs font-medium text-muted-foreground border border-border">
               <span>{format(new Date(item.date), 'dd.', { locale: de })}</span>
               <span>{format(new Date(item.date), 'MM.', { locale: de })}</span>
             </div>

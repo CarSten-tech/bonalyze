@@ -127,7 +127,7 @@ function StoreRankingItem({
       case 1:
         return 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
       case 2:
-        return 'bg-gray-400/20 text-gray-600 dark:text-gray-300'
+        return 'bg-muted-foreground/20 text-muted-foreground dark:text-muted-foreground'
       case 3:
         return 'bg-orange-500/20 text-orange-600 dark:text-orange-400'
       default:

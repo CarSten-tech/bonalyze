@@ -16,7 +16,7 @@ export function SupplyRangeWidget() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white">
+      <Card className="rounded-xl shadow-sm border-0 bg-card">
         <CardContent className="p-5 space-y-3">
           <Skeleton className="h-3 w-40" />
           <Skeleton className="h-8 w-32" />
@@ -30,14 +30,14 @@ export function SupplyRangeWidget() {
   // No profiles configured
   if (!data || !data.hasProfiles) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white relative overflow-hidden group">
+      <Card className="rounded-xl shadow-sm border-0 bg-card relative overflow-hidden group">
         <CardContent className="p-5 flex flex-col justify-center items-center h-full text-center space-y-3 min-h-[140px]">
-          <div className="bg-slate-50 p-3 rounded-full group-hover:bg-slate-100 transition-colors">
-            <Package className="h-6 w-6 text-slate-400" />
+          <div className="bg-muted p-3 rounded-full group-hover:bg-muted/80 transition-colors">
+            <Package className="h-6 w-6 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-900">Versorgungsreichweite</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm font-medium text-foreground">Versorgungsreichweite</p>
+            <p className="text-xs text-muted-foreground">
               Richte Ernährungs-Profile ein, um die Reichweite zu berechnen.
             </p>
           </div>
@@ -74,15 +74,15 @@ export function SupplyRangeWidget() {
   return (
     <Card
       onClick={() => router.push('/dashboard/ernaehrung')}
-      className="rounded-xl shadow-sm border-0 bg-white cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] transition-transform"
+      className="rounded-xl shadow-sm border-0 bg-card cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99] transition-transform"
     >
       <CardContent className="p-5 space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
             Versorgungsreichweite
           </p>
-          <div className="p-2 rounded-xl bg-slate-100/50 text-slate-500">
+          <div className="p-2 rounded-xl bg-muted/50 text-muted-foreground">
             <Package className="w-5 h-5" />
           </div>
         </div>
@@ -98,12 +98,12 @@ export function SupplyRangeWidget() {
         </div>
 
         {/* Subtitle */}
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           Basierend auf {data.foodItemCount} Lebensmittel-Artikel{data.foodItemCount !== 1 ? 'n' : ''} &middot; {data.memberCount} {data.memberCount === 1 ? 'Person' : 'Personen'}
         </p>
 
         {/* Progress Bar */}
-        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
           <div
             className={cn('h-full transition-all duration-500 rounded-full', progressColor)}
             style={{ width: `${progressPercent}%` }}

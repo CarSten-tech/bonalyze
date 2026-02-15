@@ -104,7 +104,7 @@ export default function WarrantyDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 space-y-4">
+      <div className="min-h-screen bg-muted p-4 space-y-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
@@ -119,20 +119,20 @@ export default function WarrantyDetailPage() {
   const isExpired = daysLeft < 0
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-muted flex flex-col">
       {/* Header (Light mode) */}
-      <header className="px-4 h-16 flex items-center justify-between text-slate-900 border-b border-slate-200 bg-white">
+      <header className="px-4 h-16 flex items-center justify-between text-foreground border-b border-border bg-card">
         <Button 
           variant="ghost" 
           size="icon" 
-          className="text-slate-900 hover:bg-slate-100 -ml-2"
+          className="text-foreground hover:bg-muted -ml-2"
           onClick={() => router.back()}
         >
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <div className="text-center">
            <h1 className="font-semibold text-base leading-tight">{item.product_name}</h1>
-           <p className="text-xs text-slate-500">
+           <p className="text-xs text-muted-foreground">
              {item.receipts.merchants?.name || 'Händler unbekannt'}
            </p>
         </div>
@@ -140,16 +140,16 @@ export default function WarrantyDetailPage() {
       </header>
       
       {/* Main Content - Document Viewer */}
-      <div className="flex-1 relative flex items-center justify-center p-4 bg-slate-100/50">
+      <div className="flex-1 relative flex items-center justify-center p-4 bg-muted/50">
         {item.receipts.image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img 
             src={item.receipts.image_url} 
             alt="Beleg" 
-            className="max-h-[70vh] w-auto max-w-full rounded-lg shadow-elevation-2 object-contain bg-white" 
+            className="max-h-[70vh] w-auto max-w-full rounded-lg shadow-elevation-2 object-contain bg-card" 
           />
         ) : (
-          <div className="text-slate-400 flex flex-col items-center">
+          <div className="text-muted-foreground flex flex-col items-center">
             <Receipt className="h-16 w-16 mb-4 opacity-50" />
             <p>Kein Belegbild vorhanden</p>
           </div>
@@ -173,18 +173,18 @@ export default function WarrantyDetailPage() {
       </div>
 
       {/* Bottom Action Sheet */}
-      <div className="bg-white border-t border-slate-200 p-6 pb-10 rounded-t-3xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] relative z-10">
+      <div className="bg-card border-t border-border p-6 pb-10 rounded-t-3xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] relative z-10">
          <div className="grid grid-cols-2 gap-4">
-             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">Gekauft am</p>
-                <div className="flex items-center gap-2 text-slate-900 font-medium">
+             <div className="bg-muted p-4 rounded-xl border border-border">
+                <p className="text-muted-foreground text-xs uppercase tracking-wider font-bold mb-1">Gekauft am</p>
+                <div className="flex items-center gap-2 text-foreground font-medium">
                   <Calendar className="h-4 w-4 text-primary" />
                   {format(purchaseDate, 'dd.MM.yyyy')}
                 </div>
              </div>
-             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">Garantie bis</p>
-                <div className="flex items-center gap-2 text-slate-900 font-medium">
+             <div className="bg-muted p-4 rounded-xl border border-border">
+                <p className="text-muted-foreground text-xs uppercase tracking-wider font-bold mb-1">Garantie bis</p>
+                <div className="flex items-center gap-2 text-foreground font-medium">
                   <Shield className="h-4 w-4 text-primary" />
                   {format(endDate, 'dd.MM.yyyy')}
                 </div>
@@ -201,7 +201,7 @@ export default function WarrantyDetailPage() {
             </Button>
             <Button 
                variant="outline"
-               className="flex-1 border-slate-200 text-slate-700 hover:bg-slate-50 bg-white h-12 rounded-xl border-2 font-bold"
+               className="flex-1 border-border text-foreground hover:bg-muted bg-card h-12 rounded-xl border-2 font-bold"
                onClick={handleDownload}
             >
                <Download className="mr-2 h-4 w-4" />

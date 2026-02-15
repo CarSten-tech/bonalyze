@@ -38,7 +38,7 @@ interface BudgetWidgetProps {
 export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetProps) {
   if (isLoading) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white h-full">
+      <Card className="rounded-xl shadow-sm border-0 bg-card h-full">
         <CardContent className="p-5 space-y-4">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="h-8 w-24" />
@@ -50,14 +50,14 @@ export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetPr
 
   if (!budgetStatus) {
     return (
-        <Card className="rounded-xl shadow-sm border-0 bg-white h-full relative overflow-hidden group">
+        <Card className="rounded-xl shadow-sm border-0 bg-card h-full relative overflow-hidden group">
             <CardContent className="p-5 flex flex-col justify-center items-center h-full text-center space-y-3">
-                <div className="bg-slate-50 p-3 rounded-full group-hover:bg-slate-100 transition-colors">
-                    <Wallet className="h-6 w-6 text-slate-400" />
+                <div className="bg-muted p-3 rounded-full group-hover:bg-muted/80 transition-colors">
+                    <Wallet className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-900">Kein Budget</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-medium text-foreground">Kein Budget</p>
+                    <p className="text-xs text-muted-foreground">
                         Erstelle ein Budget für mehr Übersicht.
                     </p>
                 </div>
@@ -106,11 +106,11 @@ export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetPr
     new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount / 100)
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-white h-full relative overflow-hidden">
+    <Card className="rounded-xl shadow-sm border-0 bg-card h-full relative overflow-hidden">
       <CardContent className="p-5 flex flex-col justify-between h-full min-h-[140px]">
          <div className="space-y-2 relative z-10">
             <div className="flex justify-between items-start">
-                <h3 className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                <h3 className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                 Verfügbar {format(period.start, "MMMM", { locale: de })}
                 </h3>
                 {percentageUsed >= 100 && (
@@ -133,21 +133,21 @@ export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetPr
             {/* Daily Budget Info */}
             <div className="flex justify-between items-end">
                  <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-400 font-medium uppercase">Tagesbudget (Rest)</span>
-                    <span className="text-xs font-semibold text-gray-700">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase">Tagesbudget (Rest)</span>
+                    <span className="text-xs font-semibold text-foreground">
                         ~{formatValue(dailyBudgetLeft)} EUR
                     </span>
                  </div>
                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-gray-400 font-medium uppercase">Genutzt</span>
-                    <span className="text-xs font-medium text-gray-600">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase">Genutzt</span>
+                    <span className="text-xs font-medium text-muted-foreground">
                         {percentageUsed}%
                     </span>
                  </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                 <div 
                     className={cn("h-full transition-all duration-500", progressBarColor)} 
                     style={{ width: `${percentageUsed}%` }}

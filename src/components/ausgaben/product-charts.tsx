@@ -23,7 +23,7 @@ const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'] // Blue, 
 
 function EmptyChartState({ message, icon: Icon }: { message: string, icon?: any }) {
     return (
-        <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+        <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
             {Icon && <Icon className="w-8 h-8 mb-2 opacity-50" />}
             <p className="text-sm font-medium">{message}</p>
         </div>
@@ -204,8 +204,8 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
     return (
         <Card className="rounded-2xl border-slate-100 shadow-sm">
             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 gap-4 sm:gap-0">
-                <CardTitle className="text-base font-semibold text-slate-500 uppercase tracking-widest">Preisverlauf</CardTitle>
-                <div className="flex bg-slate-100/50 p-1 rounded-lg">
+                <CardTitle className="text-base font-semibold text-muted-foreground uppercase tracking-widest">Preisverlauf</CardTitle>
+                <div className="flex bg-muted/50 p-1 rounded-lg">
                     {(['30T', '3M', '6M', '1J', 'Alle'] as TimeRange[]).map((r) => (
                         <button
                             key={r}
@@ -214,7 +214,7 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                                 "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all",
                                 range === r 
                                     ? "bg-emerald-500 text-white shadow-sm" 
-                                    : "text-slate-400 hover:text-slate-600"
+                                    : "text-muted-foreground hover:text-muted-foreground"
                             )}
                         >
                             {r}

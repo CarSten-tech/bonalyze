@@ -39,7 +39,7 @@ function CircularProgress({
           cy={center}
           r={radius}
           fill="none"
-          stroke="hsl(220, 13%, 95%)"
+          stroke="hsl(220, 13%, 15%)"
           strokeWidth={strokeWidth}
         />
         <circle
@@ -56,7 +56,7 @@ function CircularProgress({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xs font-bold text-slate-700 tracking-tight">
+        <span className="text-xs font-bold text-foreground tracking-tight">
           {Math.round(percentage)}%
         </span>
       </div>
@@ -71,7 +71,7 @@ export function CaloriesWidget() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white">
+      <Card className="rounded-xl shadow-sm border-0 bg-card">
         <CardContent className="p-5 flex items-center gap-4">
           <Skeleton className="h-20 w-20 rounded-full" />
           <div className="space-y-2 flex-1">
@@ -91,7 +91,7 @@ export function CaloriesWidget() {
   return (
     <Card
       onClick={() => router.push('/dashboard/ernaehrung')}
-      className="rounded-xl shadow-sm border-0 bg-white cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
+      className="rounded-xl shadow-sm border-0 bg-card cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
     >
       <CardContent className="p-5">
         <div className="flex items-center gap-5">
@@ -101,15 +101,15 @@ export function CaloriesWidget() {
             target={target} 
           />
           <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-1.5 text-gray-500 uppercase tracking-wider font-bold text-[10px]">
+            <div className="flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider font-bold text-[10px]">
               <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
               <span>Kalorien heute</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black text-slate-900 tabular-nums">
+              <span className="text-2xl font-black text-foreground tabular-nums">
                 {consumed.toLocaleString('de-DE')}
               </span>
-              <span className="text-sm font-bold text-slate-400">/ {target.toLocaleString('de-DE')}</span>
+              <span className="text-sm font-bold text-muted-foreground">/ {target.toLocaleString('de-DE')}</span>
             </div>
             <p className="text-[11px] text-muted-foreground font-medium">
               {remaining > 0 

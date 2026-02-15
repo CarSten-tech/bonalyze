@@ -96,14 +96,14 @@ function MacroBar({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {label}
         </span>
-        <span className="text-xs font-medium text-gray-600 tabular-nums">
+        <span className="text-xs font-medium text-muted-foreground tabular-nums">
           {current}g / {target}g
         </span>
       </div>
-      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-500', color)}
           style={{ width: `${percentage}%` }}
@@ -123,7 +123,7 @@ export function EnergieWidget({
 }: EnergieWidgetProps) {
   if (isLoading) {
     return (
-      <Card className="rounded-xl shadow-sm border-0 bg-white">
+      <Card className="rounded-xl shadow-sm border-0 bg-card">
         <CardContent className="p-5 space-y-4">
           <Skeleton className="h-3 w-20" />
           <div className="flex justify-center">
@@ -143,14 +143,14 @@ export function EnergieWidget({
   const percentage = target > 0 ? Math.round((consumed / target) * 100) : 0
 
   return (
-    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-white to-primary/5">
+    <Card className="rounded-xl shadow-sm border-0 bg-gradient-to-br from-card to-primary/5">
       <CardContent className="p-5 space-y-5">
         {/* Header */}
         <div className="flex items-center gap-2">
           <div className="p-1 rounded-md bg-amber-100">
             <Zap className="h-3.5 w-3.5 text-amber-600" />
           </div>
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
             Energie
           </p>
         </div>

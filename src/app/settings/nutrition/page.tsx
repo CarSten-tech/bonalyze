@@ -205,7 +205,7 @@ export default function NutritionSettingsPage() {
 
       {/* Member Cards */}
       {members.map((member, index) => (
-        <Card key={member.memberId} className="rounded-xl shadow-sm border-0 bg-white">
+        <Card key={member.memberId} className="rounded-xl shadow-sm border-0 bg-card">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg flex items-center gap-2">
               {member.avatarUrl ? (
@@ -326,7 +326,7 @@ export default function NutritionSettingsPage() {
 
             {/* Computed values */}
             {member.hasProfile && member.bmr && member.tdee && (
-              <div className="bg-slate-50 rounded-lg p-3 flex gap-6 text-sm">
+              <div className="bg-muted rounded-lg p-3 flex gap-6 text-sm">
                 <div>
                   <span className="text-muted-foreground">BMR: </span>
                   <span className="font-medium tabular-nums">{member.bmr.toLocaleString('de-DE')} kcal</span>

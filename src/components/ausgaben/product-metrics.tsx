@@ -24,7 +24,7 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-2">
                         <ShoppingCart className="w-5 h-5" />
                     </div>
-                    <span className="text-2xl font-bold text-slate-800">{data.totalCount}</span>
+                    <span className="text-2xl font-bold text-foreground">{data.totalCount}</span>
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         {data.totalCount === 1 ? 'Kauf' : 'Käufe'}
                     </span>
@@ -35,7 +35,7 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                     <span className="text-xs text-muted-foreground mb-1">Lieblings-Shop</span>
                     {data.favoriteStore ? (
                         <>
-                            <span className="font-bold text-lg text-slate-800">{data.favoriteStore.merchantName}</span>
+                            <span className="font-bold text-lg text-foreground">{data.favoriteStore.merchantName}</span>
                             <span className="text-xs text-muted-foreground">
                                 {data.favoriteStore.count} {data.favoriteStore.count === 1 ? 'Kauf' : 'Käufe'}
                             </span>
@@ -56,13 +56,13 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                     <Coins className="w-6 h-6" />
                 </div>
                 <div>
-                    <div className="text-2xl font-bold text-slate-800">
+                    <div className="text-2xl font-bold text-foreground">
                         {formatCurrency(data.avgPrice, { inCents: true })}
                     </div>
                     <div className="text-xs text-muted-foreground font-medium">
                         Durchschnittspreis
                     </div>
-                     <div className="text-[10px] text-slate-400 mt-0.5">
+                     <div className="text-[10px] text-muted-foreground mt-0.5">
                         {formatCurrency(data.minPrice, { inCents: true })} – {formatCurrency(data.maxPrice, { inCents: true })}
                      </div>
                 </div>
@@ -78,7 +78,7 @@ export function ProductMetrics({ data }: ProductMetricsProps) {
                      <TrendingDown className="w-5 h-5" />
                  </div>
                  <div className="flex-1">
-                     <div className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                     <div className="text-sm font-bold text-foreground uppercase tracking-wide">
                         {data.cheapestStore.merchantName}
                      </div>
                      <div className="text-xs text-muted-foreground">

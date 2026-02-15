@@ -158,9 +158,9 @@ function MealSection({
             {sortedGroups.map((group) => {
               const isExpanded = expandedGroups.has(group.id)
               return (
-                <div key={group.id} className="rounded-lg bg-white/40 border border-white/50 overflow-hidden">
+                <div key={group.id} className="rounded-lg bg-card/40 border border-white/50 overflow-hidden">
                   <div
-                    className="flex items-center justify-between py-2 px-3 cursor-pointer hover:bg-white/60 transition-colors"
+                    className="flex items-center justify-between py-2 px-3 cursor-pointer hover:bg-card/60 transition-colors"
                     onClick={() => toggleGroup(group.id)}
                   >
                     <div className="flex-1 min-w-0">
@@ -188,7 +188,7 @@ function MealSection({
 
                   {/* Expanded Items */}
                   {isExpanded && (
-                    <div className="border-t border-white/50 bg-white/20 px-3 pb-2 pt-1 space-y-1">
+                    <div className="border-t border-white/50 bg-card/20 px-3 pb-2 pt-1 space-y-1">
                       {group.items.map((item) => (
                         <div key={item.id} className="flex items-center justify-between py-1 group/item">
                           <span className="text-xs text-muted-foreground truncate flex-1 pl-2 border-l-2 border-primary/20">
@@ -222,7 +222,7 @@ function MealSection({
 
             {/* Render Single Items */}
             {singles.map((item) => (
-              <div key={item.id} className="flex items-center justify-between py-2 px-1 group rounded-lg hover:bg-white/50 transition-colors">
+              <div key={item.id} className="flex items-center justify-between py-2 px-1 group rounded-lg hover:bg-card/50 transition-colors">
                 <span className="text-sm text-foreground truncate flex-1">
                   {item.item_name || 'Unbenannt'}
                 </span>

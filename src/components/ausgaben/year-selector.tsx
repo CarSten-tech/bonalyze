@@ -64,7 +64,7 @@ export function YearSelector({
             onClick={() => onYearChange(option.year)}
             className={cn(
               'text-lg font-medium',
-              option.year === selectedYear && 'bg-slate-100'
+              option.year === selectedYear && 'bg-muted'
             )}
           >
             {option.year}

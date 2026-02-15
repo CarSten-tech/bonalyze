@@ -63,7 +63,7 @@ export function ListSelector({
           >
             <List className="w-5 h-5" />
             {currentList?.name || "Einkaufsliste"}
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">

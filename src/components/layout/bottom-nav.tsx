@@ -76,7 +76,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
         style={{ paddingBottom: "var(--safe-bottom-nav)" }}
       >
         <div className="flex items-center justify-around h-12 max-w-lg mx-auto px-2">
@@ -107,7 +107,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                   className={cn(
                     "flex items-center justify-center",
                     "w-14 h-14 rounded-full",
-                    "bg-slate-800 text-white",
+                    "bg-foreground text-background",
                     "shadow-lg shadow-slate-900/25",
                     "transition-transform active:scale-95"
                   )}
@@ -179,13 +179,13 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
             <Menu
               className={cn(
                 "w-6 h-6 transition-colors",
-                menuSheetOpen ? "text-primary" : "text-slate-400"
+                menuSheetOpen ? "text-primary" : "text-muted-foreground"
               )}
             />
             <span
               className={cn(
                 "text-[10px] font-medium tracking-wide transition-colors",
-                menuSheetOpen ? "text-primary" : "text-slate-400"
+                menuSheetOpen ? "text-primary" : "text-muted-foreground"
               )}
             >
               MENÜ
@@ -220,13 +220,13 @@ function NavLink({ href, icon: Icon, label, isActive }: NavLinkProps) {
       <Icon
         className={cn(
           "w-6 h-6 transition-colors",
-          isActive ? "text-primary fill-primary/10" : "text-slate-400"
+          isActive ? "text-primary fill-primary/10" : "text-muted-foreground"
         )}
       />
       <span
         className={cn(
           "text-[10px] font-medium tracking-wide transition-colors",
-          isActive ? "text-primary" : "text-slate-400"
+          isActive ? "text-primary" : "text-muted-foreground"
         )}
       >
         {label}

@@ -72,7 +72,7 @@ export default function SmartInsightsPage() {
             }
             isLoading={isLoading}
           />
-          <Card className="rounded-2xl shadow-elevation-1 border-0 bg-white">
+          <Card className="rounded-2xl shadow-elevation-1 border-0 bg-card">
             <CardContent className="p-4 space-y-1">
               <p className="text-xs text-primary font-medium uppercase tracking-wider">
                 EFFIZIENZ
@@ -97,7 +97,7 @@ export default function SmartInsightsPage() {
           isLoading={isLoading}
         />
         {data && !isLoading && (
-          <Card className="rounded-2xl shadow-elevation-1 border-0 bg-white -mt-2">
+          <Card className="rounded-2xl shadow-elevation-1 border-0 bg-card -mt-2">
             <CardContent className="px-4 pb-4 pt-0">
               <BarChartMini data={barChartData} />
             </CardContent>

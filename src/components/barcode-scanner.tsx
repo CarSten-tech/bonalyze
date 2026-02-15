@@ -108,7 +108,7 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-4 right-4 text-white hover:bg-white/20"
+        className="absolute top-4 right-4 text-white hover:bg-card/20"
         onClick={onClose}
       >
         <X className="h-8 w-8" />
