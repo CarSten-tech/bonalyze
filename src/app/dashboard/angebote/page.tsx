@@ -64,7 +64,7 @@ function OfferCard({ offer }: { offer: Offer }) {
             <div className="flex items-end justify-between mt-2">
               <div className="flex flex-col">
                  <span className="text-lg font-bold text-primary leading-none">
-                  {offer.price.toFixed(2).replace('.', ',')} €
+                  {offer.price != null ? `${offer.price.toFixed(2).replace('.', ',')} €` : '—'}
                 </span>
                 {offer.valid_until && (
                   <span className="text-[10px] text-muted-foreground mt-1">
