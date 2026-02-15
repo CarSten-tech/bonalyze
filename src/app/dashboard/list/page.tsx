@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem } from "@/types/shopping"
+import { getShoppingListOfferMatches, type ShoppingListOfferHint } from "@/app/actions/offers"
 
 type ViewMode = "grid" | "list"
 
@@ -27,6 +28,7 @@ export default function ShoppingListPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [offerHints, setOfferHints] = useState<Record<string, ShoppingListOfferHint>>({})
   const supabase = createClient()
 
   // Load view preference from localStorage
@@ -83,6 +85,15 @@ export default function ShoppingListPage() {
     clearCheckedItems,
     productPrices,
   } = useShoppingList({ householdId })
+
+  // Fetch offer hints for unchecked items
+  useEffect(() => {
+    if (uncheckedItems.length === 0) return
+    const names = uncheckedItems.map(i => i.product_name)
+    getShoppingListOfferMatches(names)
+      .then(setOfferHints)
+      .catch(console.error)
+  }, [uncheckedItems.length]) // only re-fetch when item count changes
 
   // Load last selected list from localStorage
   useEffect(() => {
@@ -220,6 +231,7 @@ export default function ShoppingListPage() {
                     onUncheck={uncheckItem}
                     onDetailsClick={handleDetailsClick}
                     estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                    offerHint={offerHints[item.product_name]}
                   />
                 ))}
               </div>

@@ -10,9 +10,14 @@ interface ItemListRowProps {
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
   estimatedPrice?: number
+  offerHint?: {
+    store: string
+    price: number | null
+    valid_until: string | null
+  }
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offerHint }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -86,8 +91,13 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
             ~{(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
           </span>
         )}
-        {/* Placeholder for subtitle/category if we had it */}
-        {/* <span className="text-xs text-muted-foreground">Gemüse</span> */}
+        {offerHint && !item.is_checked && (
+          <span className="text-[11px] text-green-600 font-medium mt-0.5">
+            🏷 Im Angebot bei {offerHint.store}
+            {offerHint.price != null && ` — ${offerHint.price.toFixed(2).replace('.', ',')} €`}
+            {offerHint.valid_until && ` (bis ${new Date(offerHint.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`}
+          </span>
+        )}
       </div>
 
       {/* Quantity Badge */}
