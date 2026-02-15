@@ -74,12 +74,21 @@ export async function getOffers(
   const stores = [...new Set(storeData?.map(s => s.store).filter(Boolean) as string[])].sort()
 
   return {
-    offers: (data as Offer[]).map(o => ({
-      ...o,
-      image_url: o.image_url?.startsWith('./') 
-        ? `https://www.aktionspreis.de${o.image_url.substring(1)}`
-        : o.image_url
-    })),
+    offers: (data as Offer[]).map(o => {
+      let imageUrl = o.image_url;
+      if (imageUrl) {
+        if (imageUrl.startsWith('./')) {
+          imageUrl = `https://www.aktionspreis.de${imageUrl.substring(1)}`;
+        } else if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+           // Handle cases like "produkt_bilder/foo.webp"
+          imageUrl = `https://www.aktionspreis.de/${imageUrl}`;
+        }
+      }
+      return {
+        ...o,
+        image_url: imageUrl
+      };
+    }),
     categories,
     stores,
     total: count ?? 0,
