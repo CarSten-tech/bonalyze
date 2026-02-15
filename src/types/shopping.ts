@@ -22,6 +22,12 @@ export interface ShoppingListItem {
   note?: string | null
   category_id?: string | null
   is_checked: boolean
+  offerHints?: Array<{
+    store: string
+    price: number | null
+    valid_until: string | null
+    discount_percent: number | null
+  }> | null
   created_at: string
   updated_at: string
   product?: {

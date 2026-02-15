@@ -2,9 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import type { Database } from '@/types/database.types'
+import { getShoppingListItemsWithOffers } from '@/app/actions/shopping-list'
+import type { ShoppingListItem } from '@/types/shopping'
 
-export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
+export type { ShoppingListItem }
 
 export function useShoppingItems(listId: string | null) {
   const supabase = createClient()
@@ -16,14 +17,7 @@ export function useShoppingItems(listId: string | null) {
     queryKey,
     queryFn: async () => {
       if (!listId) return []
-      const { data, error } = await supabase
-        .from('shopping_list_items')
-        .select('*')
-        .eq('shopping_list_id', listId)
-        .order('created_at', { ascending: true }) // Order by creation for stability
-      
-      if (error) throw error
-      return data as ShoppingListItem[]
+      return getShoppingListItemsWithOffers(listId)
     },
     enabled: !!listId,
   })
