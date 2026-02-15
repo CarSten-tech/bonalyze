@@ -302,6 +302,10 @@ export default function FoodScanPage() {
 
     setIsSaving(true)
     try {
+      // Generate a group ID if multiple items
+      const groupId = items.length > 1 ? crypto.randomUUID() : undefined
+      const groupName = items.length > 1 ? (mealDescription || 'Mahlzeit') : undefined
+
       for (const item of items) {
         await addNutritionLog({
           household_id: currentHousehold.id,
@@ -311,6 +315,8 @@ export default function FoodScanPage() {
           protein_g: item.protein_g,
           carbs_g: item.carbs_g,
           fat_g: item.fat_g,
+          group_id: groupId,
+          group_name: groupName,
         })
       }
 

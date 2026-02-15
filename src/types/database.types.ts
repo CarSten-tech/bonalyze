@@ -509,6 +509,8 @@ export type Database = {
           duration_minutes: number | null
           fat_g: number | null
           fluid_ml: number | null
+          group_id: string | null
+          group_name: string | null
           household_id: string
           id: string
           is_from_suggestion: boolean | null
@@ -530,6 +532,8 @@ export type Database = {
           duration_minutes?: number | null
           fat_g?: number | null
           fluid_ml?: number | null
+          group_id?: string | null
+          group_name?: string | null
           household_id: string
           id?: string
           is_from_suggestion?: boolean | null
@@ -551,6 +555,8 @@ export type Database = {
           duration_minutes?: number | null
           fat_g?: number | null
           fluid_ml?: number | null
+          group_id?: string | null
+          group_name?: string | null
           household_id?: string
           id?: string
           is_from_suggestion?: boolean | null

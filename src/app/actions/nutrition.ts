@@ -138,6 +138,8 @@ export async function addNutritionLog(logData: {
   receipt_item_id?: string
   is_from_suggestion?: boolean
   log_date?: string
+  group_id?: string
+  group_name?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -161,6 +163,8 @@ export async function addNutritionLog(logData: {
       fluid_ml: logData.fluid_ml || 0,
       receipt_item_id: logData.receipt_item_id,
       is_from_suggestion: logData.is_from_suggestion || false,
+      group_id: logData.group_id,
+      group_name: logData.group_name,
     })
     .select()
     .single()

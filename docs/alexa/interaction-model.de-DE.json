@@ -155,21 +155,31 @@
           "slots": [
             {
               "name": "listName",
-              "type": "AMAZON.SearchQuery"
+              "type": "LIST_NAME"
             }
           ],
           "samples": [
             "oeffne liste {listName}",
+            "oeffne die liste {listName}",
+            "oeffne einkaufsliste {listName}",
+            "liste {listName} oeffnen",
+            "bitte liste {listName} oeffnen",
             "wechsle zu liste {listName}",
+            "wechsle zur liste {listName}",
+            "wechsle auf liste {listName}",
+            "wechsel auf {listName}",
+            "wechsel zu {listName}",
             "nutze liste {listName}",
             "setze aktive liste auf {listName}",
             "gehe auf liste {listName}",
-            "wechsel auf {listName}",
+            "geh auf liste {listName}",
             "aktiviere liste {listName}",
-            "zeige liste {listName}",
             "nimm liste {listName}",
-            "wechsle auf liste {listName}",
-            "ich moechte liste {listName}"
+            "ich moechte liste {listName}",
+            "ich will liste {listName}",
+            "liste {listName} bitte",
+            "zeige liste {listName}",
+            "auf liste {listName} wechseln"
           ]
         },
         {
@@ -225,7 +235,90 @@
           "samples": []
         }
       ],
-      "types": []
+      "types": [
+        {
+          "name": "LIST_NAME",
+          "values": [
+            {
+              "name": {
+                "value": "DM",
+                "synonyms": ["d m", "de em", "dm drogerie"]
+              }
+            },
+            {
+              "name": {
+                "value": "Kaufland"
+              }
+            },
+            {
+              "name": {
+                "value": "Aldi"
+              }
+            },
+            {
+              "name": {
+                "value": "Lidl"
+              }
+            },
+            {
+              "name": {
+                "value": "Rewe"
+              }
+            },
+            {
+              "name": {
+                "value": "Edeka"
+              }
+            },
+            {
+              "name": {
+                "value": "Penny"
+              }
+            },
+            {
+              "name": {
+                "value": "Netto"
+              }
+            },
+            {
+              "name": {
+                "value": "Rossmann"
+              }
+            },
+            {
+              "name": {
+                "value": "Mueller",
+                "synonyms": ["mueller drogerie"]
+              }
+            },
+            {
+              "name": {
+                "value": "Wochenmarkt"
+              }
+            },
+            {
+              "name": {
+                "value": "Haushalt"
+              }
+            },
+            {
+              "name": {
+                "value": "Baumarkt"
+              }
+            },
+            {
+              "name": {
+                "value": "Drogerie"
+              }
+            },
+            {
+              "name": {
+                "value": "Apotheke"
+              }
+            }
+          ]
+        }
+      ]
     }
   }
 }

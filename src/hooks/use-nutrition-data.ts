@@ -20,6 +20,8 @@ export interface NutritionLogEntry {
   duration_minutes: number | null
   fluid_ml: number | null
   receipt_item_id: string | null
+  group_id: string | null
+  group_name: string | null
   created_at: string
 }
 
@@ -62,6 +64,9 @@ type AddLogInput = {
   burned_calories_kcal?: number
   duration_minutes?: number
   fluid_ml?: number
+  group_id?: string
+  group_name?: string
+  receipt_item_id?: string
 }
 
 interface UseNutritionDataReturn {
@@ -143,6 +148,8 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
           is_from_suggestion: false,
           suggestion_dismissed: false,
           receipt_item_id: null,
+          group_id: logData.group_id || null,
+          group_name: logData.group_name || null,
         }
       }
 
@@ -165,7 +172,9 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
         burned_calories_kcal: logData.burned_calories_kcal || 0,
         duration_minutes: logData.duration_minutes || null,
         fluid_ml: logData.fluid_ml || 0,
-        receipt_item_id: null,
+        receipt_item_id: logData.receipt_item_id || null,
+        group_id: logData.group_id || null,
+        group_name: logData.group_name || null,
         created_at: new Date().toISOString(),
       }
 

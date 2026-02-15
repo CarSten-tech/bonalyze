@@ -36,7 +36,21 @@ function extractSlotValue(envelope: AlexaRequestEnvelope, slotNames: string[]): 
   if (!slots) return null
 
   for (const slotName of slotNames) {
-    const value = slots[slotName]?.value?.trim()
+    const slot = slots[slotName]
+    if (!slot) continue
+
+    // Prefer entity resolution value (custom slot types like LIST_NAME)
+    const resolutions = slot.resolutions?.resolutionsPerAuthority
+    if (resolutions) {
+      for (const resolution of resolutions) {
+        if (resolution.status?.code === 'ER_SUCCESS_MATCH' && resolution.values?.[0]?.value?.name) {
+          return resolution.values[0].value.name
+        }
+      }
+    }
+
+    // Fall back to raw spoken value
+    const value = slot.value?.trim()
     if (value) return value
   }
 
@@ -116,29 +130,12 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
       return createAlexaResponse('Welche Liste soll ich oeffnen?')
     }
 
-    // Support combo commands like "öffne liste DM und füge Milch hinzu"
-    const comboMatch = rawName.match(/^(.+?)\s+und\s+(?:fuege|füge|setze|schreibe|pack|trage|notiere)\s+(.+?)(?:\s+hinzu|\s+auf die liste|\s+auf die einkaufsliste|\s+ein)?$/i)
-    const listNamePart = comboMatch ? comboMatch[1].trim() : rawName
-    const addItemsPart = comboMatch ? comboMatch[2].trim() : null
-
-    const found = await findShoppingListByName(link.household_id, listNamePart)
+    const found = await findShoppingListByName(link.household_id, rawName)
     if (!found) {
-      return createAlexaResponse(`Ich habe keine Liste mit dem Namen ${sanitizeForSpeech(listNamePart)} gefunden.`)
+      return createAlexaResponse(`Ich habe keine Liste mit dem Namen ${sanitizeForSpeech(rawName)} gefunden.`)
     }
 
     await setActiveAlexaShoppingList(alexaUserId, found.id)
-
-    if (addItemsPart) {
-      const parsed = parseProductList(addItemsPart)
-      if (parsed.length > 0) {
-        const result = await addProductsToList(found.id, parsed)
-        const productNames = parsed.map((p) => sanitizeForSpeech(p.productName)).join(', ')
-        return createAlexaResponse(
-          `Liste ${sanitizeForSpeech(found.name)} ist jetzt aktiv. ${result.addedCount + result.updatedCount} Produkte hinzugefuegt: ${productNames}.`
-        )
-      }
-    }
-
     return createAlexaResponse(`Liste ${sanitizeForSpeech(found.name)} ist jetzt aktiv.`)
   }
 
@@ -289,6 +286,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (envelope.request.type === 'IntentRequest') {
+      const intentName = envelope.request.intent?.name
+      const slots = envelope.request.intent?.slots
+      console.log(`[alexa] intent: ${intentName}, slots:`, JSON.stringify(slots))
       const response = await handleIntentRequest(envelope, alexaUserId)
       return NextResponse.json(response)
     }

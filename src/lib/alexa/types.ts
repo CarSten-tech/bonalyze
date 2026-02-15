@@ -1,6 +1,14 @@
 export interface AlexaSlot {
   name?: string
   value?: string
+  resolutions?: {
+    resolutionsPerAuthority?: Array<{
+      status: { code: string }
+      values?: Array<{
+        value: { name: string; id?: string }
+      }>
+    }>
+  }
 }
 
 export interface AlexaIntent {

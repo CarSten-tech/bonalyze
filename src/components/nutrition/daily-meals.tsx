@@ -1,7 +1,9 @@
 'use client'
 
+import React, { useState } from 'react'
+
 import Link from 'next/link'
-import { Coffee, Utensils, Moon, Cookie, Plus, Trash2 } from 'lucide-react'
+import { Coffee, Utensils, Moon, Cookie, Plus, Trash2, ChevronDown } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -58,6 +60,13 @@ interface DailyMealsProps {
   onDeleteLog?: (logId: string) => Promise<void>
 }
 
+interface GroupedMeal {
+  id: string
+  name: string
+  items: NutritionLogEntry[]
+  totalKcal: number
+}
+
 function MealSection({
   config,
   items,
@@ -70,6 +79,49 @@ function MealSection({
   const Icon = config.icon
   const totalKcal = items.reduce((sum, item) => sum + (item.calories_kcal || 0), 0)
   const itemCount = items.length
+
+  // Group items by group_id
+  const { singles, groups } = items.reduce(
+    (acc, item) => {
+      if (item.group_id && item.group_name) {
+        if (!acc.groups[item.group_id]) {
+          acc.groups[item.group_id] = {
+            id: item.group_id,
+            name: item.group_name,
+            items: [],
+            totalKcal: 0,
+          }
+        }
+        acc.groups[item.group_id].items.push(item)
+        acc.groups[item.group_id].totalKcal += item.calories_kcal || 0
+      } else {
+        acc.singles.push(item)
+      }
+      return acc
+    },
+    { singles: [] as NutritionLogEntry[], groups: {} as Record<string, GroupedMeal> }
+  )
+
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    // Sort by creation time of first item (approx)
+    return (
+      new Date(b.items[0].created_at).getTime() -
+      new Date(a.items[0].created_at).getTime()
+    )
+  })
+
+  // State for expanded groups
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set())
+
+  const toggleGroup = (groupId: string) => {
+    const newExpanded = new Set(expandedGroups)
+    if (newExpanded.has(groupId)) {
+      newExpanded.delete(groupId)
+    } else {
+      newExpanded.add(groupId)
+    }
+    setExpandedGroups(newExpanded)
+  }
 
   return (
     <Card className={cn('rounded-2xl border-0 border-l-4 shadow-elevation-1 overflow-hidden', config.color, config.bgGradient)}>
@@ -99,10 +151,77 @@ function MealSection({
           </Link>
         </div>
 
-        {/* Items */}
-        {items.length > 0 && (
+        {/* Items List */}
+        {(sortedGroups.length > 0 || singles.length > 0) && (
           <div className="mt-3 space-y-1">
-            {items.map((item) => (
+            {/* Render Groups First */}
+            {sortedGroups.map((group) => {
+              const isExpanded = expandedGroups.has(group.id)
+              return (
+                <div key={group.id} className="rounded-lg bg-white/40 border border-white/50 overflow-hidden">
+                  <div
+                    className="flex items-center justify-between py-2 px-3 cursor-pointer hover:bg-white/60 transition-colors"
+                    onClick={() => toggleGroup(group.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground truncate">
+                          {group.name}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                          {group.items.length} Zutaten
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-foreground tabular-nums">
+                        {group.totalKcal.toLocaleString('de-DE')} kcal
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 text-muted-foreground transition-transform',
+                          isExpanded && 'rotate-180'
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Expanded Items */}
+                  {isExpanded && (
+                    <div className="border-t border-white/50 bg-white/20 px-3 pb-2 pt-1 space-y-1">
+                      {group.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1 group/item">
+                          <span className="text-xs text-muted-foreground truncate flex-1 pl-2 border-l-2 border-primary/20">
+                            {item.item_name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {item.calories_kcal}
+                            </span>
+                            {onDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-50 hover:opacity-100 hover:text-destructive hover:bg-destructive/10 -mr-2"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onDelete(item.id)
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Render Single Items */}
+            {singles.map((item) => (
               <div key={item.id} className="flex items-center justify-between py-2 px-1 group rounded-lg hover:bg-white/50 transition-colors">
                 <span className="text-sm text-foreground truncate flex-1">
                   {item.item_name || 'Unbenannt'}
