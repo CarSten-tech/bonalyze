@@ -252,14 +252,15 @@ export async function getShoppingListOfferMatches(
   const supabase = createAdminClient()
   const result: Record<string, ShoppingListOfferHint[]> = {}
 
-  for (const name of itemNames) {
+  // Run all queries in parallel
+  await Promise.all(itemNames.map(async (name) => {
     const keyword = name
       .trim()
       .split(/[\s,./\-()]+/)
       .filter(w => w.length >= 3)
-      .slice(0, 1)[0]
+      .slice(0, 1)[0] // Take first significant word
 
-    if (!keyword) continue
+    if (!keyword) return
 
     const { data } = await supabase
       .from('offers')
@@ -272,6 +273,7 @@ export async function getShoppingListOfferMatches(
       // Deduplicate by store (keep cheapest per store)
       const seenStores = new Set<string>()
       const hints: ShoppingListOfferHint[] = []
+      
       for (const offer of data) {
         if (seenStores.has(offer.store)) continue
         seenStores.add(offer.store)
@@ -283,11 +285,12 @@ export async function getShoppingListOfferMatches(
           discount_percent: offer.discount_percent,
         })
       }
+      
       if (hints.length > 0) {
         result[name] = hints
       }
     }
-  }
+  }))
 
   return result
 }
