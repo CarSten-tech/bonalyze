@@ -130,9 +130,11 @@ export default function AngebotePage() {
 
   const [offers, setOffers] = useState<Offer[]>([])
   const [stores, setStores] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [total, setTotal] = useState(0)
   
   const [selectedStore, setSelectedStore] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   
   const [isLoading, setIsLoading] = useState(true)
@@ -143,6 +145,7 @@ export default function AngebotePage() {
 
   const loadOffers = useCallback(async (
     store: string,
+    category: string,
     search: string,
     offset = 0,
     append = false
@@ -153,7 +156,7 @@ export default function AngebotePage() {
     try {
       const result = await getOffers(
         store === 'all' ? undefined : store,
-        undefined, // category
+        category === 'all' ? undefined : category,
         search || undefined,
         LIMIT,
         offset
@@ -165,6 +168,7 @@ export default function AngebotePage() {
         setOffers(result.offers)
       }
       setStores(result.stores)
+      setCategories(result.categories)
       setTotal(result.total)
     } catch (err) {
       console.error('Error loading offers:', err)
@@ -179,26 +183,34 @@ export default function AngebotePage() {
   useEffect(() => {
     const store = searchParams.get('store') || 'all'
     setSelectedStore(store)
-    loadOffers(store, '')
+    loadOffers(store, 'all', '')
   }, [searchParams, loadOffers])
 
   const handleStoreChange = (store: string) => {
     setSelectedStore(store)
     setSearchQuery('')
     startTransition(() => {
-      loadOffers(store, '')
+      loadOffers(store, selectedCategory, '')
+    })
+  }
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category)
+    setSearchQuery('')
+    startTransition(() => {
+      loadOffers(selectedStore, category, '')
     })
   }
 
   const handleSearch = (value: string) => {
     setSearchQuery(value)
     startTransition(() => {
-      loadOffers(selectedStore, value)
+      loadOffers(selectedStore, selectedCategory, value)
     })
   }
 
   const handleLoadMore = () => {
-    loadOffers(selectedStore, searchQuery, offers.length, true)
+    loadOffers(selectedStore, selectedCategory, searchQuery, offers.length, true)
   }
 
   const hasMore = offers.length < total
@@ -249,6 +261,23 @@ export default function AngebotePage() {
                 label={store}
                 active={selectedStore === store}
                 onClick={() => handleStoreChange(store)}
+              />
+            ))}
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex gap-2 overflow-x-auto pb-1 mt-2 scrollbar-hide">
+            <FilterPill
+              label="Alle"
+              active={selectedCategory === 'all'}
+              onClick={() => handleCategoryChange('all')}
+            />
+            {categories.map((cat) => (
+              <FilterPill
+                key={cat}
+                label={cat}
+                active={selectedCategory === cat}
+                onClick={() => handleCategoryChange(cat)}
               />
             ))}
           </div>
