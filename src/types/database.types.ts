@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      alexa_link_codes: {
+        Row: {
+          code_hash: string
+          created_at: string
+          expires_at: string
+          household_id: string
+          id: string
+          shopping_list_id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          household_id: string
+          id?: string
+          shopping_list_id: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          household_id?: string
+          id?: string
+          shopping_list_id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alexa_link_codes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alexa_link_codes_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alexa_user_links: {
+        Row: {
+          alexa_user_id: string
+          created_at: string
+          household_id: string
+          id: string
+          is_active: boolean
+          last_seen_at: string | null
+          locale: string | null
+          shopping_list_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alexa_user_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          locale?: string | null
+          shopping_list_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alexa_user_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          locale?: string | null
+          shopping_list_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alexa_user_links_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alexa_user_links_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_alerts: {
         Row: {
           alert_type: string
@@ -156,6 +258,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      deals: {
+        Row: {
+          brand: string | null
+          category: string | null
+          ean: string | null
+          grammage: string | null
+          id: string
+          image_url: string | null
+          price: number
+          product_name: string
+          store: string
+          synced_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          ean?: string | null
+          grammage?: string | null
+          id?: string
+          image_url?: string | null
+          price: number
+          product_name: string
+          store?: string
+          synced_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          ean?: string | null
+          grammage?: string | null
+          id?: string
+          image_url?: string | null
+          price?: number
+          product_name?: string
+          store?: string
+          synced_at?: string
+        }
+        Relationships: []
       }
       household_invites: {
         Row: {
@@ -1151,12 +1292,39 @@ export type Database = {
       }
       search_food: {
         Args: {
-          search_term: string
           items_per_page?: number
           page_number?: number
+          search_term: string
         }
-        Returns: Database["public"]["Tables"]["nutrition_library"]["Row"][]
+        Returns: {
+          bls_code: string
+          calcium: number | null
+          calories: number | null
+          carbs: number | null
+          category: string | null
+          fat: number | null
+          fiber: number | null
+          id: string
+          iron: number | null
+          magnesium: number | null
+          name: string
+          protein: number | null
+          salt: number | null
+          saturated_fat: number | null
+          search_vector: unknown
+          sugar: number | null
+          vitamin_c: number | null
+          zinc: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "nutrition_library"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

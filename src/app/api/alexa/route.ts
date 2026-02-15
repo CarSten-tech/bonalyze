@@ -125,7 +125,7 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
   }
 
   if (intentName === 'OpenListIntent') {
-    const rawName = extractSlotValue(envelope, ['listName', 'name', 'shoppingListName'])
+    const rawName = extractSlotValue(envelope, ['targetList', 'listName', 'name'])
     if (!rawName) {
       return createAlexaResponse('Welche Liste soll ich oeffnen?')
     }

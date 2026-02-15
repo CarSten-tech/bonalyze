@@ -13,7 +13,8 @@ import {
   Loader2,
   ChevronRight,
   Shield,
-  Apple
+  Apple,
+  Tag
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -38,6 +39,7 @@ interface MenuItem {
 
 const menuGroups: MenuItem[][] = [
   [
+    { href: '/dashboard/angebote', icon: Tag, label: 'Angebote' },
     { href: '/dashboard/ernaehrung', icon: Apple, label: 'Ernährung' },
     { href: '/settings/categories', icon: LayoutGrid, label: 'Kategorien verwalten' },
     { href: '/settings/budget', icon: Target, label: 'Budget-Ziele' },
