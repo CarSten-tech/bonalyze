@@ -27,6 +27,27 @@ const UNIT_MAP: Record<string, string> = {
   becher: 'Becher',
 }
 
+const GERMAN_NUMBERS: Record<string, string> = {
+  zwei: '2',
+  zwo: '2',
+  drei: '3',
+  vier: '4',
+  fünf: '5',
+  fuenf: '5',
+  sechs: '6',
+  sieben: '7',
+  acht: '8',
+  neun: '9',
+  zehn: '10',
+  elf: '11',
+  zwölf: '12',
+  zwoelf: '12',
+}
+
+function replaceGermanNumbers(text: string): string {
+  return text.replace(/\b[a-zäöüß]+\b/gi, (word) => GERMAN_NUMBERS[word.toLowerCase()] || word)
+}
+
 function normalizeSpacing(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -38,6 +59,7 @@ function capitalizeWords(text: string): string {
 function normalizeProductName(name: string): string {
   const cleaned = normalizeSpacing(name)
     .replace(/^(ein|eine|einen|den|die|das)\s+/i, '')
+    .replace(/\s+(auf|zu|an)$/i, '')
     .replace(/[.,;:!?]+$/g, '')
   return capitalizeWords(cleaned)
 }
@@ -84,7 +106,7 @@ export function parseProductList(input: string): ParsedProductInput[] {
 }
 
 function parseSingleProduct(part: string): ParsedProductInput | null {
-  const cleaned = normalizeSpacing(part)
+  const cleaned = replaceGermanNumbers(normalizeSpacing(part))
   if (!cleaned) return null
 
   const quantityFirstMatch = cleaned.match(/^(\d+(?:[.,]\d+)?)\s*([A-Za-zäöüÄÖÜ]+)?\s+(.+)$/)
