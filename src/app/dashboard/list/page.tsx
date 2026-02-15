@@ -81,6 +81,7 @@ export default function ShoppingListPage() {
     checkItem,
     uncheckItem,
     deleteItem,
+    moveItem,
     createList,
     clearCheckedItems,
     productPrices,
@@ -301,6 +302,8 @@ export default function ShoppingListPage() {
         onOpenChange={setIsDetailOpen}
         onUpdate={updateItem}
         onDelete={deleteItem}
+        onMove={moveItem}
+        lists={lists}
       />
     </div>
   )

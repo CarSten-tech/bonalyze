@@ -1,17 +1,14 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { 
   Flame, 
   Tag, 
   Clock, 
-  Palette, 
-  Camera, 
   FolderOpen, 
   ArrowRightLeft,
+  StickyNote,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ShoppingListItem } from "@/types/shopping"
+import type { ShoppingListItem, ShoppingList } from "@/types/shopping"
 import {
   Sheet,
   SheetContent,
@@ -21,15 +18,26 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useCategories } from "@/hooks/use-categories"
 
 type Priority = string | null
 
 interface ItemDetailSheetProps {
   item: ShoppingListItem | null
+  lists?: ShoppingList[]
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdate?: (id: string, updates: { quantity?: number; unit?: string; priority?: string | null }) => Promise<void>
+  onUpdate?: (id: string, updates: Partial<ShoppingListItem>) => Promise<void>
   onDelete?: (id: string) => Promise<void>
+  onMove?: (itemId: string, targetListId: string) => Promise<void>
   lastChangedBy?: string | null
 }
 
@@ -39,31 +47,32 @@ const priorityOptions = [
   { value: "flexible", label: "Wenn's passt", icon: Clock, color: "text-blue-500 bg-blue-50 border-blue-200" },
 ]
 
-const settingsActions = [
-  { id: "icon", label: "Icon ändern", icon: Palette, disabled: true },
-  { id: "photo", label: "Foto hinzufügen", icon: Camera, disabled: true },
-  { id: "category", label: "Kategorie ändern", icon: FolderOpen, disabled: true },
-  { id: "move", label: "Verschieben", icon: ArrowRightLeft, disabled: true },
-]
-
 export function ItemDetailSheet({ 
   item, 
+  lists = [],
   open, 
   onOpenChange,
   onUpdate,
   onDelete,
+  onMove,
   lastChangedBy 
 }: ItemDetailSheetProps) {
   const [quantity, setQuantity] = useState("")
   const [unit, setUnit] = useState<string | null>(null)
   const [selectedPriority, setSelectedPriority] = useState<Priority>(null)
+  const [note, setNote] = useState("")
+  const [categoryId, setCategoryId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const { data: categories } = useCategories()
 
-  // Initialize quantity and unit when item changes
+  // Initialize state when item changes
   useEffect(() => {
     if (item && open) {
       setQuantity(item.quantity?.toString() || "")
-      setUnit(item.unit || "Stk") // Default to Stk if null, or keep null? Let's suggest Stk
+      setUnit(item.unit || "Stk")
+      setSelectedPriority(item.priority || null)
+      setNote(item.note || "")
+      setCategoryId(item.category_id || null)
     }
   }, [item, open])
 
@@ -71,16 +80,24 @@ export function ItemDetailSheet({
   const handleOpenChange = async (isOpen: boolean) => {
     if (!isOpen && item && onUpdate) {
       const newQuantity = parseFloat(quantity.replace(',', '.')) || null
-      // Use null if unit is empty string
       const newUnit = unit === "" ? null : unit
+      const newNote = note.trim() === "" ? null : note.trim()
       
       // Only update if changes were made
-      if (newQuantity !== item.quantity || selectedPriority !== item.priority || newUnit !== item.unit) {
+      if (
+        newQuantity !== item.quantity || 
+        selectedPriority !== item.priority || 
+        newUnit !== item.unit ||
+        newNote !== item.note ||
+        categoryId !== item.category_id
+      ) {
         setIsSaving(true)
         await onUpdate(item.id, { 
           quantity: newQuantity || undefined,
           unit: newUnit || undefined,
-          priority: selectedPriority || null
+          priority: selectedPriority || null,
+          note: newNote,
+          category_id: categoryId
         })
         setIsSaving(false)
       }
@@ -90,17 +107,20 @@ export function ItemDetailSheet({
       setQuantity("")
       setUnit(null)
       setSelectedPriority(null)
+      setNote("")
+      setCategoryId(null)
     }
     onOpenChange(isOpen)
   }
 
-  // Initialize priority and unit when item changes
-  useEffect(() => {
-    if (item && open) {
-      setSelectedPriority(item.priority || null)
-      setUnit(item.unit || null)
+  const handleMoveItem = async (targetListId: string) => {
+    if (item && onMove) {
+      setIsSaving(true)
+      await onMove(item.id, targetListId)
+      setIsSaving(false)
+      onOpenChange(false)
     }
-  }, [item, open])
+  }
 
   // Parse last changed info
   const getLastChangedDisplay = () => {
@@ -117,7 +137,7 @@ export function ItemDetailSheet({
       <SheetContent 
         side="bottom" 
         hideClose
-        className="rounded-t-2xl max-h-[85vh] overflow-y-auto px-6 pt-2"
+        className="rounded-t-2xl max-h-[90vh] overflow-y-auto px-6 pt-2"
       >
         {/* Drag Handle */}
         <div className="flex justify-center pt-3 pb-2">
@@ -178,7 +198,7 @@ export function ItemDetailSheet({
         {/* Priority Tags - Horizontal Row */}
         <div className="mb-6">
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Details zu {item.product_name}
+            Details
           </h3>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {priorityOptions.map((option) => {
@@ -207,49 +227,93 @@ export function ItemDetailSheet({
           </div>
         </div>
 
-        {/* Settings Grid */}
+        {/* Note Field */}
         <div className="mb-6">
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Einstellungen
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {settingsActions.map((action) => {
-              const Icon = action.icon
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  disabled={action.disabled}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-2",
-                    "p-4 rounded-xl border transition-all",
-                    action.disabled
-                      ? "bg-muted border-border text-muted-foreground cursor-not-allowed"
-                      : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5"
-                  )}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-sm font-medium">{action.label}</span>
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-2 mb-3">
+            <StickyNote className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Notiz
+            </h3>
           </div>
+          <Textarea
+            placeholder="z.B. die rote Packung, nicht zu teuer..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="bg-muted border-0 resize-none min-h-[80px]"
+          />
+        </div>
+
+        {/* Category & Move */}
+        <div className="mb-6 space-y-4">
+          {/* Category */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Kategorie
+              </h3>
+            </div>
+            <Select 
+              value={categoryId || "no-category"} 
+              onValueChange={(val) => setCategoryId(val === "no-category" ? null : val)}
+            >
+              <SelectTrigger className="w-full bg-card border-border">
+                <SelectValue placeholder="Kategorie wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no-category">Keine Kategorie</SelectItem>
+                {categories?.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.emoji} {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Move to different List */}
+          {lists && lists.length > 1 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Verschieben nach
+                </h3>
+              </div>
+              <Select onValueChange={handleMoveItem}>
+                <SelectTrigger className="w-full bg-card border-border">
+                  <SelectValue placeholder="--- Liste auswählen ---" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists
+                    .filter(l => l.id !== item.shopping_list_id)
+                    .map((list) => (
+                      <SelectItem key={list.id} value={list.id}>
+                        {list.name}
+                      </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Last Change */}
         <div className="pt-4 border-t border-border">
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Letzte Änderung
-          </h3>
           <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
-              <AvatarFallback className="bg-muted text-muted-foreground">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback className="bg-muted text-muted-foreground text-xs">
                 {lastChangedBy ? lastChangedBy.charAt(0).toUpperCase() : "?"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm text-muted-foreground">
-              {getLastChangedDisplay()}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">
+                Zuletzt geändert von
+              </span>
+              <span className="text-sm font-medium">
+                {getLastChangedDisplay()}
+              </span>
+            </div>
           </div>
         </div>
 

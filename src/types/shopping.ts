@@ -19,6 +19,8 @@ export interface ShoppingListItem {
   quantity: number | null
   unit: string | null
   priority?: string | null
+  note?: string | null
+  category_id?: string | null
   is_checked: boolean
   created_at: string
   updated_at: string

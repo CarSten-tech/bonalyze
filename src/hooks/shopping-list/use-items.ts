@@ -160,11 +160,42 @@ export function useShoppingItems(listId: string | null) {
       }
   })
 
+  // Move Item to another list
+  const moveItemMutation = useMutation({
+      mutationFn: async ({ id, targetListId }: { id: string, targetListId: string }) => {
+          const { error } = await supabase
+              .from('shopping_list_items')
+              .update({ shopping_list_id: targetListId, updated_at: new Date().toISOString() })
+              .eq('id', id)
+          
+          if (error) throw error
+          return id
+      },
+      onMutate: async ({ id }) => {
+          await queryClient.cancelQueries({ queryKey })
+          const previousItems = queryClient.getQueryData<ShoppingListItem[]>(queryKey)
+          
+          // Optimistically remove from current list
+          queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+              return old?.filter(item => item.id !== id)
+          })
+          
+          return { previousItems }
+      },
+      onError: (err, vars, context) => {
+           queryClient.setQueryData(queryKey, context?.previousItems)
+      },
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['shopping_list_items'] })
+      }
+  })
+
   return {
       items: query.data || [],
       isLoading: query.isLoading,
       addItem,
       updateItem,
-      deleteItem
+      deleteItem,
+      moveItem: moveItemMutation
   }
 }

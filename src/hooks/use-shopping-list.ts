@@ -33,7 +33,8 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     isLoading: isLoadingItems, 
     addItem: addItemMutation, 
     updateItem: updateItemMutation, 
-    deleteItem: deleteItemMutation 
+    deleteItem: deleteItemMutation,
+    moveItem: moveItemMutation
   } = useShoppingItems(currentListId)
 
   // 4. Prices
@@ -67,6 +68,10 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
 
   const deleteItem = async (id: string) => {
     await deleteItemMutation.mutateAsync(id)
+  }
+
+  const moveItem = async (id: string, targetListId: string) => {
+    await moveItemMutation.mutateAsync({ id, targetListId })
   }
 
   // Helper for clearing checked items
@@ -115,10 +120,11 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     // Actions
     setCurrentListId,
     addItem,
-    updateItem, // Added
+    updateItem,
     checkItem,
     uncheckItem,
     deleteItem,
+    moveItem,
     createList: handleCreateList,
     clearCheckedItems, 
   }
