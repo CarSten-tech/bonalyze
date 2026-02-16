@@ -51,17 +51,20 @@ export interface AddItemInput {
   unit?: string
 }
 
-export interface Deal {
+export interface Offer {
   id: string
   store: string
   product_name: string
-  brand: string | null
-  ean: string | null
+  product_slug: string
   price: number
-  grammage: string | null
-  category: string | null
+  original_price: number | null
+  discount_percent: number | null
+  valid_from: string | null
+  valid_until: string | null
   image_url: string | null
-  synced_at: string
+  weight_volume: string | null
+  price_per_unit: string | null
+  category: string | null
 }
 
 export interface CreateListInput {

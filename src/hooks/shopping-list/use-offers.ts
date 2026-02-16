@@ -1,21 +1,24 @@
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase"
-import type { Deal } from "@/types/shopping"
+import type { Offer } from "@/types/shopping"
 
-export function useDeals(enabled = true) {
+export function useOffers(enabled = true) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['deals'],
+    queryKey: ['offers'],
     queryFn: async () => {
-      // @ts-ignore - table exists but types not generated yet
+      // Fetch active offers
+      const today = new Date().toISOString().split('T')[0]
+      
       const { data, error } = await supabase
-        .from('deals' as any)
+        .from('offers')
         .select('*')
+        .gte('valid_until', today)
         .order('product_name')
       
       if (error) throw error
-      return data as unknown as Deal[]
+      return data as unknown as Offer[]
     },
     enabled,
     staleTime: 1000 * 60 * 60, // 1 hour

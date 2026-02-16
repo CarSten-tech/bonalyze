@@ -2,7 +2,7 @@
 
 import { Package, Check, MoreVertical, Percent } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ShoppingListItem, Deal } from "@/types/shopping"
+import type { ShoppingListItem, Offer } from "@/types/shopping"
 
 interface ItemTileProps {
   item: ShoppingListItem
@@ -10,10 +10,19 @@ interface ItemTileProps {
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
   estimatedPrice?: number
-  deal?: Deal
+  offer?: Offer
 }
 
-export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, deal }: ItemTileProps) {
+export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer }: ItemTileProps) {
+  // ... existing ...
+
+      {/* Offer Badge */}
+      {offer && !item.is_checked && (
+        <div className="absolute top-1 left-1 z-10 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-in fade-in zoom-in duration-300">
+           <Percent className="w-3 h-3" />
+           {offer.discount_percent && <span>-{offer.discount_percent}%</span>}
+        </div>
+      )}
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -49,12 +58,7 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPr
         <MoreVertical className="w-4 h-4" />
       </button>
 
-      {/* Deal Badge */}
-      {deal && !item.is_checked && (
-        <div className="absolute top-1 left-1 z-10 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-in fade-in zoom-in duration-300">
-           <Percent className="w-3 h-3" />
-        </div>
-      )}
+
 
       {/* Main tile button */}
       <button

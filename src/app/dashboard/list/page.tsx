@@ -11,7 +11,97 @@ import {
   ListSelector 
 } from "@/components/shopping"
 import { useShoppingList } from "@/hooks/use-shopping-list"
-import { useDeals } from "@/hooks/shopping-list/use-deals"
+import { useOffers } from "@/hooks/shopping-list/use-offers"
+
+// ... imports ...
+
+export default function ShoppingListPage() {
+  const { householdId } = useUser()
+  // ...
+  const { data: offers } = useOffers(!!householdId)
+
+  // ...
+
+            {/* Render Sorted Categories */}
+            {sortedCategoryIds.map(catId => {
+              const category = categories?.find(c => c.id === catId)
+              const items = groupedItems.groups[catId]
+              if (!items?.length) return null
+
+              return (
+                <div key={catId} className="mb-6">
+                  <CategoryHeader 
+                    name={category?.name || "Kategorie"} 
+                    emoji={category?.emoji} 
+                    count={items.length}
+                  />
+                  {viewMode === "grid" ? (
+                    <ItemTileGrid
+                      items={items}
+                      onCheck={checkItem}
+                      onDetailsClick={handleDetailsClick}
+                      priceData={productPrices}
+                      offers={offers}
+                    />
+                  ) : (
+                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+                      {items.map((item) => (
+                        <ItemListRow
+                          key={item.id}
+                          item={item}
+                          onCheck={checkItem}
+                          onUncheck={uncheckItem}
+                          onDetailsClick={handleDetailsClick}
+                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          offer={offers?.find(o => {
+                            const n = item.product_name.toLowerCase().trim()
+                            return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
+                          })}
+                          offerHints={item.offerHints || undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Render Uncategorized Items */}
+            {groupedItems.uncategorized.length > 0 && (
+              <div className="mb-6">
+                 {/* Only show header if there are also categorized items, or if explicit sorting is desired */}
+                 {sortedCategoryIds.length > 0 && (
+                    <CategoryHeader name="Sonstiges" emoji="🛒" count={groupedItems.uncategorized.length} />
+                 )}
+                 {viewMode === "grid" ? (
+                    <ItemTileGrid
+                      items={groupedItems.uncategorized}
+                      onCheck={checkItem}
+                      onDetailsClick={handleDetailsClick}
+                      priceData={productPrices}
+                      offers={offers}
+                    />
+                  ) : (
+                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+                      {groupedItems.uncategorized.map((item) => (
+                        <ItemListRow
+                          key={item.id}
+                          item={item}
+                          onCheck={checkItem}
+                          onUncheck={uncheckItem}
+                          onDetailsClick={handleDetailsClick}
+                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          offer={offers?.find(o => {
+                             const n = item.product_name.toLowerCase().trim()
+                             return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
+                          })}
+                          offerHints={item.offerHints || undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
+              </div>
+            )}
 import { createClient } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -102,7 +192,7 @@ export default function ShoppingListPage() {
   } = useShoppingList({ householdId })
 
   const { data: categories } = useCategories()
-  const { data: deals } = useDeals(!!householdId)
+  const { data: offers } = useOffers(!!householdId)
 
   // Group items by category
   const groupedItems = useMemo(() => {
@@ -282,7 +372,7 @@ export default function ShoppingListPage() {
                       onCheck={checkItem}
                       onDetailsClick={handleDetailsClick}
                       priceData={productPrices}
-                      deals={deals}
+                      offers={offers}
                     />
                   ) : (
                     <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
@@ -294,9 +384,9 @@ export default function ShoppingListPage() {
                           onUncheck={uncheckItem}
                           onDetailsClick={handleDetailsClick}
                           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                          deal={deals?.find(d => {
+                          offer={offers?.find(o => {
                             const n = item.product_name.toLowerCase().trim()
-                            return d.product_name.toLowerCase().includes(n) || n.includes(d.product_name.toLowerCase())
+                            return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
                           })}
                           offerHints={item.offerHints || undefined}
                         />
@@ -320,7 +410,7 @@ export default function ShoppingListPage() {
                       onCheck={checkItem}
                       onDetailsClick={handleDetailsClick}
                       priceData={productPrices}
-                      deals={deals}
+                      offers={offers}
                     />
                   ) : (
                     <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
@@ -332,9 +422,9 @@ export default function ShoppingListPage() {
                           onUncheck={uncheckItem}
                           onDetailsClick={handleDetailsClick}
                           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                          deal={deals?.find(d => {
+                          offer={offers?.find(o => {
                              const n = item.product_name.toLowerCase().trim()
-                             return d.product_name.toLowerCase().includes(n) || n.includes(d.product_name.toLowerCase())
+                             return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
                           })}
                           offerHints={item.offerHints || undefined}
                         />

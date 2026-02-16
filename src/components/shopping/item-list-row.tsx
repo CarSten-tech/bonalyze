@@ -2,7 +2,7 @@
 
 import { Package, Check, MoreVertical, Percent } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ShoppingListItem, Deal } from "@/types/shopping"
+import type { ShoppingListItem, Offer } from "@/types/shopping"
 
 interface ItemListRowProps {
   item: ShoppingListItem
@@ -10,7 +10,7 @@ interface ItemListRowProps {
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
   estimatedPrice?: number
-  deal?: Deal
+  offer?: Offer
   offerHints?: Array<{
     store: string
     price: number | null
@@ -18,7 +18,7 @@ interface ItemListRowProps {
   }>
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, deal, offerHints }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer, offerHints }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -77,22 +77,49 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
         )}
       </div>
 
-      {/* Name */}
+      {/* Name and Price/Offer Info */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <span
-          className={cn(
-            "text-sm font-medium block truncate leading-tight",
-            item.is_checked && "line-through text-muted-foreground"
+        <div className="flex items-center gap-2">
+           <span
+             className={cn(
+               "text-sm font-medium block truncate leading-tight",
+               item.is_checked && "line-through text-muted-foreground"
+             )}
+           >
+             {item.product_name}
+           </span>
+           
+           {/* Offer Badge Next to Name */}
+           {offer && !item.is_checked && (
+            <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
+              <Percent className="w-3 h-3" />
+              <span>
+                {offer.discount_percent ? `-${offer.discount_percent}%` : 'Angebot'}
+              </span>
+            </div>
+           )}
+        </div>
+
+        {/* Price Information */}
+        <div className="flex items-center gap-2">
+          {estimatedPrice !== undefined && (
+            <span className={cn(
+              "text-xs",
+              offer ? "text-red-600 line-through decoration-slate-400/50" : "text-muted-foreground"
+            )}>
+              {offer ? '' : '~'}
+              {(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+            </span>
           )}
-        >
-          {item.product_name}
-        </span>
-        {estimatedPrice !== undefined && (
-          <span className="text-xs text-muted-foreground">
-            ~{(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-          </span>
-        )}
-        {offerHints && offerHints.length > 0 && !item.is_checked && (
+          {offer && (
+             <span className="text-xs font-bold text-red-600">
+                {offer.price.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+             </span>
+           )}
+        </div>
+
+        {/* Existing Offer Hints (if any) */}
+        {offerHints && offerHints.length > 0 && !item.is_checked && !offer && (
           <span className="text-[11px] text-green-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
             🏷 {offerHints.map((h, i) => (
               <span key={h.store}>
