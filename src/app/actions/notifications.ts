@@ -332,3 +332,21 @@ export async function markAllAsRead() {
         .eq('user_id', user.id)
         .eq('is_read', false)
 }
+export async function notifyShoppingListUpdate(householdId: string, productName: string, includeSelf = false) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // Allow unauthenticated calls? No, usually not. But Alexa might call via a different path.
+    // This action is for Frontend. Alexa calls Service directly.
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    try {
+        // Dynamic import to avoid edge runtime issues if any (though this file is 'use server')
+        const { notifyShoppingListUpdate: serviceNotify } = await import('@/lib/notification-service')
+        await serviceNotify(householdId, productName, user.id, includeSelf)
+        return { success: true }
+    } catch (error) {
+        console.error('Failed to notify:', error)
+        return { success: false }
+    }
+}

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { getShoppingListItemsWithOffers } from '@/app/actions/shopping-list'
+import { notifyShoppingListUpdate } from '@/app/actions/notifications'
 import type { ShoppingListItem } from '@/types/shopping'
 
 export type { ShoppingListItem }
@@ -94,13 +95,20 @@ export function useShoppingItems(listId: string | null) {
     },
     onSuccess: (savedItem, variables, context) => {
         // Replace optimistic with real
-        // OR better: Invalidate to be safe against duplicates
-        // But invalidation causes network request.
-        // Let's manually replace to be fast.
         queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
              if (!old) return [savedItem]
              return old.map(item => item.id === context?.optimisticId ? savedItem : item)
         })
+
+        // Trigger Notification (Fire and forget, but with 'includeSelf' if user wants to test)
+        // We need the householdId. We can fetch it once or keep it in the hook.
+        const triggerNotification = async () => {
+             const { data: list } = await supabase.from('shopping_lists').select('household_id').eq('id', listId!).single()
+             if (list?.household_id) {
+                 await notifyShoppingListUpdate(list.household_id, savedItem.product_name, true) // hardcoded true for testing as per user request
+             }
+        }
+        triggerNotification().catch(console.error)
     }
   })
 

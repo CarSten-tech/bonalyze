@@ -162,7 +162,7 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
       return createAlexaResponse('Ich konnte keine Produkte erkennen. Bitte wiederhole die Produkte.')
     }
 
-    const result = await addProductsToList(link.shopping_list_id, parsed)
+    const result = await addProductsToList(link.shopping_list_id, parsed, link.user_id)
     const productNames = parsed.map((p) => sanitizeForSpeech(p.productName)).join(', ')
 
     return createAlexaResponse(

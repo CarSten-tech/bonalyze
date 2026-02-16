@@ -396,12 +396,19 @@ function mergeItemsByName(items: ShoppingListItemRow[]) {
   return bucket
 }
 
-export async function addProductsToList(listId: string, products: ParsedProductInput[]) {
+import { notifyShoppingListUpdate } from '@/lib/notification-service'
+
+export async function addProductsToList(listId: string, products: ParsedProductInput[], actorUserId?: string) {
   if (products.length === 0) return { addedCount: 0, updatedCount: 0 }
 
   const supabase = createAdminClient() as any
   const currentItems = await readShoppingList(listId)
   const byName = mergeItemsByName(currentItems)
+
+  // Get householdId for notifications (optimization: fetch once)
+  let householdId: string | null = null
+  const { data: list } = await supabase.from('shopping_lists').select('household_id').eq('id', listId).single()
+  if (list) householdId = list.household_id
 
   let addedCount = 0
   let updatedCount = 0
@@ -410,6 +417,8 @@ export async function addProductsToList(listId: string, products: ParsedProductI
     const key = normalizeCompareName(product.productName)
     const matches = byName.get(key) || []
     const firstMatch = matches[0]
+
+    let isNew = false
 
     if (firstMatch) {
       const currentQty = firstMatch.quantity || 0
@@ -427,21 +436,30 @@ export async function addProductsToList(listId: string, products: ParsedProductI
 
       if (error) throw error
       updatedCount += 1
-      continue
+    } else {
+      const { error: insertError } = await supabase
+        .from('shopping_list_items')
+        .insert({
+          shopping_list_id: listId,
+          product_name: product.productName,
+          quantity: product.quantity ?? 1,
+          unit: product.unit,
+          is_checked: false,
+          created_by: actorUserId // Track creator if column exists? If not, ignore.
+        })
+
+      if (insertError) throw insertError
+      addedCount += 1
+      isNew = true
     }
 
-    const { error: insertError } = await supabase
-      .from('shopping_list_items')
-      .insert({
-        shopping_list_id: listId,
-        product_name: product.productName,
-        quantity: product.quantity ?? 1,
-        unit: product.unit,
-        is_checked: false,
-      })
-
-    if (insertError) throw insertError
-    addedCount += 1
+    // Notify
+    if (householdId && isNew && actorUserId) {
+        // Fire and forget notification
+        notifyShoppingListUpdate(householdId, product.productName, actorUserId).catch(err => {
+            console.error('Failed to notify Alexa update:', err)
+        })
+    }
   }
 
   return { addedCount, updatedCount }
