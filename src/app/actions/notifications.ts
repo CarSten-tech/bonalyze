@@ -358,12 +358,22 @@ export async function notifyShoppingListUpdate(householdId: string, shoppingList
 
     if (!user) return { success: false, error: 'Unauthorized' }
 
+    // Heartbeat for debugging
+    await supabase.from('notifications').insert({
+        user_id: user.id,
+        household_id: householdId,
+        type: 'info',
+        title: 'Action Heartbeat',
+        message: `Notification process started for ${productName}`,
+        is_read: false
+    })
+
     try {
         const { notifyShoppingListUpdate: serviceNotify } = await import('@/lib/notification-service')
-        await serviceNotify(householdId, shoppingListId, productName, user.id, includeSelf)
+        const result = await serviceNotify(householdId, shoppingListId, productName, user.id, includeSelf)
         return { success: true }
     } catch (error) {
-        logger.error('Failed to notify shopping list update', error)
+        logger.error('[Action] Failed to notify shopping list update', error)
         return { success: false }
     }
 }
