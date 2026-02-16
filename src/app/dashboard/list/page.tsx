@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { ShoppingCart, LayoutGrid, List } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
+import { ShoppingCart, LayoutGrid, List, Layers, AlignJustify } from "lucide-react"
 import { 
   AddItemInput, 
   ItemTileGrid, 
@@ -12,13 +12,11 @@ import {
 } from "@/components/shopping"
 import { useShoppingList } from "@/hooks/use-shopping-list"
 import { useOffers } from "@/hooks/shopping-list/use-offers"
-
 import { createClient } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { useCategories } from "@/hooks/use-categories"
 import { CategoryHeader } from "@/components/shopping/category-header"
-import { useMemo } from "react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem } from "@/types/shopping"
 import {
@@ -36,21 +34,30 @@ import { useItemDuplicateCheck } from "@/hooks/shopping-list/use-duplicate-check
 type ViewMode = "grid" | "list"
 
 const STORAGE_KEY_VIEW = "shopping-list-view"
+const STORAGE_KEY_GROUPING = "shopping-list-grouping"
 const STORAGE_KEY_LIST = "shopping-list-current"
 
 export default function ShoppingListPage() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [isCategorized, setIsCategorized] = useState(true)
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({})
+  
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   const supabase = createClient()
 
-  // Load view preference from localStorage
+  // Load view preferences from localStorage
   useEffect(() => {
     const savedView = localStorage.getItem(STORAGE_KEY_VIEW) as ViewMode | null
     if (savedView === "grid" || savedView === "list") {
       setViewMode(savedView)
+    }
+    
+    const savedGrouping = localStorage.getItem(STORAGE_KEY_GROUPING)
+    if (savedGrouping !== null) {
+      setIsCategorized(savedGrouping === "true")
     }
   }, [])
 
@@ -60,14 +67,26 @@ export default function ShoppingListPage() {
     localStorage.setItem(STORAGE_KEY_VIEW, mode)
   }
 
+  // Toggle Grouping
+  const toggleGrouping = () => {
+    const newValue = !isCategorized
+    setIsCategorized(newValue)
+    localStorage.setItem(STORAGE_KEY_GROUPING, String(newValue))
+  }
+
+  // Toggle Category Collapse
+  const toggleCategoryCollapse = (categoryId: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }))
+  }
+
   // Get current household ID
-  const [debugUserId, setDebugUserId] = useState<string>('')
-  
   useEffect(() => {
     const getHousehold = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      setDebugUserId(user.id)
 
       const { data } = await supabase
         .from("household_members")
@@ -88,7 +107,7 @@ export default function ShoppingListPage() {
     currentList,
     uncheckedItems,
     checkedItems,
-    isLoading,
+    isLoading: isLoadingList,
     isAddingItem,
     setCurrentListId,
     addItem,
@@ -105,15 +124,15 @@ export default function ShoppingListPage() {
   const { data: categories } = useCategories()
   const { data: offers } = useOffers(!!householdId)
 
-  // Group items by category
+  // Group items by category (if enabled)
   const groupedItems = useMemo(() => {
-    if (!uncheckedItems.length) return { groups: {}, uncategorized: [] }
-    
+    // If not using categories, return everything as 'uncategorized' effectively (or handle in render)
+    // But we reuse the structure for consistency
     const groups: Record<string, ShoppingListItem[]> = {}
     const uncategorized: ShoppingListItem[] = []
 
     uncheckedItems.forEach(item => {
-      if (item.category_id) {
+      if (isCategorized && item.category_id) {
         if (!groups[item.category_id]) groups[item.category_id] = []
         groups[item.category_id].push(item)
       } else {
@@ -122,18 +141,18 @@ export default function ShoppingListPage() {
     })
 
     return { groups, uncategorized }
-  }, [uncheckedItems])
+  }, [uncheckedItems, isCategorized])
 
   // Get sorted category IDs based on category sort_order
   const sortedCategoryIds = useMemo(() => {
-    if (!categories) return []
+    if (!categories) return [] as string[]
     return categories
-      .filter(c => groupedItems.groups?.[c.id])
+      .filter(c => !!groupedItems.groups?.[c.id])
       .map(c => c.id)
   }, [categories, groupedItems])
 
   // Duplicate Check Hook
-  const allItems = [...uncheckedItems, ...checkedItems]
+  const allItems = useMemo(() => [...uncheckedItems, ...checkedItems], [uncheckedItems, checkedItems])
   const { duplicateWarning, checkDuplicate } = useItemDuplicateCheck(allItems)
 
   const handleAddItem = async ({ product_name, quantity, unit }: { product_name: string, quantity?: number, unit?: string }) => {
@@ -141,8 +160,6 @@ export default function ShoppingListPage() {
       await addItem({ product_name, quantity, unit })
     })
   }
-
-
 
   // Load last selected list from localStorage
   useEffect(() => {
@@ -168,14 +185,39 @@ export default function ShoppingListPage() {
     setIsDetailOpen(true)
   }
 
-  // Explicitly define states to prevent flicker
-  const hasLists = lists.length > 0
-  const isSelectingList = hasLists && !currentList?.id
-  // Show loading if: 
-  // 1. We don't have a household ID yet
-  // 2. The hook says it's loading
-  // 3. We have lists but haven't selected one yet (transition)
-  const showLoading = !householdId || isLoading || isSelectingList
+  // Helpers for render
+  const renderItemGrid = (items: ShoppingListItem[]) => (
+    <ItemTileGrid
+      items={items}
+      onCheck={checkItem}
+      onDetailsClick={handleDetailsClick}
+      priceData={productPrices}
+      offers={offers}
+    />
+  )
+
+  const renderItemList = (items: ShoppingListItem[]) => (
+    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+      {items.map((item) => (
+        <ItemListRow
+          key={item.id}
+          item={item}
+          onCheck={checkItem}
+          onUncheck={uncheckItem}
+          onDetailsClick={handleDetailsClick}
+          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+          offer={offers?.find(o => {
+            const n = item.product_name.toLowerCase().trim()
+            return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
+          })}
+          offerHints={item.offerHints || undefined}
+        />
+      ))}
+    </div>
+  )
+
+  // Final loading state
+  const isLoading = !householdId || isLoadingList
 
   return (
     <div className="pt-4 pb-32">
@@ -187,9 +229,26 @@ export default function ShoppingListPage() {
           onSelect={handleListChange}
           onCreate={createList}
         />
-        <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex bg-muted rounded-lg p-0.5">
+        <div className="flex items-center gap-4">
+           {/* Grouping Toggle */}
+           <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleGrouping}
+              className={cn(
+                "h-7 px-2 rounded-md text-xs font-medium gap-1.5",
+                isCategorized 
+                  ? "bg-primary/10 text-primary hover:bg-primary/20" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title={isCategorized ? "Kategorien aktiv" : "Kategorien inaktiv"}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              {isCategorized ? "Kategorien" : "Einfach"}
+            </Button>
+            
+           {/* View Toggle */}
+           <div className="flex bg-muted rounded-lg p-0.5">
             <Button
               variant="ghost"
               size="sm"
@@ -257,92 +316,61 @@ export default function ShoppingListPage() {
           </div>
         )}
 
-
-
         {/* Unchecked Items */}
         {!isLoading && uncheckedItems.length > 0 && (
           <div>
             <h2 className="sr-only">Noch zu kaufen</h2>
             
-            {/* Render Sorted Categories */}
-            {sortedCategoryIds.map(catId => {
-              const category = categories?.find(c => c.id === catId)
-              const items = groupedItems.groups[catId]
-              if (!items?.length) return null
-
-              return (
-                <div key={catId} className="mb-6">
-                  <CategoryHeader 
-                    name={category?.name || "Kategorie"} 
-                    emoji={category?.emoji} 
-                    count={items.length}
-                  />
-                  {viewMode === "grid" ? (
-                    <ItemTileGrid
-                      items={items}
-                      onCheck={checkItem}
-                      onDetailsClick={handleDetailsClick}
-                      priceData={productPrices}
-                      offers={offers}
-                    />
-                  ) : (
-                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
-                      {items.map((item) => (
-                        <ItemListRow
-                          key={item.id}
-                          item={item}
-                          onCheck={checkItem}
-                          onUncheck={uncheckItem}
-                          onDetailsClick={handleDetailsClick}
-                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                          offer={offers?.find(o => {
-                            const n = item.product_name.toLowerCase().trim()
-                            return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
-                          })}
-                          offerHints={item.offerHints || undefined}
-                        />
-                      ))}
-                    </div>
-                  )}
+            {/* 
+                Render Logic:
+                If categorized -> Render Groups + Uncategorized
+                If not categorized -> Render everything as Uncategorized (which contains all items in that mode)
+            */}
+            
+            {isCategorized ? (
+                <>
+                    {/* Render Sorted Categories */}
+                    {sortedCategoryIds.map(catId => {
+                      const category = categories?.find(c => c.id === catId)
+                      const items = groupedItems.groups[catId]
+                      const isCollapsed = collapsedCategories[catId]
+                      if (!items?.length) return null
+        
+                      return (
+                        <div key={catId} className="mb-6">
+                            <CategoryHeader 
+                                name={category?.name || "Kategorie"} 
+                                count={items.length}
+                                isCollapsed={isCollapsed}
+                                onToggle={() => toggleCategoryCollapse(catId)}
+                            />
+                          
+                          {!isCollapsed && (
+                              <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                                {viewMode === "grid" ? renderItemGrid(items) : renderItemList(items)}
+                              </div>
+                          )}
+                        </div>
+                      )
+                    })}
+        
+                    {/* Render Uncategorized Items (always at bottom) */}
+                    {groupedItems.uncategorized.length > 0 && (
+                      <div className="mb-6">
+                         {/* Only show header if there are prioritized categories */}
+                         {sortedCategoryIds.length > 0 && (
+                            <CategoryHeader name="Sonstiges" count={groupedItems.uncategorized.length} />
+                         )}
+                         {viewMode === "grid" ? renderItemGrid(groupedItems.uncategorized) : renderItemList(groupedItems.uncategorized)}
+                      </div>
+                    )}
+                </>
+            ) : (
+                /* Flat View - Render All Items */
+                <div className="mt-4">
+                    {/* In flat mode, 'uncategorized' contains all items due to the useMemo logic above */}
+                    {viewMode === "grid" ? renderItemGrid(groupedItems.uncategorized) : renderItemList(groupedItems.uncategorized)}
                 </div>
-              )
-            })}
-
-            {/* Render Uncategorized Items */}
-            {groupedItems.uncategorized.length > 0 && (
-              <div className="mb-6">
-                 {/* Only show header if there are also categorized items, or if explicit sorting is desired */}
-                 {sortedCategoryIds.length > 0 && (
-                    <CategoryHeader name="Sonstiges" emoji="🛒" count={groupedItems.uncategorized.length} />
-                 )}
-                 {viewMode === "grid" ? (
-                    <ItemTileGrid
-                      items={groupedItems.uncategorized}
-                      onCheck={checkItem}
-                      onDetailsClick={handleDetailsClick}
-                      priceData={productPrices}
-                      offers={offers}
-                    />
-                  ) : (
-                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
-                      {groupedItems.uncategorized.map((item) => (
-                        <ItemListRow
-                          key={item.id}
-                          item={item}
-                          onCheck={checkItem}
-                          onUncheck={uncheckItem}
-                          onDetailsClick={handleDetailsClick}
-                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                          offer={offers?.find(o => {
-                             const n = item.product_name.toLowerCase().trim()
-                             return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
-                          })}
-                          offerHints={item.offerHints || undefined}
-                        />
-                      ))}
-                    </div>
-                  )}
-              </div>
             )}
           </div>
         )}
