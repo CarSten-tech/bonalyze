@@ -9,9 +9,10 @@ interface ItemTileProps {
   onCheck: (id: string) => void
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
+  estimatedPrice?: number
 }
 
-export function ItemTile({ item, onCheck, onUncheck, onDetailsClick }: ItemTileProps) {
+export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice }: ItemTileProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
