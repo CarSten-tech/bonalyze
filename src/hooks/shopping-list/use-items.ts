@@ -41,6 +41,9 @@ export function useShoppingItems(listId: string | null) {
             .eq('name', input.product_name.trim())
             .maybeSingle()
 
+        // 1.5 Get current user for attribution
+        const { data: { user } } = await supabase.auth.getUser()
+
         // 2. Insert item (category_id is auto-assigned by DB trigger if not provided)
         const { data, error } = await supabase
             .from('shopping_list_items')
@@ -50,7 +53,8 @@ export function useShoppingItems(listId: string | null) {
                 quantity: input.quantity || 1,
                 unit: input.unit || null,
                 product_id: product?.id || null,
-                is_checked: false
+                is_checked: false,
+                user_id: user?.id || null
             })
             .select()
             .single()
@@ -75,6 +79,7 @@ export function useShoppingItems(listId: string | null) {
             product_id: null, // Unknown yet
             priority: null,
             is_checked: false,
+            user_id: null, // Optimistic: we don't know the exact ID or name yet easily, but it renders fine.
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         }
