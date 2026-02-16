@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/form'
 
 const signupSchema = z.object({
+  firstName: z.string().min(2, 'Bitte gib deinen Namen ein'),
   email: z.string().email('Bitte gib eine gueltige E-Mail-Adresse ein'),
   password: z.string().min(8, 'Passwort muss mindestens 8 Zeichen haben'),
   confirmPassword: z.string().min(1, 'Bitte bestatige dein Passwort'),
@@ -50,6 +51,7 @@ export default function SignupPage() {
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
+      firstName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -64,6 +66,10 @@ export default function SignupPage() {
       password: data.password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?redirectTo=/onboarding/profile`,
+        data: {
+          first_name: data.firstName,
+          display_name: data.firstName,
+        },
       },
     })
 
@@ -148,6 +154,24 @@ export default function SignupPage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vorname</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Dein Name"
+                      autoComplete="given-name"
+                      disabled={isLoading || isMagicLinkLoading}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="email"
