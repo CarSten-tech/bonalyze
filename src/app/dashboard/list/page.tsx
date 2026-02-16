@@ -16,6 +16,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem } from "@/types/shopping"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useItemDuplicateCheck } from "@/hooks/shopping-list/use-duplicate-check"
 
 type ViewMode = "grid" | "list"
 
@@ -85,6 +96,16 @@ export default function ShoppingListPage() {
     clearCheckedItems,
     productPrices,
   } = useShoppingList({ householdId })
+
+  // Duplicate Check Hook
+  const allItems = [...uncheckedItems, ...checkedItems]
+  const { duplicateWarning, checkDuplicate } = useItemDuplicateCheck(allItems)
+
+  const handleAddItem = async ({ product_name, quantity, unit }: { product_name: string, quantity?: number, unit?: string }) => {
+    checkDuplicate(product_name, async () => {
+      await addItem({ product_name, quantity, unit })
+    })
+  }
 
 
 
@@ -170,7 +191,7 @@ export default function ShoppingListPage() {
       <div className="flex-1 px-4 py-4 space-y-6">
         {/* Add Item Input */}
         <AddItemInput
-          onAdd={addItem}
+          onAdd={handleAddItem}
           isLoading={isAddingItem}
         />
 
@@ -297,6 +318,22 @@ export default function ShoppingListPage() {
         onMove={moveItem}
         lists={lists}
       />
+
+      {/* Duplicate Warning Dialog */}
+      <AlertDialog open={!!duplicateWarning} onOpenChange={() => duplicateWarning?.onCancel()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Produkt existiert bereits</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{duplicateWarning?.matchName}" steht schon auf der Liste. Möchtest du "{duplicateWarning?.originalName}" trotzdem hinzufügen?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => duplicateWarning?.onCancel()}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={() => duplicateWarning?.onConfirm()}>Hinzufügen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

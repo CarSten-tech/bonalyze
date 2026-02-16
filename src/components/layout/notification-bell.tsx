@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Check, Info, Receipt, Wallet } from 'lucide-react'
+import { Bell, Check, Info, Receipt, Wallet, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
