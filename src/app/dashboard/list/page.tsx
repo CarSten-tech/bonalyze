@@ -14,6 +14,9 @@ import { useShoppingList } from "@/hooks/use-shopping-list"
 import { createClient } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { useCategories } from "@/hooks/use-categories"
+import { CategoryHeader } from "@/components/shopping/category-header"
+import { useMemo } from "react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem } from "@/types/shopping"
 import {
@@ -96,6 +99,35 @@ export default function ShoppingListPage() {
     clearCheckedItems,
     productPrices,
   } = useShoppingList({ householdId })
+
+  const { data: categories } = useCategories()
+
+  // Group items by category
+  const groupedItems = useMemo(() => {
+    if (!uncheckedItems.length) return { groups: {}, uncategorized: [] }
+    
+    const groups: Record<string, ShoppingListItem[]> = {}
+    const uncategorized: ShoppingListItem[] = []
+
+    uncheckedItems.forEach(item => {
+      if (item.category_id) {
+        if (!groups[item.category_id]) groups[item.category_id] = []
+        groups[item.category_id].push(item)
+      } else {
+        uncategorized.push(item)
+      }
+    })
+
+    return { groups, uncategorized }
+  }, [uncheckedItems])
+
+  // Get sorted category IDs based on category sort_order
+  const sortedCategoryIds = useMemo(() => {
+    if (!categories) return []
+    return categories
+      .filter(c => groupedItems.groups?.[c.id])
+      .map(c => c.id)
+  }, [categories, groupedItems])
 
   // Duplicate Check Hook
   const allItems = [...uncheckedItems, ...checkedItems]
@@ -222,32 +254,81 @@ export default function ShoppingListPage() {
           </div>
         )}
 
+
+
         {/* Unchecked Items */}
         {!isLoading && uncheckedItems.length > 0 && (
           <div>
-            <h2 className="text-sm font-medium text-muted-foreground mb-3">
-              Noch zu kaufen ({uncheckedItems.length})
-            </h2>
-            {viewMode === "grid" ? (
-              <ItemTileGrid
-                items={uncheckedItems}
-                onCheck={checkItem}
-                onUncheck={uncheckItem}
-                onDetailsClick={handleDetailsClick}
-              />
-            ) : (
-              <div className="space-y-2">
-                {uncheckedItems.map((item) => (
-                  <ItemListRow
-                    key={item.id}
-                    item={item}
-                    onCheck={checkItem}
-                    onUncheck={uncheckItem}
-                    onDetailsClick={handleDetailsClick}
-                    estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-                    offerHints={item.offerHints || undefined}
+            <h2 className="sr-only">Noch zu kaufen</h2>
+            
+            {/* Render Sorted Categories */}
+            {sortedCategoryIds.map(catId => {
+              const category = categories?.find(c => c.id === catId)
+              const items = groupedItems.groups[catId]
+              if (!items?.length) return null
+
+              return (
+                <div key={catId} className="mb-6">
+                  <CategoryHeader 
+                    name={category?.name || "Kategorie"} 
+                    emoji={category?.emoji} 
+                    count={items.length}
                   />
-                ))}
+                  {viewMode === "grid" ? (
+                    <ItemTileGrid
+                      items={items}
+                      onCheck={checkItem}
+                      onDetailsClick={handleDetailsClick}
+                      priceData={productPrices}
+                    />
+                  ) : (
+                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+                      {items.map((item) => (
+                        <ItemListRow
+                          key={item.id}
+                          item={item}
+                          onCheck={checkItem}
+                          onUncheck={uncheckItem}
+                          onDetailsClick={handleDetailsClick}
+                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          offerHints={item.offerHints || undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Render Uncategorized Items */}
+            {groupedItems.uncategorized.length > 0 && (
+              <div className="mb-6">
+                 {/* Only show header if there are also categorized items, or if explicit sorting is desired */}
+                 {sortedCategoryIds.length > 0 && (
+                    <CategoryHeader name="Sonstiges" emoji="🛒" count={groupedItems.uncategorized.length} />
+                 )}
+                 {viewMode === "grid" ? (
+                    <ItemTileGrid
+                      items={groupedItems.uncategorized}
+                      onCheck={checkItem}
+                      onDetailsClick={handleDetailsClick}
+                      priceData={productPrices}
+                    />
+                  ) : (
+                    <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+                      {groupedItems.uncategorized.map((item) => (
+                        <ItemListRow
+                          key={item.id}
+                          item={item}
+                          onCheck={checkItem}
+                          onUncheck={uncheckItem}
+                          onDetailsClick={handleDetailsClick}
+                          estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          offerHints={item.offerHints || undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
               </div>
             )}
           </div>
