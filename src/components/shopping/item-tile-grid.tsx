@@ -1,7 +1,7 @@
 "use client"
 
 import { ItemTile } from "./item-tile"
-import type { ShoppingListItem } from "@/types/shopping"
+import type { ShoppingListItem, Deal } from "@/types/shopping"
 
 interface ItemTileGridProps {
   items: ShoppingListItem[]
@@ -9,6 +9,7 @@ interface ItemTileGridProps {
   onUncheck?: (id: string) => void
   onDetailsClick: (item: ShoppingListItem) => void
   priceData?: Record<string, number>
+  deals?: Deal[]
 }
 
 export function ItemTileGrid({ 
@@ -16,8 +17,15 @@ export function ItemTileGrid({
   onCheck, 
   onUncheck,
   onDetailsClick,
-  priceData 
+  priceData,
+  deals
 }: ItemTileGridProps) {
+  // Helper to find deal
+  const getDeal = (itemName: string) => {
+    if (!deals) return undefined
+    const normalizedName = itemName.toLowerCase().trim()
+    return deals.find(d => d.product_name.toLowerCase().includes(normalizedName) || normalizedName.includes(d.product_name.toLowerCase()))
+  }
   if (items.length === 0) {
     return null
   }
@@ -32,6 +40,7 @@ export function ItemTileGrid({
           onUncheck={() => onUncheck?.(item.id)}
           onDetailsClick={() => onDetailsClick(item)}
           estimatedPrice={(item.product_id ? priceData?.[item.product_id] : undefined) || priceData?.[item.product_name.toLowerCase().trim()]}
+          deal={getDeal(item.product_name)}
         />
       ))}
     </div>

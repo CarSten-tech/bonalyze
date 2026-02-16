@@ -1,8 +1,8 @@
 "use client"
 
-import { Package, Check, MoreVertical } from "lucide-react"
+import { Package, Check, MoreVertical, Percent } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ShoppingListItem } from "@/types/shopping"
+import type { ShoppingListItem, Deal } from "@/types/shopping"
 
 interface ItemListRowProps {
   item: ShoppingListItem
@@ -10,6 +10,7 @@ interface ItemListRowProps {
   onUncheck: (id: string) => void
   onDetailsClick?: (item: ShoppingListItem) => void
   estimatedPrice?: number
+  deal?: Deal
   offerHints?: Array<{
     store: string
     price: number | null
@@ -17,7 +18,7 @@ interface ItemListRowProps {
   }>
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offerHints }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, deal, offerHints }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)

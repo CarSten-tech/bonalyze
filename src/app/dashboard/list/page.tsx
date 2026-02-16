@@ -11,6 +11,7 @@ import {
   ListSelector 
 } from "@/components/shopping"
 import { useShoppingList } from "@/hooks/use-shopping-list"
+import { useDeals } from "@/hooks/shopping-list/use-deals"
 import { createClient } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -101,6 +102,7 @@ export default function ShoppingListPage() {
   } = useShoppingList({ householdId })
 
   const { data: categories } = useCategories()
+  const { data: deals } = useDeals(!!householdId)
 
   // Group items by category
   const groupedItems = useMemo(() => {
@@ -280,6 +282,7 @@ export default function ShoppingListPage() {
                       onCheck={checkItem}
                       onDetailsClick={handleDetailsClick}
                       priceData={productPrices}
+                      deals={deals}
                     />
                   ) : (
                     <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
@@ -291,6 +294,10 @@ export default function ShoppingListPage() {
                           onUncheck={uncheckItem}
                           onDetailsClick={handleDetailsClick}
                           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          deal={deals?.find(d => {
+                            const n = item.product_name.toLowerCase().trim()
+                            return d.product_name.toLowerCase().includes(n) || n.includes(d.product_name.toLowerCase())
+                          })}
                           offerHints={item.offerHints || undefined}
                         />
                       ))}
@@ -313,6 +320,7 @@ export default function ShoppingListPage() {
                       onCheck={checkItem}
                       onDetailsClick={handleDetailsClick}
                       priceData={productPrices}
+                      deals={deals}
                     />
                   ) : (
                     <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
@@ -324,6 +332,10 @@ export default function ShoppingListPage() {
                           onUncheck={uncheckItem}
                           onDetailsClick={handleDetailsClick}
                           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
+                          deal={deals?.find(d => {
+                             const n = item.product_name.toLowerCase().trim()
+                             return d.product_name.toLowerCase().includes(n) || n.includes(d.product_name.toLowerCase())
+                          })}
                           offerHints={item.offerHints || undefined}
                         />
                       ))}
