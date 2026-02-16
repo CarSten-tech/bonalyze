@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getVapidPublicKey, saveSubscription, deleteSubscription } from '@/app/actions/notifications'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 
 export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -27,13 +28,13 @@ export function usePushNotifications() {
         ]) .catch(err => null)
 
         if (!registration) {
-             console.log('Service Worker not ready, attempting manual registration...')
+             logger.debug('Service Worker not ready, attempting manual registration...')
              try {
                 const reg = await navigator.serviceWorker.register('/sw.js')
                 await navigator.serviceWorker.ready
                 return // Retry immediately handled by react state or user click
              } catch (err) {
-                console.error('Manual SW registration failed:', err)
+                logger.error('Manual SW registration failed', err)
                 setLoading(false)
                 return
              }

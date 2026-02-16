@@ -1,6 +1,8 @@
 'use server'
 
+import { createServerClient as createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { logger } from '@/lib/logger'
 
 export interface Offer {
   id: string
@@ -24,6 +26,49 @@ interface OffersResult {
   total: number
 }
 
+/** Normalizes image URLs from the offers scraper */
+function normalizeImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) return null
+  if (imageUrl.startsWith('./')) {
+    return `https://www.aktionspreis.de${imageUrl.substring(1)}`
+  }
+  if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+    return `https://www.aktionspreis.de/${imageUrl}`
+  }
+  return imageUrl
+}
+
+/** Maps a raw DB offer row to the typed Offer interface */
+function mapOffer(o: {
+  id: string
+  product_name: string
+  price: number
+  store: string
+  image_url: string | null
+  valid_from: string | null
+  valid_until: string | null
+  discount_percent: number | null
+  category: string | null
+  source_url: string | null
+  price_per_unit: string | null
+  weight_volume: string | null
+}): Offer {
+  return {
+    id: o.id,
+    product_name: o.product_name,
+    price: o.price,
+    store: o.store,
+    image_url: normalizeImageUrl(o.image_url),
+    valid_from: o.valid_from,
+    valid_until: o.valid_until,
+    discount_percent: o.discount_percent,
+    category: o.category,
+    source_url: o.source_url,
+    price_per_unit: o.price_per_unit,
+    weight_volume: o.weight_volume,
+  }
+}
+
 export async function getOffers(
   store?: string,
   category?: string,
@@ -31,6 +76,7 @@ export async function getOffers(
   limit = 50,
   offset = 0
 ): Promise<OffersResult> {
+  // Offers are public data - admin client is fine here (no user data accessed)
   const supabase = createAdminClient()
 
   let query = supabase
@@ -50,35 +96,34 @@ export async function getOffers(
     query = query.ilike('product_name', `%${search.trim()}%`)
   }
 
-  query = query.range(offset, offset + limit * 2 - 1) // Fetch more to handle dedup
+  query = query.range(offset, offset + limit * 2 - 1)
 
   const { data, error, count } = await query
 
   if (error) {
-    console.error('Error fetching offers:', error)
+    logger.error('Error fetching offers', error)
     return { offers: [], categories: [], stores: [], total: 0 }
   }
 
   // Deduplicate by store + product_name
-  const uniqueOffersMap = new Map<string, any>();
+  const uniqueOffersMap = new Map<string, typeof data[number]>()
   if (data) {
     data.forEach((item) => {
-      const key = `${item.store}-${item.product_name}`;
+      const key = `${item.store}-${item.product_name}`
       if (!uniqueOffersMap.has(key)) {
-        uniqueOffersMap.set(key, item);
+        uniqueOffersMap.set(key, item)
       }
-    });
+    })
   }
 
-  // Convert to array and slice to limit
-  const uniqueData = Array.from(uniqueOffersMap.values()).slice(0, limit);
+  const uniqueData = Array.from(uniqueOffersMap.values()).slice(0, limit)
 
   // Fetch distinct categories and stores
   const { data: catData } = await supabase
     .from('offers')
     .select('category')
     .not('category', 'is', null)
-  
+
   const categories = [...new Set(catData?.map(c => c.category).filter(Boolean) as string[])].sort()
 
   const { data: storeData } = await supabase
@@ -88,33 +133,8 @@ export async function getOffers(
 
   const stores = [...new Set(storeData?.map(s => s.store).filter(Boolean) as string[])].sort()
 
-  const offers: Offer[] = uniqueData.map((o: any) => {
-      let imageUrl = o.image_url;
-      if (imageUrl) {
-        if (imageUrl.startsWith('./')) {
-          imageUrl = `https://www.aktionspreis.de${imageUrl.substring(1)}`;
-        } else if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-          imageUrl = `https://www.aktionspreis.de/${imageUrl}`;
-        }
-      }
-      return {
-        id: o.id,
-        product_name: o.product_name,
-        price: o.price,
-        store: o.store,
-        image_url: imageUrl,
-        valid_from: o.valid_from,
-        valid_until: o.valid_until,
-        discount_percent: o.discount_percent,
-        category: o.category,
-        source_url: o.source_url,
-        price_per_unit: o.price_per_unit,
-        weight_volume: o.weight_volume
-      };
-    });
-
   return {
-    offers,
+    offers: uniqueData.map(mapOffer),
     categories,
     stores,
     total: count ?? 0,
@@ -124,22 +144,29 @@ export async function getOffers(
 // ---------- Smart Offer Matching ----------
 
 export interface OfferMatch {
-  product_name: string       // name from receipt history
-  purchase_count: number     // how often the user bought this
-  offers: Offer[]            // matching current offers
+  product_name: string
+  purchase_count: number
+  offers: Offer[]
 }
 
 /**
  * Cross-reference the household's most-purchased products with current offers.
- * Returns up to `limit` matches sorted by purchase frequency.
+ * Uses the authenticated user client for receipt access (RLS protected).
  */
 export async function getOfferMatches(
   householdId: string,
   limit = 10
 ): Promise<OfferMatch[]> {
-  const supabase = createAdminClient()
+  const supabase = await createClient()
 
-  // 1. Get top purchased product names for this household
+  // Auth check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('getOfferMatches called without auth')
+    return []
+  }
+
+  // 1. Get top purchased product names for this household (RLS enforced)
   const { data: receipts } = await supabase
     .from('receipts')
     .select('id')
@@ -149,7 +176,6 @@ export async function getOfferMatches(
 
   const receiptIds = receipts.map(r => r.id)
 
-  // Query receipt_items grouped by product_name, count occurrences
   const { data: items } = await supabase
     .from('receipt_items')
     .select('product_name')
@@ -166,18 +192,17 @@ export async function getOfferMatches(
     }
   })
 
-  // Sort by frequency, take top N
   const topProducts = Array.from(freqMap.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, limit * 2) // fetch more to account for non-matches
+    .slice(0, limit * 2)
 
-  // 2. For each top product, search offers
+  // 2. For each top product, search offers (public data - admin client ok)
+  const adminSupabase = createAdminClient()
   const matches: OfferMatch[] = []
 
   for (const [productName, count] of topProducts) {
     if (matches.length >= limit) break
 
-    // Extract first significant keyword (3+ chars) for fuzzy matching
     const keywords = productName
       .split(/[\s,./\-()]+/)
       .filter(w => w.length >= 3)
@@ -185,9 +210,7 @@ export async function getOfferMatches(
 
     if (keywords.length === 0) continue
 
-    // Build OR filter for keywords
-    const searchPattern = keywords.map(k => `%${k}%`).join('')
-    const { data: offerData } = await supabase
+    const { data: offerData } = await adminSupabase
       .from('offers')
       .select('*')
       .ilike('product_name', `%${keywords[0]}%`)
@@ -195,35 +218,10 @@ export async function getOfferMatches(
 
     if (!offerData || offerData.length === 0) continue
 
-    const mappedOffers: Offer[] = offerData.map((o: any) => {
-      let imageUrl = o.image_url
-      if (imageUrl) {
-        if (imageUrl.startsWith('./')) {
-          imageUrl = `https://www.aktionspreis.de${imageUrl.substring(1)}`
-        } else if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-          imageUrl = `https://www.aktionspreis.de/${imageUrl}`
-        }
-      }
-      return {
-        id: o.id,
-        product_name: o.product_name,
-        price: o.price,
-        store: o.store,
-        image_url: imageUrl,
-        valid_from: o.valid_from,
-        valid_until: o.valid_until,
-        discount_percent: o.discount_percent,
-        category: o.category,
-        source_url: o.source_url,
-        price_per_unit: o.price_per_unit,
-        weight_volume: o.weight_volume,
-      }
-    })
-
     matches.push({
       product_name: productName,
       purchase_count: count,
-      offers: mappedOffers,
+      offers: offerData.map(mapOffer),
     })
   }
 
@@ -242,7 +240,8 @@ export interface ShoppingListOfferHint {
 
 /**
  * For a list of shopping list item names, find matching offers.
- * Returns a map: itemName → offer hints (cheapest first).
+ * Returns a map: itemName -> offer hints (cheapest first).
+ * Offers are public data so admin client is used for performance.
  */
 export async function getShoppingListOfferMatches(
   itemNames: string[]
@@ -252,13 +251,12 @@ export async function getShoppingListOfferMatches(
   const supabase = createAdminClient()
   const result: Record<string, ShoppingListOfferHint[]> = {}
 
-  // Run all queries in parallel
   await Promise.all(itemNames.map(async (name) => {
     const keyword = name
       .trim()
       .split(/[\s,./\-()]+/)
       .filter(w => w.length >= 3)
-      .slice(0, 1)[0] // Take first significant word
+      .slice(0, 1)[0]
 
     if (!keyword) return
 
@@ -270,10 +268,9 @@ export async function getShoppingListOfferMatches(
       .limit(5)
 
     if (data && data.length > 0) {
-      // Deduplicate by store (keep cheapest per store)
       const seenStores = new Set<string>()
       const hints: ShoppingListOfferHint[] = []
-      
+
       for (const offer of data) {
         if (seenStores.has(offer.store)) continue
         seenStores.add(offer.store)
@@ -285,7 +282,7 @@ export async function getShoppingListOfferMatches(
           discount_percent: offer.discount_percent,
         })
       }
-      
+
       if (hints.length > 0) {
         result[name] = hints
       }

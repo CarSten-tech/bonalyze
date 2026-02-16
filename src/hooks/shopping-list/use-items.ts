@@ -105,7 +105,7 @@ export function useShoppingItems(listId: string | null) {
         const triggerNotification = async () => {
              const { data: list } = await supabase.from('shopping_lists').select('household_id').eq('id', listId!).single()
              if (list?.household_id) {
-                 await notifyShoppingListUpdate(list.household_id, savedItem.product_name, true) // hardcoded true for testing as per user request
+                 await notifyShoppingListUpdate(list.household_id, listId!, savedItem.product_name, true)
              }
         }
         triggerNotification().catch(console.error)

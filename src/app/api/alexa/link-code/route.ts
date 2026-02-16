@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { isRateLimited } from '@/lib/rate-limit'
 import { createAlexaLinkCodeForUser, getAlexaLinkStatus } from '@/lib/alexa/shopping-service'
+import { logger } from '@/lib/logger'
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_REQUESTS = 5
@@ -23,7 +24,7 @@ export async function GET() {
     const status = await getAlexaLinkStatus(user.id)
     return NextResponse.json(status)
   } catch (error) {
-    console.error('[alexa/link-code][GET] error', error)
+    logger.error('[alexa/link-code][GET] error', error)
     return NextResponse.json({ error: 'Status konnte nicht geladen werden' }, { status: 500 })
   }
 }
@@ -56,7 +57,7 @@ export async function POST() {
       shoppingListId: result.shoppingListId,
     })
   } catch (error) {
-    console.error('[alexa/link-code][POST] error', error)
+    logger.error('[alexa/link-code][POST] error', error)
     const message = error instanceof Error ? error.message : 'Link-Code konnte nicht erstellt werden'
     return NextResponse.json({ error: message }, { status: 500 })
   }

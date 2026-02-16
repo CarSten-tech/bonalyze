@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { SettlementWithDetails, Transfer } from '@/types/settlement'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/settlements
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     const { data: settlementsData, error: settlementsError } = await query
 
     if (settlementsError) {
-      console.error('Error fetching settlements:', settlementsError)
+      logger.error('[settlements] Error fetching settlements', settlementsError)
       return NextResponse.json(
         { error: 'Fehler beim Laden der Abrechnungen' },
         { status: 500 }
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
       tableExists: true,
     })
   } catch (error) {
-    console.error('Settlement GET error:', error)
+    logger.error('[settlements] Settlement GET error', error)
     return NextResponse.json(
       { error: 'Ein Fehler ist aufgetreten' },
       { status: 500 }
@@ -235,7 +236,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (settlementError || !settlement) {
-      console.error('Error creating settlement:', settlementError)
+      logger.error('[settlements] Error creating settlement', settlementError)
       return NextResponse.json(
         { error: 'Fehler beim Erstellen der Abrechnung' },
         { status: 500 }
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
         .insert(transfersToInsert)
 
       if (transfersError) {
-        console.error('Error creating transfers:', transfersError)
+        logger.error('[settlements] Error creating transfers', transfersError)
         // Settlement was created, so we don't fail completely
         // But log the error
       }
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Settlement POST error:', error)
+    logger.error('[settlements] Settlement POST error', error)
     return NextResponse.json(
       { error: 'Ein Fehler ist aufgetreten' },
       { status: 500 }

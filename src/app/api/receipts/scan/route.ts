@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createServerClient } from '@/lib/supabase-server'
 import { ReceiptAIResponseSchema } from '@/types/receipt-ai'
+import { logger } from '@/lib/logger'
 
 const RECEIPT_PROMPT = `
 ROLE:
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
     debug.bufferSize = buffer.length
 
-    console.log('[SCAN DEBUG] Before upload:', JSON.stringify(debug, null, 2))
+    logger.debug('[receipts/scan] Before upload', debug)
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('receipts')
@@ -193,10 +194,10 @@ export async function POST(request: NextRequest) {
     debug.uploadError = uploadError ? { message: uploadError.message, name: uploadError.name, cause: uploadError.cause } : null
     debug.uploadPath = uploadData?.path || null
 
-    console.log('[SCAN DEBUG] After upload:', JSON.stringify({ uploadSuccess: debug.uploadSuccess, uploadError: debug.uploadError }, null, 2))
+    logger.debug('[receipts/scan] After upload', { uploadSuccess: debug.uploadSuccess, uploadError: debug.uploadError })
 
     if (uploadError) {
-      console.error('Upload error:', uploadError)
+      logger.error('[receipts/scan] Upload error', uploadError)
       return NextResponse.json(
         { success: false, error: 'UPLOAD_FAILED', message: 'Bild konnte nicht hochgeladen werden', debug },
         { status: 500 }
@@ -247,8 +248,7 @@ export async function POST(request: NextRequest) {
       const parsed = JSON.parse(jsonText)
       aiResult = ReceiptAIResponseSchema.parse(parsed)
     } catch (parseError) {
-      console.error('AI Parse error:', parseError)
-      console.log('Raw AI Response:', responseText)
+      logger.error('[receipts/scan] AI Parse error', parseError, { rawResponse: responseText })
       
       const debugInfo = {
          error: parseError instanceof Error ? parseError.message : String(parseError),
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Scan error:', error)
+    logger.error('[receipts/scan] Scan error', error)
     const errorInfo = error instanceof Error
       ? { message: error.message, name: error.name, stack: error.stack?.split('\n').slice(0, 5) }
       : { raw: String(error) }

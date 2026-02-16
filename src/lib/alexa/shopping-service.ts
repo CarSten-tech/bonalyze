@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { normalizeCompareName, type ParsedProductInput } from './parser'
+import { logger } from '@/lib/logger'
 
 export interface AlexaLink {
   alexa_user_id: string
@@ -456,8 +457,8 @@ export async function addProductsToList(listId: string, products: ParsedProductI
     // Notify
     if (householdId && isNew && actorUserId) {
         // Fire and forget notification
-        notifyShoppingListUpdate(householdId, product.productName, actorUserId).catch(err => {
-            console.error('Failed to notify Alexa update:', err)
+        notifyShoppingListUpdate(householdId, listId, product.productName, actorUserId).catch(err => {
+            logger.error('Failed to notify Alexa update', err)
         })
     }
   }

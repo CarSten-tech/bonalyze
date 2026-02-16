@@ -17,6 +17,7 @@ import {
 } from '@/lib/alexa/shopping-service'
 import { verifyAlexaRequest } from '@/lib/alexa/signature'
 import type { AlexaRequestEnvelope } from '@/lib/alexa/types'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
@@ -226,9 +227,9 @@ export async function POST(request: NextRequest) {
     // WARN: Verification disabled for debugging
     const shouldVerifySignature = false 
     
-    console.log('[alexa] incoming request. verifySignature:', shouldVerifySignature)
-    console.log('[alexa] headers:', Object.fromEntries(request.headers.entries()))
-    console.log('[alexa] body:', rawBody)
+    logger.debug('[alexa] incoming request', { verifySignature: shouldVerifySignature })
+    logger.debug('[alexa] headers', { headers: Object.fromEntries(request.headers.entries()) })
+    logger.debug('[alexa] body', { body: rawBody })
 
     if (shouldVerifySignature) {
       await verifyAlexaRequest(rawBody, request.headers, envelope.request.timestamp)
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
     
     // Log ID mismatch but don't fail for now to debug
     if (expectedSkillId && incomingSkillId && expectedSkillId !== incomingSkillId) {
-      console.warn(`[alexa] Skill ID mismatch. Expected: ${expectedSkillId}, Got: ${incomingSkillId}`)
+      logger.warn('[alexa] Skill ID mismatch', { expected: expectedSkillId, got: incomingSkillId })
       // return NextResponse.json(createAlexaResponse('Skill-ID ist ungueltig.', { shouldEndSession: true }), { status: 200 })
     }
 
@@ -288,7 +289,7 @@ export async function POST(request: NextRequest) {
     if (envelope.request.type === 'IntentRequest') {
       const intentName = envelope.request.intent?.name
       const slots = envelope.request.intent?.slots
-      console.log(`[alexa] intent: ${intentName}, slots:`, JSON.stringify(slots))
+      logger.debug('[alexa] intent received', { intentName, slots })
       const response = await handleIntentRequest(envelope, alexaUserId)
       return NextResponse.json(response)
     }
@@ -297,7 +298,7 @@ export async function POST(request: NextRequest) {
       status: 200,
     })
   } catch (error) {
-    console.error('[alexa] error:', error)
+    logger.error('[alexa] error', error)
     const activeError = error instanceof Error ? error.message : 'Unbekannter Fehler'
     return NextResponse.json(
       createAlexaResponse(`Systemfehler: ${activeError}`),

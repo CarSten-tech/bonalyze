@@ -1,6 +1,8 @@
 'use server'
 
 import { createServerClient as createClient } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
+import { saveSubscriptionSchema, notificationIdSchema, uuidSchema } from '@/lib/validations'
 
 export async function getVapidPublicKey() {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -15,6 +17,12 @@ interface PushSubscriptionData {
 }
 
 export async function saveSubscription(subscription: PushSubscriptionData, userAgent?: string) {
+  // Validate subscription data
+  const parsed = saveSubscriptionSchema.safeParse(subscription)
+  if (!parsed.success) {
+    return { success: false, error: 'Ungueltige Subscription-Daten' }
+  }
+
   const supabase = await createClient()
   
   const {
@@ -22,11 +30,11 @@ export async function saveSubscription(subscription: PushSubscriptionData, userA
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.error('saveSubscription: User not authenticated')
+    logger.warn('saveSubscription: User not authenticated')
     throw new Error('User not authenticated')
   }
 
-  console.log('saveSubscription: Saving for user', user.id)
+  logger.debug('saveSubscription: Saving for user', { userId: user.id })
 
   const { error } = await supabase
     .from('push_subscriptions')
@@ -51,7 +59,7 @@ export async function saveSubscription(subscription: PushSubscriptionData, userA
             
         return { success: true }
     }
-    console.error('Error saving subscription:', error)
+    logger.error('Error saving subscription', error)
     return { success: false, error: error.message }
   }
 
@@ -76,7 +84,7 @@ export async function deleteSubscription(endpoint: string) {
     .eq('endpoint', endpoint)
 
   if (error) {
-    console.error('Error deleting subscription:', error)
+    logger.error('Error deleting subscription', error)
     return { success: false, error: error.message }
   }
 
@@ -92,7 +100,7 @@ function setupWebPush() {
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
     
     if (!vapidPublicKey || !vapidPrivateKey) {
-        console.error('VAPID keys missing')
+        logger.error('VAPID keys missing')
         return false
     }
 
@@ -124,7 +132,7 @@ export async function sendReceiptNotification(receiptId: string) {
         .single()
 
     if (receiptError || !receipt) {
-        console.error('Notification: Receipt not found', receiptError)
+        logger.error('Notification: Receipt not found', receiptError)
         return { success: false }
     }
 
@@ -151,9 +159,10 @@ export async function sendReceiptNotification(receiptId: string) {
 
     // 4. Persist to Database AND Send notifications
     const amount = (receipt.total_amount_cents / 100).toFixed(2).replace('.', ',')
-    // Safe access to nested properties
-    const merchantName = (receipt.merchant as any)?.name || 'Unbekannt'
-    const creatorName = (receipt.creator as any)?.display_name || 'Jemand'
+    const merchant = receipt.merchant as { name: string } | null
+    const creator = receipt.creator as { display_name: string } | null
+    const merchantName = merchant?.name || 'Unbekannt'
+    const creatorName = creator?.display_name || 'Jemand'
     const title = 'Neuer Bon'
     const body = `${creatorName} hat ${amount}€ bei ${merchantName} ausgegeben.`
     const data = { url: `/dashboard/receipts/${receipt.id}` }
@@ -181,7 +190,7 @@ export async function sendReceiptNotification(receiptId: string) {
         .insert(notificationsToInsert)
 
     if (insertError) {
-        console.error('Failed to persist notifications:', insertError)
+        logger.error('Failed to persist notifications', insertError)
         // We continue to send Push even if DB fails, or vice versa? 
         // Best to continue.
     }
@@ -190,13 +199,14 @@ export async function sendReceiptNotification(receiptId: string) {
         try {
             const pushSub = {
                  endpoint: sub.endpoint,
-                 keys: sub.auth_keys as any
+                 keys: sub.auth_keys as { auth: string; p256dh: string }
             }
             await webpush.sendNotification(pushSub, payload)
             return { success: true }
-        } catch (err: any) {
-            console.error('Failed to send push:', err)
-            if (err.statusCode === 410) {
+        } catch (err: unknown) {
+            logger.error('Failed to send push', err)
+            const statusCode = (err as { statusCode?: number })?.statusCode
+            if (statusCode === 410) {
                 await supabase.from('push_subscriptions').delete().eq('id', sub.id)
             }
             return { success: false }
@@ -279,10 +289,11 @@ export async function sendBudgetNotification(householdId: string, alertType: str
         try {
             await webpush.sendNotification({
                  endpoint: sub.endpoint,
-                 keys: sub.auth_keys as any
+                 keys: sub.auth_keys as { auth: string; p256dh: string }
             }, payload)
-        } catch (err: any) {
-             if (err.statusCode === 410) {
+        } catch (err: unknown) {
+             const statusCode = (err as { statusCode?: number })?.statusCode
+             if (statusCode === 410) {
                 await supabase.from('push_subscriptions').delete().eq('id', sub.id)
             }
         }
@@ -308,6 +319,9 @@ export async function getNotifications(limit = 20) {
 }
 
 export async function markAsRead(notificationId: string) {
+    const parsed = notificationIdSchema.safeParse(notificationId)
+    if (!parsed.success) throw new Error('Ungueltige Notification-ID')
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -332,21 +346,24 @@ export async function markAllAsRead() {
         .eq('user_id', user.id)
         .eq('is_read', false)
 }
-export async function notifyShoppingListUpdate(householdId: string, productName: string, includeSelf = false) {
+export async function notifyShoppingListUpdate(householdId: string, shoppingListId: string, productName: string, includeSelf = false) {
+    const parsedHouseholdId = uuidSchema.safeParse(householdId)
+    if (!parsedHouseholdId.success) return { success: false, error: 'Ungueltige Household-ID' }
+    
+    const parsedListId = uuidSchema.safeParse(shoppingListId)
+    if (!parsedListId.success) return { success: false, error: 'Ungueltige List-ID' }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
-    // Allow unauthenticated calls? No, usually not. But Alexa might call via a different path.
-    // This action is for Frontend. Alexa calls Service directly.
+
     if (!user) return { success: false, error: 'Unauthorized' }
 
     try {
-        // Dynamic import to avoid edge runtime issues if any (though this file is 'use server')
         const { notifyShoppingListUpdate: serviceNotify } = await import('@/lib/notification-service')
-        await serviceNotify(householdId, productName, user.id, includeSelf)
+        await serviceNotify(householdId, shoppingListId, productName, user.id, includeSelf)
         return { success: true }
     } catch (error) {
-        console.error('Failed to notify:', error)
+        logger.error('Failed to notify shopping list update', error)
         return { success: false }
     }
 }

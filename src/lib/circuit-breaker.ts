@@ -3,6 +3,8 @@
  * Prevents cascading failures when external services are unavailable.
  */
 
+import { logger } from '@/lib/logger'
+
 export enum CircuitState {
   CLOSED = 'CLOSED',     // Normal operation, requests pass through
   OPEN = 'OPEN',         // Failing, requests are rejected immediately
@@ -70,7 +72,7 @@ export class CircuitBreaker {
         circuit.state = CircuitState.CLOSED
         circuit.failures = 0
         circuit.successes = 0
-        console.log(`[CircuitBreaker] "${name}" closed - service recovered`)
+        logger.info(`CircuitBreaker "${name}" closed - service recovered`)
       }
     } else if (currentState === CircuitState.CLOSED) {
       // Reset failure count on success
@@ -90,7 +92,7 @@ export class CircuitBreaker {
     if (circuit.failures >= this.options.failureThreshold) {
       circuit.state = CircuitState.OPEN
       circuit.nextAttemptTime = Date.now() + this.options.resetTimeoutMs
-      console.warn(`[CircuitBreaker] "${name}" opened - too many failures (${circuit.failures})`)
+      logger.warn(`CircuitBreaker "${name}" opened - too many failures (${circuit.failures})`)
     }
   }
 
@@ -103,7 +105,7 @@ export class CircuitBreaker {
     fallback?: () => T | Promise<T>
   ): Promise<T> {
     if (!this.canRequest(name)) {
-      console.log(`[CircuitBreaker] "${name}" is OPEN - using fallback`)
+      logger.info(`CircuitBreaker "${name}" is OPEN - using fallback`)
       if (fallback) {
         return fallback()
       }
@@ -160,7 +162,7 @@ export class CircuitBreaker {
       if (Date.now() >= circuit.nextAttemptTime) {
         circuit.state = CircuitState.HALF_OPEN
         circuit.successes = 0
-        console.log(`[CircuitBreaker] Transitioning to HALF_OPEN - testing recovery`)
+        logger.info('CircuitBreaker transitioning to HALF_OPEN - testing recovery')
         return CircuitState.HALF_OPEN
       }
       return CircuitState.OPEN

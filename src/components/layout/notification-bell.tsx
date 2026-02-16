@@ -17,12 +17,17 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { getNotifications, markAsRead, markAllAsRead } from '@/app/actions/notifications'
 import { cn } from '@/lib/utils'
 
+interface NotificationData {
+  url?: string
+  [key: string]: unknown
+}
+
 interface Notification {
   id: string
   type: 'receipt' | 'budget' | 'system' | 'info'
   title: string
   message: string
-  data: any
+  data: NotificationData | null
   is_read: boolean
   created_at: string
 }
@@ -36,17 +41,22 @@ export function NotificationBell() {
 
   const fetchNotifications = React.useCallback(async () => {
     try {
-      // Don't show loading spinner for background refreshes
       const data = await getNotifications(20)
       if (data) {
-        // Force cast since we know the shape matches our interface
-        // and Supabase types might be inferred as generic Json/string
-        const safeData = data as unknown as Notification[]
-        setNotifications(safeData)
-        setUnreadCount(safeData.filter(n => !n.is_read).length)
+        const mapped: Notification[] = data.map(n => ({
+          id: n.id,
+          type: n.type as Notification['type'],
+          title: n.title,
+          message: n.message,
+          data: (n.data as NotificationData) ?? null,
+          is_read: !!n.is_read,
+          created_at: n.created_at || new Date().toISOString(),
+        }))
+        setNotifications(mapped)
+        setUnreadCount(mapped.filter(n => !n.is_read).length)
       }
     } catch (error) {
-      console.error('Failed to fetch notifications', error)
+      // Silent fail for background fetches
     }
   }, [])
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createServerClient } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 const FOOD_SCAN_PROMPT = `
 ROLE:
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
     try {
       aiResult = JSON.parse(jsonText)
     } catch {
-      console.error('AI Parse error. Raw:', responseText)
+      logger.error('[food-scan] AI Parse error', undefined, { rawResponse: responseText })
       return NextResponse.json(
         {
           success: false,
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest) {
       data: aiResult,
     })
   } catch (error) {
-    console.error('Food scan error:', error)
+    logger.error('[food-scan] Food scan error', error)
     return NextResponse.json(
       {
         success: false,

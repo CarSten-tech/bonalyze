@@ -3,6 +3,8 @@
 import { createServerClient as createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, parseISO } from "date-fns"
+import { upsertBudgetSchema, uuidSchema } from "@/lib/validations"
+import { logger } from "@/lib/logger"
 
 export async function upsertBudget(
   householdId: string,
@@ -12,6 +14,12 @@ export async function upsertBudget(
     categories?: { category: string; amount_cents: number }[]
   }
 ) {
+  // Validate inputs
+  const parsed = upsertBudgetSchema.safeParse({ householdId, data })
+  if (!parsed.success) {
+    throw new Error(`Ungueltige Eingabe: ${parsed.error.issues[0]?.message}`)
+  }
+
   const supabase = await createClient()
 
   // 1. Upsert main budget
@@ -130,10 +138,9 @@ export async function getBudgetStatus(householdId: string, referenceDate: Date =
   const categoryUsage: Record<string, number> = {}
   
   items?.forEach((item) => {
-    // access nested data safely
-    const categoryName = (item.category as any)?.name
-    
-    // only count if it has a category
+    const category = item.category as { name: string } | null
+    const categoryName = category?.name
+
     if (categoryName) {
       categoryUsage[categoryName] = (categoryUsage[categoryName] || 0) + item.price_cents
     }
@@ -178,7 +185,7 @@ export async function checkBudgetAlerts(householdId: string) {
         const { sendBudgetNotification } = await import('./notifications')
         await sendBudgetNotification(householdId, type, percent)
         
-        console.log(`Budget alert triggered: ${type} for household ${householdId}`)
+        logger.info(`Budget alert triggered`, { type, householdId })
       }
   }
 

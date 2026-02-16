@@ -1,18 +1,27 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase-admin'
+import { createServerClient as createClient } from '@/lib/supabase-server'
 import { getShoppingListOfferMatches } from './offers'
+import { logger } from '@/lib/logger'
 import type { ShoppingListItem } from '@/types/shopping'
+import type { ShoppingListOfferHint } from './offers'
 
 /**
- * Validates access (via RLS bypass but manual check?) 
- * Actually createAdminClient bypasses RLS. Ideally we should use createClient() for items but we need admin for offers search logic.
- * For now, let's trust the input listId - in production we'd verify user has access to listId first.
+ * Fetches shopping list items with offer hints.
+ * Uses the authenticated user's Supabase client so RLS policies
+ * enforce that only household members can read list items.
  */
 export async function getShoppingListItemsWithOffers(listId: string): Promise<ShoppingListItem[]> {
-  const supabase = createAdminClient()
+  const supabase = await createClient()
 
-  // 1. Fetch items
+  // Auth check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('getShoppingListItemsWithOffers called without auth')
+    return []
+  }
+
+  // 1. Fetch items (RLS ensures only household members can access)
   const { data: items, error } = await supabase
     .from('shopping_list_items')
     .select('*')
@@ -20,7 +29,7 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
     .order('created_at', { ascending: true })
 
   if (error || !items) {
-    console.error('Error fetching list items:', error)
+    logger.error('Error fetching list items', error)
     return []
   }
 
@@ -28,22 +37,20 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
   const uncheckedItems = items.filter(i => !i.is_checked)
   const namesToMatch = uncheckedItems.map(i => i.product_name)
 
-  // 3. Fetch offers in parallel (or just verify empty)
-  let offerMatches: Record<string, any[]> = {}
+  // 3. Fetch offers (public data, no auth needed)
+  let offerMatches: Record<string, ShoppingListOfferHint[]> = {}
   if (namesToMatch.length > 0) {
     try {
       offerMatches = await getShoppingListOfferMatches(namesToMatch)
     } catch (err) {
-      console.error('Error fetching offers:', err)
-      // gracefully degrade - return items without offers
+      logger.error('Error fetching offers', err)
     }
   }
 
   // 4. Merge offers into items
   const enrichedItems: ShoppingListItem[] = items.map(item => {
-    // Cast to compatible type (our DB type doesn't have offerHints, but our App type does)
     const enriched = { ...item } as ShoppingListItem
-    
+
     if (!item.is_checked && offerMatches[item.product_name]) {
       enriched.offerHints = offerMatches[item.product_name]
     }

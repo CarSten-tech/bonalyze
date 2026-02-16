@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger'
+
 export interface Point {
   x: number
   y: number
@@ -236,7 +238,7 @@ export async function applyFilter(
              }, 'image/jpeg', 0.9)
              return
          } catch(e) {
-             console.warn("OpenCV filter failed, falling back to JS", e)
+             logger.warn("OpenCV filter failed, falling back to JS", { error: e })
          }
       }
 
@@ -386,13 +388,13 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
               src.delete(); dst.delete(); M.delete(); contours.delete(); hierarchy.delete()
 
           } catch (e) {
-              console.error("OpenCV Detect Error", e)
+              logger.error("OpenCV Detect Error", e)
           }
       }
 
       // --- Fallback (Simple Padding) ---
       // If OpenCV is missing or fails, return undefined (let caller handle or use default)
-      console.warn("Falling back to default crop")
+      logger.warn("Falling back to default crop")
       const padX = img.width * 0.15
       const padY = img.height * 0.15
       resolve([
@@ -469,7 +471,7 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
                  src.delete(); dst.delete(); lines.delete()
                  resolve({ horizontal, vertical })
              } catch (e) {
-                 console.error("Line det fail", e)
+                 logger.error("Line detection failed", e)
                  resolve({ horizontal: [], vertical: [] })
              }
         }

@@ -3,6 +3,8 @@
  * Uses server-side proxy at /api/food-search to avoid CORS issues
  */
 
+import { logger } from '@/lib/logger'
+
 export interface FoodSearchResult {
   id: string
   name: string
@@ -38,14 +40,14 @@ export async function searchFoods(
   const response = await fetch(`/api/food-search?${params}`)
 
   if (!response.ok) {
-    console.error('[searchFoods] API error:', response.status)
+    logger.error('searchFoods API error', undefined, { status: response.status })
     return []
   }
 
   const data: FoodSearchResponse = await response.json()
 
   if (data.error) {
-    console.warn('[searchFoods] API returned error:', data.error)
+    logger.warn('searchFoods API returned error', { error: data.error })
   }
 
   return data.products || []

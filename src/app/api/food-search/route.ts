@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { circuitBreaker, CIRCUITS } from '@/lib/circuit-breaker'
 import { serverCache, createCacheKey } from '@/lib/cache'
+import { logger } from '@/lib/logger'
 
 export interface OpenFoodFactsProduct {
   code: string
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
       circuitOpen: stats.currentState === 'OPEN'
     })
   } catch (error) {
-    console.error('[food-search] Circuit breaker error:', error)
+    logger.error('[food-search] Circuit breaker error', error)
     return NextResponse.json({ 
       products: [], 
       fromCache: false, 
