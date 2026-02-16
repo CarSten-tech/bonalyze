@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, Check, MoreVertical, Percent } from "lucide-react"
+import { Package, Check, MoreVertical, Percent, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
 
@@ -97,6 +97,17 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
                 {offer.discount_percent ? `-${offer.discount_percent}%` : 'Angebot'}
               </span>
             </div>
+           )}
+
+           {/* Uncategorized indicator */}
+           {!item.category_id && !item.is_checked && !offer && (
+            <button
+              type="button"
+              onClick={handleDetailsClick}
+              className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full flex-shrink-0"
+            >
+              <HelpCircle className="w-3 h-3" />
+            </button>
            )}
         </div>
 

@@ -34,14 +34,14 @@ export function useShoppingItems(listId: string | null) {
     mutationFn: async (input: AddItemInput) => {
         if (!listId) throw new Error("No list selected")
         
-        // 1. Try to link product
+        // 1. Try to link product (fetch category_id for proper grouping)
         const { data: product } = await supabase
             .from('products')
-            .select('id')
+            .select('id, category_id')
             .eq('name', input.product_name.trim())
             .maybeSingle()
 
-        // 2. Insert item
+        // 2. Insert item (category_id is auto-assigned by DB trigger if not provided)
         const { data, error } = await supabase
             .from('shopping_list_items')
             .insert({

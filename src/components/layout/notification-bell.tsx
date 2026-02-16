@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 
 interface Notification {
   id: string
-  type: 'receipt' | 'budget' | 'system'
+  type: 'receipt' | 'budget' | 'system' | 'info'
   title: string
   message: string
   data: any

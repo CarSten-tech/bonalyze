@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, Check, MoreVertical, Percent } from "lucide-react"
+import { Package, Check, MoreVertical, Percent, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
 
@@ -14,15 +14,6 @@ interface ItemTileProps {
 }
 
 export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer }: ItemTileProps) {
-  // ... existing ...
-
-      {/* Offer Badge */}
-      {offer && !item.is_checked && (
-        <div className="absolute top-1 left-1 z-10 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-in fade-in zoom-in duration-300">
-           <Percent className="w-3 h-3" />
-           {offer.discount_percent && <span>-{offer.discount_percent}%</span>}
-        </div>
-      )}
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -43,6 +34,25 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPr
 
   return (
     <div className="relative">
+      {/* Offer Badge */}
+      {offer && !item.is_checked && (
+        <div className="absolute top-1 left-1 z-10 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-in fade-in zoom-in duration-300">
+           <Percent className="w-3 h-3" />
+           {offer.discount_percent && <span>-{offer.discount_percent}%</span>}
+        </div>
+      )}
+
+      {/* Uncategorized indicator */}
+      {!item.category_id && !item.is_checked && !offer && (
+        <button
+          type="button"
+          onClick={handleDetailsClick}
+          className="absolute top-1 left-1 z-10 bg-amber-100 text-amber-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+        >
+          <HelpCircle className="w-3 h-3" />
+        </button>
+      )}
+
       {/* Three-dots menu button */}
       <button
         type="button"
@@ -57,8 +67,6 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPr
       >
         <MoreVertical className="w-4 h-4" />
       </button>
-
-
 
       {/* Main tile button */}
       <button

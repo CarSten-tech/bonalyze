@@ -49,7 +49,7 @@ export interface Database {
           id: string
           user_id: string
           household_id: string
-          type: 'receipt' | 'budget' | 'system'
+          type: 'receipt' | 'budget' | 'system' | 'info'
           title: string
           message: string
           data: Json
@@ -60,7 +60,7 @@ export interface Database {
           id?: string
           user_id: string
           household_id: string
-          type: 'receipt' | 'budget' | 'system'
+          type: 'receipt' | 'budget' | 'system' | 'info'
           title: string
           message: string
           data?: Json
@@ -71,7 +71,7 @@ export interface Database {
           id?: string
           user_id?: string
           household_id?: string
-          type?: 'receipt' | 'budget' | 'system'
+          type?: 'receipt' | 'budget' | 'system' | 'info'
           title?: string
           message?: string
           data?: Json

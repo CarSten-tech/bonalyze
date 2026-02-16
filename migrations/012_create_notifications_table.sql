@@ -2,7 +2,7 @@ create table if not exists notifications (
   id uuid default gen_random_uuid() primary key,
   user_id uuid not null references profiles(id) on delete cascade,
   household_id uuid not null references households(id) on delete cascade,
-  type text not null check (type in ('receipt', 'budget', 'system')),
+  type text not null check (type in ('receipt', 'budget', 'system', 'info')),
   title text not null,
   message text not null,
   data jsonb,
