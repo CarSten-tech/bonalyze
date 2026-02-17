@@ -8,6 +8,7 @@ export interface Offer {
   id: string
   product_name: string
   price: number
+  original_price: number | null
   store: string
   image_url: string | null
   valid_from: string | null
@@ -17,32 +18,26 @@ export interface Offer {
   source_url: string | null
   price_per_unit: string | null
   weight_volume: string | null
+  scraped_at: string
 }
 
 interface OffersResult {
   offers: Offer[]
-  categories: string[]
-  stores: string[]
   total: number
 }
 
-/** Normalizes image URLs from the offers scraper */
-function normalizeImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) return null
-  if (imageUrl.startsWith('./')) {
-    return `https://www.aktionspreis.de${imageUrl.substring(1)}`
-  }
-  if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-    return `https://www.aktionspreis.de/${imageUrl}`
-  }
-  return imageUrl
+interface OfferOptions {
+  categories: string[]
+  stores: string[]
 }
+
 
 /** Maps a raw DB offer row to the typed Offer interface */
 function mapOffer(o: {
   id: string
   product_name: string
   price: number
+  original_price: number | null
   store: string
   image_url: string | null
   valid_from: string | null
@@ -52,13 +47,15 @@ function mapOffer(o: {
   source_url: string | null
   price_per_unit: string | null
   weight_volume: string | null
+  scraped_at: string
 }): Offer {
   return {
     id: o.id,
     product_name: o.product_name,
     price: o.price,
+    original_price: o.original_price,
     store: o.store,
-    image_url: normalizeImageUrl(o.image_url),
+    image_url: o.image_url,
     valid_from: o.valid_from,
     valid_until: o.valid_until,
     discount_percent: o.discount_percent,
@@ -66,6 +63,7 @@ function mapOffer(o: {
     source_url: o.source_url,
     price_per_unit: o.price_per_unit,
     weight_volume: o.weight_volume,
+    scraped_at: o.scraped_at,
   }
 }
 
@@ -82,7 +80,8 @@ export async function getOffers(
   let query = supabase
     .from('offers')
     .select('*', { count: 'exact' })
-    .order('price', { ascending: true })
+    .gte('valid_until', new Date().toISOString())
+    .order('scraped_at', { ascending: false })
 
   if (store && store !== 'all') {
     query = query.eq('store', store)
@@ -93,52 +92,39 @@ export async function getOffers(
   }
 
   if (search && search.trim().length > 0) {
-    query = query.ilike('product_name', `%${search.trim()}%`)
+    const term = search.trim()
+    query = query.or(`product_name.ilike.%${term}%,category.ilike.%${term}%`)
   }
 
-  query = query.range(offset, offset + limit * 2 - 1)
+  // Range limit for performance
+  query = query.range(offset, offset + limit - 1)
 
   const { data, error, count } = await query
 
   if (error) {
     logger.error('Error fetching offers', error)
-    return { offers: [], categories: [], stores: [], total: 0 }
+    return { offers: [], total: 0 }
   }
-
-  // Deduplicate by store + product_name
-  const uniqueOffersMap = new Map<string, typeof data[number]>()
-  if (data) {
-    data.forEach((item) => {
-      const key = `${item.store}-${item.product_name}`
-      if (!uniqueOffersMap.has(key)) {
-        uniqueOffersMap.set(key, item)
-      }
-    })
-  }
-
-  const uniqueData = Array.from(uniqueOffersMap.values()).slice(0, limit)
-
-  // Fetch distinct categories and stores
-  const { data: catData } = await supabase
-    .from('offers')
-    .select('category')
-    .not('category', 'is', null)
-
-  const categories = [...new Set(catData?.map(c => c.category).filter(Boolean) as string[])].sort()
-
-  const { data: storeData } = await supabase
-    .from('offers')
-    .select('store')
-    .not('store', 'is', null)
-
-  const stores = [...new Set(storeData?.map(s => s.store).filter(Boolean) as string[])].sort()
 
   return {
-    offers: uniqueData.map(mapOffer),
-    categories,
-    stores,
+    offers: (data || []).map(mapOffer),
     total: count ?? 0,
   }
+}
+
+/** Efficiently fetch distinct stores and categories for filtering */
+export async function getOfferOptions(): Promise<OfferOptions> {
+  const supabase = createAdminClient()
+
+  const [catRes, storeRes] = await Promise.all([
+    supabase.from('offers').select('category').not('category', 'is', null),
+    supabase.from('offers').select('store').not('store', 'is', null)
+  ])
+
+  const categories = [...new Set(catRes.data?.map(c => c.category).filter(Boolean) as string[])].sort()
+  const stores = [...new Set(storeRes.data?.map(s => s.store).filter(Boolean) as string[])].sort()
+
+  return { categories, stores }
 }
 
 // ---------- Smart Offer Matching ----------
@@ -263,6 +249,7 @@ export async function getShoppingListOfferMatches(
     const { data } = await supabase
       .from('offers')
       .select('product_name, store, price, valid_until, discount_percent')
+      .gte('valid_until', new Date().toISOString())
       .ilike('product_name', `%${keyword}%`)
       .order('price', { ascending: true })
       .limit(5)
@@ -290,4 +277,79 @@ export async function getShoppingListOfferMatches(
   }))
 
   return result
+}
+
+// ---------- Semantic Offer Matching ----------
+
+/**
+ * Uses vector embeddings to find offers semantically similar
+ * to the household's purchase history.
+ */
+export async function getSmartOfferMatches(
+  householdId: string,
+  limit = 20
+): Promise<Offer[]> {
+  const supabase = await createClient()
+
+  // 1. Auth & Membership Check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('getSmartOfferMatches called without auth')
+    return []
+  }
+
+  // Verify user is member of the household
+  const { data: membership } = await supabase
+    .from('household_members')
+    .select('id')
+    .eq('household_id', householdId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!membership) {
+    logger.warn(`User ${user.id} attempted to access smart offers for household ${householdId} without membership`)
+    return []
+  }
+
+  // 2. Call RPC
+  // Using admin client for RPC because offers are public data,
+  // but we need the RPC to access the household's receipt_items (which are private).
+  // Wait, the RPC runs with SECURITY DEFINER, so it bypasses RLS?
+  // Yes, I added SECURITY DEFINER to the RPC.
+  // So we can use the authenticated client OR admin client.
+  // Ideally we use authenticated client and RLS allows reading receipt_items.
+  // But offers table might be public.
+  // Let's use the authenticated client to be safe with RLS policies on receipt_items if SECURITY DEFINER wasn't there.
+  // But I put SECURITY DEFINER. So it runs as owner.
+  // Meaning it has full access.
+  // This is fine for this RPC as it takes household_id and we verified membership.
+
+  const { data, error } = await supabase.rpc('get_semantic_matches', {
+    p_household_id: householdId,
+    p_threshold: 0.65, // Slightly lower threshold for better recall
+    p_limit: limit
+  })
+
+  if (error) {
+    logger.error('Error fetching smart offer matches', error)
+    return []
+  }
+
+  // 3. Map to Offer interface
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    product_name: row.product_name,
+    price: row.price,
+    original_price: row.original_price,
+    store: row.store,
+    image_url: row.image_url,
+    valid_from: row.valid_from,
+    valid_until: row.valid_until,
+    discount_percent: row.discount_percent,
+    category: row.category,
+    source_url: row.source_url,
+    price_per_unit: row.price_per_unit,
+    weight_volume: row.weight_volume,
+    scraped_at: row.scraped_at,
+  }))
 }

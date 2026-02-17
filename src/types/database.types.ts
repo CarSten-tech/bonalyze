@@ -1353,6 +1353,30 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_semantic_matches: {
+        Args: {
+          p_household_id: string
+          p_threshold?: number
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          product_name: string
+          price: number
+          original_price: number | null
+          store: string
+          image_url: string | null
+          valid_from: string | null
+          valid_until: string | null
+          discount_percent: number | null
+          category: string | null
+          source_url: string | null
+          price_per_unit: string | null
+          weight_volume: string | null
+          scraped_at: string
+          similarity: number
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }

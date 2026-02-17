@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { getOffers, type Offer } from '@/app/actions/offers'
+import { getOffers, getOfferOptions, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
 
 function OfferCard({ offer }: { offer: Offer }) {
@@ -167,8 +167,6 @@ export default function AngebotePage() {
       } else {
         setOffers(result.offers)
       }
-      setStores(result.stores)
-      setCategories(result.categories)
       setTotal(result.total)
     } catch (err) {
       console.error('Error loading offers:', err)
@@ -177,6 +175,20 @@ export default function AngebotePage() {
       setIsLoading(false)
       setIsLoadingMore(false)
     }
+  }, [])
+
+  // Load filter options once
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const options = await getOfferOptions()
+        setStores(options.stores)
+        setCategories(options.categories)
+      } catch (err) {
+        console.error('Error loading filter options:', err)
+      }
+    }
+    loadOptions()
   }, [])
 
   // Initial load
@@ -189,24 +201,24 @@ export default function AngebotePage() {
   const handleStoreChange = (store: string) => {
     setSelectedStore(store)
     setSearchQuery('')
-    startTransition(() => {
-      loadOffers(store, selectedCategory, '')
-    })
   }
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category)
     setSearchQuery('')
-    startTransition(() => {
-      loadOffers(selectedStore, category, '')
-    })
   }
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadOffers(selectedStore, selectedCategory, searchQuery)
+    }, 400) // 400ms debounce
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, selectedStore, selectedCategory, loadOffers])
 
   const handleSearch = (value: string) => {
     setSearchQuery(value)
-    startTransition(() => {
-      loadOffers(selectedStore, selectedCategory, value)
-    })
   }
 
   const handleLoadMore = () => {
