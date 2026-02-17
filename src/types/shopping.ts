@@ -31,6 +31,10 @@ export interface ShoppingListItem {
   }> | null
   created_at: string
   updated_at: string
+  last_changed_by?: string | null
+  last_changed_by_profile?: {
+    display_name: string | null
+  } | null
   product?: {
     last_price_cents: number | null
   }

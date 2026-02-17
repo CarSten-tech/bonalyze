@@ -439,6 +439,7 @@ export default function ShoppingListPage() {
         onDelete={deleteItem}
         onMove={moveItem}
         lists={lists}
+        lastChangedBy={selectedItem?.last_changed_by_profile?.display_name}
       />
 
       {/* Duplicate Warning Dialog */}

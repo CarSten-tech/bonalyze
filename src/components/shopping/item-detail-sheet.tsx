@@ -127,6 +127,9 @@ export function ItemDetailSheet({
     if (lastChangedBy) {
       return lastChangedBy
     }
+    if (item.last_changed_by_profile?.display_name) {
+      return item.last_changed_by_profile.display_name
+    }
     return "Keine Daten vorhanden"
   }
 

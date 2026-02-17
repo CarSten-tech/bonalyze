@@ -24,7 +24,7 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
   // 1. Fetch items (RLS ensures only household members can access)
   const { data: items, error } = await supabase
     .from('shopping_list_items')
-    .select('*')
+    .select('*, last_changed_by_profile:profiles!last_changed_by(display_name)')
     .eq('shopping_list_id', listId)
     .order('created_at', { ascending: true })
 
@@ -49,7 +49,7 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
 
   // 4. Merge offers into items
   const enrichedItems: ShoppingListItem[] = items.map(item => {
-    const enriched = { ...item } as ShoppingListItem
+    const enriched = { ...item } as unknown as ShoppingListItem
 
     if (!item.is_checked && offerMatches[item.product_name]) {
       enriched.offerHints = offerMatches[item.product_name]

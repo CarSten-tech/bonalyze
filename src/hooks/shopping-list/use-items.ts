@@ -55,7 +55,8 @@ export function useShoppingItems(listId: string | null) {
                 unit: input.unit || null,
                 product_id: product?.id || null,
                 is_checked: false,
-                user_id: user?.id || null
+                user_id: user?.id || null,
+                last_changed_by: user?.id || null
             })
             .select()
             .single()
@@ -115,14 +116,17 @@ export function useShoppingItems(listId: string | null) {
   // Update Item (Check/Uncheck)
   const updateItem = useMutation({
       mutationFn: async ({ id, updates }: { id: string, updates: Partial<ShoppingListItem> }) => {
+          // Get current user for attribution
+          const { data: { user } } = await supabase.auth.getUser()
+
           const { data, error } = await supabase
               .from('shopping_list_items')
-              .update(updates)
+              .update({ ...updates, last_changed_by: user?.id || null })
               .eq('id', id)
-              .select()
+              .select('*, last_changed_by_profile:profiles!last_changed_by(display_name)')
               .single()
           if (error) throw error
-          return data as ShoppingListItem
+          return data as unknown as ShoppingListItem
       },
       onMutate: async ({ id, updates }) => {
           await queryClient.cancelQueries({ queryKey })
@@ -170,9 +174,16 @@ export function useShoppingItems(listId: string | null) {
   // Move Item to another list
   const moveItemMutation = useMutation({
       mutationFn: async ({ id, targetListId }: { id: string, targetListId: string }) => {
+          // Get current user for attribution
+          const { data: { user } } = await supabase.auth.getUser()
+
           const { error } = await supabase
               .from('shopping_list_items')
-              .update({ shopping_list_id: targetListId, updated_at: new Date().toISOString() })
+              .update({ 
+                shopping_list_id: targetListId, 
+                updated_at: new Date().toISOString(),
+                last_changed_by: user?.id || null
+              })
               .eq('id', id)
           
           if (error) throw error
