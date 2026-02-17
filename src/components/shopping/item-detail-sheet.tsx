@@ -175,7 +175,7 @@ export function ItemDetailSheet({
                 className="bg-muted border-0 text-center text-lg font-medium"
               />
             </div>
-            <div className="flex-[2] flex gap-2 overflow-x-auto pb-1 items-center">
+            <div className="flex-[2] flex gap-2 overflow-x-auto pb-1 items-center scrollbar-hide">
               {["Stk", "Pck", "kg", "g", "l", "ml"].map((u) => (
                 <button
                   key={u}
@@ -200,7 +200,7 @@ export function ItemDetailSheet({
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
             Details
           </h3>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {priorityOptions.map((option) => {
               const Icon = option.icon
               const isSelected = selectedPriority === option.value
