@@ -58,11 +58,11 @@ export function useShoppingItems(listId: string | null) {
                 user_id: user?.id || null,
                 last_changed_by: user?.id || null
             })
-            .select()
+            .select('*, last_changed_by_profile:profiles!last_changed_by(display_name)')
             .single()
         
         if (error) throw error
-        return data as ShoppingListItem
+        return data as unknown as ShoppingListItem
     },
     onMutate: async (newItemInput) => {
         // Cancel persistent queries

@@ -43,7 +43,7 @@ export default function ShoppingListPage() {
   const [isCategorized, setIsCategorized] = useState(true)
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({})
   
-  const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   const supabase = createClient()
@@ -153,6 +153,11 @@ export default function ShoppingListPage() {
 
   // Duplicate Check Hook
   const allItems = useMemo(() => [...uncheckedItems, ...checkedItems], [uncheckedItems, checkedItems])
+  
+  const selectedItem = useMemo(() => 
+    allItems.find(i => i.id === selectedItemId) || null,
+  [allItems, selectedItemId])
+
   const { duplicateWarning, checkDuplicate } = useItemDuplicateCheck(allItems)
 
   const handleAddItem = async ({ product_name, quantity, unit }: { product_name: string, quantity?: number, unit?: string }) => {
@@ -181,7 +186,7 @@ export default function ShoppingListPage() {
 
   // Open detail sheet for an item
   const handleDetailsClick = (item: ShoppingListItem) => {
-    setSelectedItem(item)
+    setSelectedItemId(item.id)
     setIsDetailOpen(true)
   }
 
