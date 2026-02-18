@@ -20,6 +20,7 @@ export interface Offer {
   weight_volume: string | null
   currency: string | null
   offer_id: string | null
+  regular_price: number | null
   scraped_at: string
 }
 
@@ -69,6 +70,7 @@ function mapOffer(o: {
     weight_volume: o.weight_volume,
     currency: o.currency,
     offer_id: o.offer_id,
+    regular_price: o.original_price,
     scraped_at: o.scraped_at,
   }
 }
