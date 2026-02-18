@@ -32,6 +32,8 @@ RETURNS TABLE (
   source_url text,
   price_per_unit text,
   weight_volume text,
+  currency text,
+  offer_id text,
   scraped_at timestamptz,
   similarity float
 ) AS $$
@@ -74,6 +76,8 @@ BEGIN
     o.source_url,
     o.price_per_unit,
     o.weight_volume,
+    o.currency,
+    o.offer_id,
     o.scraped_at,
     -- Calculate max similarity across all product embeddings
     (

@@ -1379,6 +1379,8 @@ export type Database = {
           source_url: string | null
           price_per_unit: string | null
           weight_volume: string | null
+          currency: string | null
+          offer_id: string | null
           scraped_at: string
           similarity: number
         }[]
