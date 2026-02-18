@@ -3,6 +3,7 @@
 ## ✅ Setup Complete
 
 Your Supabase database is ready with:
+
 - **9 Tables** (profiles, households, household_members, merchants, products, receipts, receipt_items, shopping_lists, shopping_list_items)
 - **36 RLS Policies** (Row-Level Security)
 - **20 Indexes** (Performance-optimized)
@@ -36,41 +37,43 @@ migrations/
 Use `createClient()` for client-side React components:
 
 ```tsx
-'use client'
+"use client";
 
-import { createClient } from '@/lib/supabase'
-import { useState, useEffect } from 'react'
+import { createClient } from "@/lib/supabase";
+import { useState, useEffect } from "react";
 
 export default function ReceiptsPage() {
-  const [receipts, setReceipts] = useState([])
-  const supabase = createClient()
+  const [receipts, setReceipts] = useState([]);
+  const supabase = createClient();
 
   useEffect(() => {
     const fetchReceipts = async () => {
       const { data } = await supabase
-        .from('receipts')
-        .select(`
+        .from("receipts")
+        .select(
+          `
           *,
           merchant:merchants(name),
           items:receipt_items(*)
-        `)
-        .order('date', { ascending: false })
+        `,
+        )
+        .order("date", { ascending: false });
 
-      setReceipts(data || [])
-    }
+      setReceipts(data || []);
+    };
 
-    fetchReceipts()
-  }, [])
+    fetchReceipts();
+  }, []);
 
   return (
     <div>
-      {receipts.map(receipt => (
+      {receipts.map((receipt) => (
         <div key={receipt.id}>
           {receipt.merchant?.name} - €{receipt.total_amount_cents / 100}
         </div>
       ))}
     </div>
-  )
+  );
 }
 ```
 
@@ -79,25 +82,25 @@ export default function ReceiptsPage() {
 Use `createServerClient()` for server-side rendering:
 
 ```tsx
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient } from "@/lib/supabase-server";
 
 export default async function ReceiptsPage() {
-  const supabase = await createServerClient()
+  const supabase = await createServerClient();
 
   const { data: receipts } = await supabase
-    .from('receipts')
-    .select('*, merchant:merchants(name)')
-    .order('date', { ascending: false })
+    .from("receipts")
+    .select("*, merchant:merchants(name)")
+    .order("date", { ascending: false });
 
   return (
     <div>
-      {receipts?.map(receipt => (
+      {receipts?.map((receipt) => (
         <div key={receipt.id}>
           {receipt.merchant?.name} - €{receipt.total_amount_cents / 100}
         </div>
       ))}
     </div>
-  )
+  );
 }
 ```
 
@@ -107,50 +110,59 @@ Use `createServerClient()` in API routes:
 
 ```ts
 // app/api/receipts/route.ts
-import { createServerClient } from '@/lib/supabase-server'
-import { NextResponse } from 'next/server'
+import { createServerClient } from "@/lib/supabase-server";
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  const supabase = await createServerClient()
+  const supabase = await createServerClient();
 
   // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Fetch receipts (RLS automatically filters to user's households)
   const { data: receipts, error } = await supabase
-    .from('receipts')
-    .select('*')
-    .order('date', { ascending: false })
+    .from("receipts")
+    .select("*")
+    .order("date", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ receipts })
+  return NextResponse.json({ receipts });
 }
 
 export async function POST(request: Request) {
-  const supabase = await createServerClient()
+  const supabase = await createServerClient();
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json()
-  const { household_id, merchant_id, date, total_amount_cents, notes } = body
+  const body = await request.json();
+  const { household_id, merchant_id, date, total_amount_cents, notes } = body;
 
   // Validation
   if (!household_id || !date || !total_amount_cents) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json(
+      { error: "Missing required fields" },
+      { status: 400 },
+    );
   }
 
   // Insert receipt (RLS automatically checks if user is household member)
   const { data: receipt, error } = await supabase
-    .from('receipts')
+    .from("receipts")
     .insert({
       household_id,
       merchant_id,
@@ -160,13 +172,13 @@ export async function POST(request: Request) {
       created_by: user.id,
     })
     .select()
-    .single()
+    .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ receipt }, { status: 201 })
+  return NextResponse.json({ receipt }, { status: 201 });
 }
 ```
 
@@ -175,6 +187,7 @@ export async function POST(request: Request) {
 ## 🔒 Row-Level Security (RLS)
 
 All tables have RLS enabled. Users can only:
+
 - See households they are members of
 - See receipts/shopping lists in their households
 - Create new merchants/products (shared globally)
@@ -184,9 +197,7 @@ All tables have RLS enabled. Users can only:
 
 ```ts
 // This query automatically filters to user's households
-const { data } = await supabase
-  .from('receipts')
-  .select('*')
+const { data } = await supabase.from("receipts").select("*");
 // → Only returns receipts from households where user is a member
 ```
 
@@ -197,25 +208,22 @@ const { data } = await supabase
 Use the generated types for type-safety:
 
 ```ts
-import { Database } from '@/types/database.types'
+import { Database } from "@/types/database.types";
 
 // Table row types
-type Receipt = Database['public']['Tables']['receipts']['Row']
-type NewReceipt = Database['public']['Tables']['receipts']['Insert']
-type UpdateReceipt = Database['public']['Tables']['receipts']['Update']
+type Receipt = Database["public"]["Tables"]["receipts"]["Row"];
+type NewReceipt = Database["public"]["Tables"]["receipts"]["Insert"];
+type UpdateReceipt = Database["public"]["Tables"]["receipts"]["Update"];
 
 // Example: Type-safe insert
 const newReceipt: NewReceipt = {
-  household_id: '...',
-  date: '2026-01-31',
+  household_id: "...",
+  date: "2026-01-31",
   total_amount_cents: 4567, // €45.67
   created_by: user.id,
-}
+};
 
-const { data } = await supabase
-  .from('receipts')
-  .insert(newReceipt)
-  .select()
+const { data } = await supabase.from("receipts").insert(newReceipt).select();
 ```
 
 ---
@@ -250,9 +258,9 @@ SELECT COUNT(*) FROM products;   -- Should return 20
 
 ```ts
 // In any Server Component
-const supabase = await createServerClient()
-const { data: merchants } = await supabase.from('merchants').select('*')
-console.log(merchants) // Should return REWE, LIDL, ALDI, EDEKA, Kaufland
+const supabase = await createServerClient();
+const { data: merchants } = await supabase.from("merchants").select("*");
+console.log(merchants); // Should return REWE, LIDL, ALDI, EDEKA, Kaufland
 ```
 
 ---
@@ -290,14 +298,16 @@ Run: `npm install @supabase/ssr`
 ### "NEXT_PUBLIC_SUPABASE_URL is not defined"
 
 Check `.env.local` exists and contains:
+
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://neuedyzjwsxrkvflrzbr.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
 ### "Row-level security policy for relation..."
 
 This is expected! RLS is enabled. Make sure:
+
 1. User is authenticated (`supabase.auth.getUser()`)
 2. User is a member of the household they're trying to access
 
@@ -306,7 +316,9 @@ This is expected! RLS is enabled. Make sure:
 User is not authenticated. Add authentication check:
 
 ```ts
-const { data: { user } } = await supabase.auth.getUser()
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 if (!user) {
   // Redirect to login or return error
 }
