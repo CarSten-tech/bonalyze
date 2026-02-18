@@ -1,8 +1,7 @@
 'use client'
 
-import { format, differenceInMonths, differenceInDays, parseISO, addMonths } from 'date-fns'
-import { de } from 'date-fns/locale'
-import { Shield, ShieldAlert, Timer, ChevronRight, AlertTriangle } from 'lucide-react'
+import { format, differenceInMonths, differenceInDays, parseISO } from 'date-fns'
+import { Shield, ShieldAlert, Timer, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'

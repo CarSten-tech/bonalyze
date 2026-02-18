@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Camera, PenLine, Sparkles, ImagePlus, Scan } from 'lucide-react'
+import { ArrowLeft, Loader2, PenLine, Sparkles, ImagePlus, Scan } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase'
 import { useHousehold } from '@/contexts/household-context'
@@ -32,7 +32,6 @@ export default function NewReceiptPage() {
   // Initial state for scanner
   const [initialFile, setInitialFile] = useState<File | undefined>()
   const [initialCamera, setInitialCamera] = useState(false)
-  const fileInputRef = useState<HTMLInputElement | null>(null)
 
   // Load current user
   useEffect(() => {

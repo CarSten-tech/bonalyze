@@ -2,7 +2,7 @@
 
 import { createServerClient as createClient } from '@/lib/supabase-server'
 import { logger } from '@/lib/logger'
-import { saveSubscriptionSchema, notificationIdSchema, uuidSchema } from '@/lib/validations'
+import { formatValidationMessage, saveSubscriptionSchema, notificationIdSchema, uuidSchema } from '@/lib/validations'
 
 export async function getVapidPublicKey() {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -16,11 +16,22 @@ interface PushSubscriptionData {
   }
 }
 
-export async function saveSubscription(subscription: PushSubscriptionData, userAgent?: string) {
+type ActionResult = {
+  success: boolean
+  code?: string
+  error?: string
+  message?: string
+}
+
+function fail(code: string, message: string) {
+  return { success: false as const, code, error: message, message }
+}
+
+export async function saveSubscription(subscription: PushSubscriptionData, userAgent?: string): Promise<ActionResult> {
   // Validate subscription data
   const parsed = saveSubscriptionSchema.safeParse(subscription)
   if (!parsed.success) {
-    return { success: false, error: 'Ungueltige Subscription-Daten' }
+    return fail('INVALID_INPUT', formatValidationMessage(parsed.error, 'Ungueltige Subscription-Daten'))
   }
 
   const supabase = await createClient()
@@ -60,13 +71,13 @@ export async function saveSubscription(subscription: PushSubscriptionData, userA
         return { success: true }
     }
     logger.error('Error saving subscription', error)
-    return { success: false, error: error.message }
+    return fail('SAVE_SUBSCRIPTION_FAILED', error.message)
   }
 
   return { success: true }
 }
 
-export async function deleteSubscription(endpoint: string) {
+export async function deleteSubscription(endpoint: string): Promise<ActionResult> {
   const supabase = await createClient()
   
   const {
@@ -85,7 +96,7 @@ export async function deleteSubscription(endpoint: string) {
 
   if (error) {
     logger.error('Error deleting subscription', error)
-    return { success: false, error: error.message }
+    return fail('DELETE_SUBSCRIPTION_FAILED', error.message)
   }
 
   return { success: true }
@@ -113,7 +124,7 @@ function setupWebPush() {
 }
 
 export async function sendReceiptNotification(receiptId: string) {
-    if (!setupWebPush()) return { success: false, error: 'Configuration missing' }
+    if (!setupWebPush()) return fail('MISSING_CONFIGURATION', 'Configuration missing')
     
     const supabase = await createClient()
     
@@ -133,7 +144,7 @@ export async function sendReceiptNotification(receiptId: string) {
 
     if (receiptError || !receipt) {
         logger.error('Notification: Receipt not found', receiptError)
-        return { success: false }
+        return fail('RECEIPT_NOT_FOUND', 'Receipt not found')
     }
 
     // 2. Fetch other household members to notify
@@ -217,7 +228,7 @@ export async function sendReceiptNotification(receiptId: string) {
 }
 
 export async function sendBudgetNotification(householdId: string, alertType: string, percentage: number) {
-    if (!setupWebPush()) return { success: false, error: 'Config missing' }
+    if (!setupWebPush()) return fail('MISSING_CONFIGURATION', 'Config missing')
 
     const supabase = await createClient()
 
@@ -243,22 +254,20 @@ export async function sendBudgetNotification(householdId: string, alertType: str
     // 3. Determine message based on alert type
     let title = 'Budget Update'
     let body = ''
+    const usedPercent = Math.round(percentage)
     
-    // Remaining = 100 - Used
-    const remaining = 100 - percentage
-
     if (alertType.includes('50_remaining')) {
         title = 'Budget-Halbzeit 🌓'
-        body = 'Ihr habt 50% eures Budgets verbraucht.'
+        body = `Ihr habt ${usedPercent}% eures Budgets verbraucht.`
     } else if (alertType.includes('25_remaining')) {
         title = 'Budget wird knapp ⚠️'
-        body = 'Achtung: Nur noch 25% Budget übrig.'
+        body = `Achtung: Schon ${usedPercent}% eures Budgets verbraucht.`
     } else if (alertType.includes('10_remaining')) {
         title = 'Budget kritisch 🚨'
-        body = 'Fast leer! Nur noch 10% Budget verfügbar.'
+        body = `Fast leer! Bereits ${usedPercent}% verbraucht.`
     } else if (alertType === 'exceeded_100') {
          title = 'Budget überschritten 💸'
-         body = 'Ihr habt euer Budgetlimit überschritten.'
+         body = `Ihr habt euer Budgetlimit überschritten (${usedPercent}%).`
     }
 
     const data = { url: '/dashboard/ausgaben' }
@@ -348,22 +357,22 @@ export async function markAllAsRead() {
 }
 export async function notifyShoppingListUpdate(householdId: string, shoppingListId: string, productName: string, includeSelf = false) {
     const parsedHouseholdId = uuidSchema.safeParse(householdId)
-    if (!parsedHouseholdId.success) return { success: false, error: 'Ungueltige Household-ID' }
+    if (!parsedHouseholdId.success) return fail('INVALID_HOUSEHOLD_ID', 'Ungueltige Household-ID')
     
     const parsedListId = uuidSchema.safeParse(shoppingListId)
-    if (!parsedListId.success) return { success: false, error: 'Ungueltige List-ID' }
+    if (!parsedListId.success) return fail('INVALID_LIST_ID', 'Ungueltige List-ID')
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) return { success: false, error: 'Unauthorized' }
+    if (!user) return fail('UNAUTHORIZED', 'Unauthorized')
 
     try {
         const { notifyShoppingListUpdate: serviceNotify } = await import('@/lib/notification-service')
-        const result = await serviceNotify(householdId, shoppingListId, productName, user.id, includeSelf)
+        await serviceNotify(householdId, shoppingListId, productName, user.id, includeSelf)
         return { success: true }
     } catch (error) {
         logger.error('Failed to notify shopping list update', error)
-        return { success: false }
+        return fail('NOTIFICATION_DELIVERY_FAILED', 'Notification delivery failed')
     }
 }

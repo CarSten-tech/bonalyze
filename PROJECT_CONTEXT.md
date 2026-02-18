@@ -167,7 +167,9 @@ bonalyze/
 ├── docs/
 │   └── BONALYZE-MVP-PLAN.md ← Produktplan
 ├── features/                ← Feature Specs
-├── migrations/              ← SQL Migrations (Supabase)
+├── supabase/
+│   └── migrations/          ← SQL Migrations (official path)
+├── migrations/              ← Legacy migration archive (read-only)
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/          ← Auth Pages (Login, Signup, etc.)

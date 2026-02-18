@@ -67,13 +67,15 @@ export function ItemDetailSheet({
 
   // Initialize state when item changes
   useEffect(() => {
-    if (item && open) {
+    if (!item || !open) return
+    const timeoutId = window.setTimeout(() => {
       setQuantity(item.quantity?.toString() || "")
       setUnit(item.unit || "Stk")
       setSelectedPriority(item.priority || null)
       setNote(item.note || "")
       setCategoryId(item.category_id || null)
-    }
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [item, open])
 
   // Handle closing - save changes first

@@ -1,11 +1,11 @@
 'use client'
+/* eslint-disable @next/next/no-img-element -- local editor preview uses raw image URLs */
 
 import * as React from 'react'
-import { Check, Loader2, RotateCcw, X, Wand2, Contrast, Image as ImageIcon } from 'lucide-react'
+import { Check, Loader2, RotateCcw, X, Contrast } from 'lucide-react'
 import { toast } from "sonner"
-import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { applyPerspectiveWarp, applyFilter, detectDocumentEdges, detectStrongLines, type Point } from '@/lib/image-processing'
+import { applyPerspectiveWarp, applyFilter, type Point } from '@/lib/image-processing'
 
 interface CropEditorProps {
   imageSrc: string
@@ -30,23 +30,20 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
   const [activeFilter, setActiveFilter] = React.useState<'original' | 'grayscale' | 'bw'>('original')
   const [showFilters, setShowFilters] = React.useState(false)
   const [activeHandleIndex, setActiveHandleIndex] = React.useState<number | null>(null)
-  
-  // Magnetic Lines
-  const [snapLines, setSnapLines] = React.useState<{horizontal: number[], vertical: number[]}>({ horizontal: [], vertical: [] })
 
   // Load image & Update corners
   // 1. Load Image (Only when src changes)
   React.useEffect(() => {
+    let isMounted = true
     const img = new Image()
     img.src = imageSrc
     img.onload = () => {
+      if (!isMounted) return
       setImage(img)
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-      
-      // Detect lines for snapping
-      detectStrongLines(img.src).then(lines => {
-          setSnapLines(lines)
-      })
+    }
+    return () => {
+      isMounted = false
     }
   }, [imageSrc])
 
@@ -92,11 +89,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
         // Only update if changed to avoid loops
         setContainerSize(prev => {
             if (prev.width === rect.width && prev.height === rect.height) return prev
-            console.log("CropEditor: Container measured", rect.width, rect.height)
             return { width: rect.width, height: rect.height }
         })
-    } else {
-        console.warn("CropEditor: Container has 0 dims", rect)
     }
   }, [])
 
@@ -153,46 +147,6 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
     }
   }
 
-  const toImage = (screenPt: Point) => {
-    if (!imageSize.width || !containerSize.width) return { x: 0, y: 0 }
-    
-    const imgRatio = imageSize.width / imageSize.height
-    const containerRatio = containerSize.width / containerSize.height
-    
-    let displayWidth, displayHeight, offsetX, offsetY
-    
-    if (containerRatio > imgRatio) {
-      displayHeight = containerSize.height
-      displayWidth = displayHeight * imgRatio
-      offsetX = (containerSize.width - displayWidth) / 2
-      offsetY = 0
-    } else {
-      displayWidth = containerSize.width
-      displayHeight = displayWidth / imgRatio
-      offsetX = 0
-      offsetY = (containerSize.height - displayHeight) / 2
-    }
-    
-    const scale = displayWidth / imageSize.width
-    
-    return {
-      x: (screenPt.x - offsetX) / scale,
-      y: (screenPt.y - offsetY) / scale
-    }
-  }
-  
-  const updateCorner = (index: number, newScreenPt: Point) => {
-    const newImagePt = toImage(newScreenPt)
-    setCorners(prev => {
-      const next: [Point, Point, Point, Point] = [...prev]
-      next[index] = {
-        x: Math.max(0, Math.min(newImagePt.x, imageSize.width)),
-        y: Math.max(0, Math.min(newImagePt.y, imageSize.height))
-      }
-      return next
-    })
-  }
-
   const handleSave = async () => {
     if (!image) return
     setIsProcessing(true)
@@ -222,8 +176,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
         // prevent dragging image ghosts
-        ['WebkitUserDrag' as any]: 'none', 
-      }}
+        WebkitUserDrag: 'none',
+      } as React.CSSProperties & { WebkitUserDrag?: string }}
     >
       {/* Top Bar: Cancel & Title */}
       <div className="flex justify-between items-center p-4 z-50 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0">
@@ -284,7 +238,7 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
       })()}
 
       {/* Debug Overlay */}
-      {(process.env.NODE_ENV === 'development' || true) && (
+      {process.env.NODE_ENV === 'development' && (
           <div className="absolute top-20 left-4 z-[60] bg-black/50 text-white text-[10px] p-1 pointer-events-none font-mono">
               Img: {imageSize.width}x{imageSize.height}<br/>
               Cont: {Math.round(containerSize.width)}x{Math.round(containerSize.height)}<br/>
@@ -472,8 +426,8 @@ export function CropEditor({ imageSrc, initialCorners, onCancel, onComplete }: C
                         const dx = (moveEvent.clientX - startX) / scale
                         const dy = (moveEvent.clientY - startY) / scale
                         
-                        let tx = Math.max(0, Math.min(startPoint.x + dx, imageSize.width))
-                        let ty = Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
+                        const tx = Math.max(0, Math.min(startPoint.x + dx, imageSize.width))
+                        const ty = Math.max(0, Math.min(startPoint.y + dy, imageSize.height))
 
                         // --- Magnetic Snap REMOVED (User Request) ---
                         // "If I pull manually with the magnifier, they should be disabled"

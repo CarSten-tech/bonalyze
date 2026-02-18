@@ -10,7 +10,6 @@ import {
   Trash2,
   Image as ImageIcon,
   ShoppingCart,
-  User,
   Calendar,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -152,9 +151,11 @@ export default function ReceiptDetailPage() {
   }, [currentHousehold, receiptId, supabase, router])
 
   useEffect(() => {
-    if (currentHousehold) {
-      loadReceipt()
-    }
+    if (!currentHousehold) return
+    const timeoutId = window.setTimeout(() => {
+      void loadReceipt()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [currentHousehold, loadReceipt])
 
   const handleDelete = async () => {
@@ -376,6 +377,7 @@ export default function ReceiptDetailPage() {
           </DialogHeader>
           {receipt.image_url && (
             <div className="relative aspect-[3/4] w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={receipt.image_url}
                 alt="Kassenbon"

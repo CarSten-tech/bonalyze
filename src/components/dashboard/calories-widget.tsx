@@ -5,18 +5,13 @@ import { Zap } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useNutritionData } from '@/hooks/use-nutrition-data'
-import { cn } from '@/lib/utils'
 
 function CircularProgress({
   percentage,
-  consumed,
-  target,
   size = 80,
   strokeWidth = 8,
 }: {
   percentage: number
-  consumed: number
-  target: number
   size?: number
   strokeWidth?: number
 }) {
@@ -97,8 +92,6 @@ export function CaloriesWidget() {
         <div className="flex items-center gap-5">
           <CircularProgress 
             percentage={percentage} 
-            consumed={consumed} 
-            target={target} 
           />
           <div className="flex-1 space-y-1">
             <div className="flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider font-bold text-[10px]">

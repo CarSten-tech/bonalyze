@@ -1,9 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { z } from 'zod'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import type { SettlementWithDetails, Transfer } from '@/types/settlement'
+import type { SettlementWithDetails } from '@/types/settlement'
 import { logger } from '@/lib/logger'
+import { sendOperationalAlert } from '@/lib/alerting'
+import {
+  createApiErrorResponse,
+  mbToBytes,
+  parseJsonBodyWithLimit,
+  requireAuthenticatedUser,
+  requireHouseholdMembership,
+} from '@/lib/api-guards'
+import { getRouteLogMeta, resolveCorrelationId, withCorrelationId } from '@/lib/request-tracing'
+import { assertUserHouseholdPermission } from '@/lib/household-roles'
+import { writeAuditLog } from '@/lib/audit-log'
+
+const MAX_SETTLEMENT_POST_BODY_BYTES = mbToBytes(0.2)
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const settlementsGetSchema = z.object({
+  householdId: z.string().uuid(),
+  filter: z.enum(['all', 'open', 'settled']).default('all'),
+})
+const settlementsPostSchema = z.object({
+  householdId: z.string().uuid(),
+  periodStart: isoDateSchema,
+  periodEnd: isoDateSchema,
+  totalAmountCents: z.number().int().min(0),
+  transfers: z
+    .array(
+      z.object({
+        fromUserId: z.string().uuid(),
+        toUserId: z.string().uuid(),
+        amount: z.number().int().min(1),
+      })
+    )
+    .optional()
+    .default([]),
+})
 
 /**
  * GET /api/settlements
@@ -15,48 +49,44 @@ import { logger } from '@/lib/logger'
  * - filter: 'all' | 'open' | 'settled' (default: 'all')
  */
 export async function GET(request: NextRequest) {
+  const correlationId = resolveCorrelationId(request.headers)
+  const route = 'api/settlements[GET]'
+  const logMeta = getRouteLogMeta(route, correlationId)
+  const respond = (body: unknown, init?: ResponseInit) =>
+    withCorrelationId(NextResponse.json(body, init), correlationId)
+
   try {
-    const supabase = await createServerClient()
-
-    // Get authenticated user
+    const auth = await requireAuthenticatedUser('settlements[GET]')
+    if (!auth.ok) return withCorrelationId(auth.response, correlationId)
     const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Nicht eingeloggt' },
-        { status: 401 }
-      )
-    }
+      context: { supabase, userId },
+    } = auth
 
     // Parse query params
     const { searchParams } = new URL(request.url)
-    const householdId = searchParams.get('householdId')
-    const filter = (searchParams.get('filter') || 'all') as 'all' | 'open' | 'settled'
-
-    if (!householdId) {
-      return NextResponse.json(
-        { error: 'householdId ist erforderlich' },
-        { status: 400 }
+    const parsedQuery = settlementsGetSchema.safeParse({
+      householdId: searchParams.get('householdId'),
+      filter: searchParams.get('filter') || 'all',
+    })
+    if (!parsedQuery.success) {
+      return withCorrelationId(
+        createApiErrorResponse(
+          'INVALID_QUERY',
+          parsedQuery.error.issues[0]?.message || 'Ungueltige Anfrageparameter',
+          400
+        ),
+        correlationId
       )
     }
+    const { householdId, filter } = parsedQuery.data
 
-    // Verify user is member of household
-    const { data: membership, error: membershipError } = await supabase
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'Kein Zugriff auf diesen Haushalt' },
-        { status: 403 }
-      )
-    }
+    const membershipResponse = await requireHouseholdMembership(
+      supabase,
+      userId,
+      householdId,
+      'settlements[GET]'
+    )
+    if (membershipResponse) return withCorrelationId(membershipResponse, correlationId)
 
     // Build query
     let query = supabase
@@ -89,10 +119,16 @@ export async function GET(request: NextRequest) {
     const { data: settlementsData, error: settlementsError } = await query
 
     if (settlementsError) {
-      logger.error('[settlements] Error fetching settlements', settlementsError)
-      return NextResponse.json(
-        { error: 'Fehler beim Laden der Abrechnungen' },
-        { status: 500 }
+      logger.error('[settlements] Error fetching settlements', settlementsError, logMeta)
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: 'Failed to fetch settlements',
+        correlationId,
+      })
+      return withCorrelationId(
+        createApiErrorResponse('SETTLEMENTS_FETCH_FAILED', 'Fehler beim Laden der Abrechnungen', 500),
+        correlationId
       )
     }
 
@@ -124,15 +160,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    return respond({
       settlements,
       tableExists: true,
     })
   } catch (error) {
-    logger.error('[settlements] Settlement GET error', error)
-    return NextResponse.json(
-      { error: 'Ein Fehler ist aufgetreten' },
-      { status: 500 }
+    logger.error('[settlements] Settlement GET error', error, logMeta)
+    await sendOperationalAlert({
+      route,
+      severity: 'critical',
+      message: 'Unhandled settlements GET failure',
+      correlationId,
+    })
+    return withCorrelationId(
+      createApiErrorResponse('SERVER_ERROR', 'Ein Fehler ist aufgetreten', 500),
+      correlationId
     )
   }
 }
@@ -150,58 +192,47 @@ export async function GET(request: NextRequest) {
  * - transfers: Transfer[]
  */
 export async function POST(request: NextRequest) {
+  const correlationId = resolveCorrelationId(request.headers)
+  const route = 'api/settlements[POST]'
+  const logMeta = getRouteLogMeta(route, correlationId)
+  const respond = (body: unknown, init?: ResponseInit) =>
+    withCorrelationId(NextResponse.json(body, init), correlationId)
+
   try {
-    const supabase = await createServerClient()
-
-    // Get authenticated user
+    const auth = await requireAuthenticatedUser('settlements[POST]')
+    if (!auth.ok) return withCorrelationId(auth.response, correlationId)
     const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+      context: { supabase, userId },
+    } = auth
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Nicht eingeloggt' },
-        { status: 401 }
-      )
-    }
+    const parsedBody = await parseJsonBodyWithLimit(
+      request,
+      settlementsPostSchema,
+      MAX_SETTLEMENT_POST_BODY_BYTES
+    )
+    if (!parsedBody.ok) return withCorrelationId(parsedBody.response, correlationId)
 
-    // Parse body
-    const body = await request.json()
     const {
       householdId,
       periodStart,
       periodEnd,
       totalAmountCents,
       transfers,
-    } = body as {
-      householdId: string
-      periodStart: string
-      periodEnd: string
-      totalAmountCents: number
-      transfers: Transfer[]
-    }
+    } = parsedBody.data
 
-    // Validate required fields
-    if (!householdId || !periodStart || !periodEnd || totalAmountCents === undefined) {
-      return NextResponse.json(
-        { error: 'Fehlende Pflichtfelder' },
-        { status: 400 }
-      )
-    }
+    const membershipResponse = await requireHouseholdMembership(
+      supabase,
+      userId,
+      householdId,
+      'settlements[POST]'
+    )
+    if (membershipResponse) return withCorrelationId(membershipResponse, correlationId)
 
-    // Verify user is member of household
-    const { data: membership, error: membershipError } = await supabase
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'Kein Zugriff auf diesen Haushalt' },
-        { status: 403 }
+    const permission = await assertUserHouseholdPermission(userId, householdId, 'settlements.manage')
+    if (!permission.allowed) {
+      return withCorrelationId(
+        createApiErrorResponse('FORBIDDEN', 'Keine Berechtigung zum Erstellen von Abrechnungen.', 403),
+        correlationId
       )
     }
 
@@ -215,9 +246,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'Diese Periode wurde bereits abgerechnet' },
-        { status: 409 }
+      return withCorrelationId(
+        createApiErrorResponse('SETTLEMENT_ALREADY_EXISTS', 'Diese Periode wurde bereits abgerechnet', 409),
+        correlationId
       )
     }
 
@@ -230,16 +261,22 @@ export async function POST(request: NextRequest) {
         period_end: periodEnd,
         total_amount_cents: totalAmountCents,
         settled_at: new Date().toISOString(),
-        settled_by: user.id,
+        settled_by: userId,
       })
       .select()
       .single()
 
     if (settlementError || !settlement) {
-      logger.error('[settlements] Error creating settlement', settlementError)
-      return NextResponse.json(
-        { error: 'Fehler beim Erstellen der Abrechnung' },
-        { status: 500 }
+      logger.error('[settlements] Error creating settlement', settlementError, logMeta)
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: 'Failed to create settlement',
+        correlationId,
+      })
+      return withCorrelationId(
+        createApiErrorResponse('SETTLEMENT_CREATE_FAILED', 'Fehler beim Erstellen der Abrechnung', 500),
+        correlationId
       )
     }
 
@@ -257,13 +294,27 @@ export async function POST(request: NextRequest) {
         .insert(transfersToInsert)
 
       if (transfersError) {
-        logger.error('[settlements] Error creating transfers', transfersError)
+        logger.error('[settlements] Error creating transfers', transfersError, logMeta)
         // Settlement was created, so we don't fail completely
         // But log the error
       }
     }
 
-    return NextResponse.json({
+    await writeAuditLog({
+      householdId,
+      actorUserId: userId,
+      action: 'create',
+      entityType: 'settlement',
+      entityId: settlement.id,
+      details: {
+        periodStart,
+        periodEnd,
+        totalAmountCents,
+        transferCount: transfers?.length || 0,
+      },
+    })
+
+    return respond({
       success: true,
       settlement: {
         id: settlement.id,
@@ -276,10 +327,16 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    logger.error('[settlements] Settlement POST error', error)
-    return NextResponse.json(
-      { error: 'Ein Fehler ist aufgetreten' },
-      { status: 500 }
+    logger.error('[settlements] Settlement POST error', error, logMeta)
+    await sendOperationalAlert({
+      route,
+      severity: 'critical',
+      message: 'Unhandled settlements POST failure',
+      correlationId,
+    })
+    return withCorrelationId(
+      createApiErrorResponse('SERVER_ERROR', 'Ein Fehler ist aufgetreten', 500),
+      correlationId
     )
   }
 }

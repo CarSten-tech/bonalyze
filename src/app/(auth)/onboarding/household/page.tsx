@@ -59,7 +59,7 @@ export default function OnboardingHouseholdPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        window.location.href = '/login'
+        window.location.assign('/login')
         return
       }
 
@@ -72,7 +72,7 @@ export default function OnboardingHouseholdPage() {
 
       if (!profile?.display_name) {
         // User needs to complete profile first
-        window.location.href = '/onboarding/profile'
+        window.location.assign('/onboarding/profile')
         return
       }
 
@@ -86,7 +86,7 @@ export default function OnboardingHouseholdPage() {
 
       if (membership) {
         // User already has a household, redirect to dashboard
-        window.location.href = '/dashboard'
+        window.location.assign('/dashboard')
         return
       }
 
@@ -105,7 +105,7 @@ export default function OnboardingHouseholdPage() {
       toast.error('Nicht angemeldet', {
         description: 'Bitte melde dich erneut an.',
       })
-      window.location.href = '/login'
+      window.location.assign('/login')
       return
     }
 
@@ -151,7 +151,7 @@ export default function OnboardingHouseholdPage() {
     })
 
     // Redirect to dashboard
-    window.location.href = '/dashboard'
+    window.location.assign('/dashboard')
   }
 
   const handleAcceptInvite = async () => {
@@ -170,7 +170,7 @@ export default function OnboardingHouseholdPage() {
     setIsAcceptingInvite(true)
 
     // Navigate to invite page with token
-    window.location.href = `/invite/${token}`
+    window.location.assign(`/invite/${token}`)
   }
 
   if (isCheckingHousehold) {

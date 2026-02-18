@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.test.ts --project=chromium"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -18,11 +18,13 @@ import {
 import { verifyAlexaRequest } from '@/lib/alexa/signature'
 import type { AlexaRequestEnvelope } from '@/lib/alexa/types'
 import { logger } from '@/lib/logger'
+import { enforceContentLength, mbToBytes } from '@/lib/api-guards'
 
 export const runtime = 'nodejs'
 
 const HELP_TEXT =
   'Du kannst sagen: fuege Milch und Eier hinzu, entferne Brot, setze Milch auf 2 Liter, oeffne Liste DM, erstelle Liste Wochenmarkt oder lies meine Einkaufsliste vor.'
+const MAX_ALEXA_REQUEST_BYTES = mbToBytes(0.25)
 
 function getAppId(envelope: AlexaRequestEnvelope): string | undefined {
   return envelope.context?.System?.application?.applicationId || envelope.session?.application?.applicationId
@@ -60,6 +62,11 @@ function extractSlotValue(envelope: AlexaRequestEnvelope, slotNames: string[]): 
 
 function sanitizeForSpeech(value: string): string {
   return value.replace(/[<>]/g, '').trim()
+}
+
+function isSignatureVerificationEnabled(): boolean {
+  const envValue = process.env.ALEXA_VERIFY_SIGNATURE?.trim().toLowerCase()
+  return envValue !== 'false'
 }
 
 async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: string) {
@@ -146,9 +153,14 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
       return createAlexaResponse('Wie soll die neue Liste heissen?')
     }
 
-    const created = await createShoppingListForHousehold(link.user_id, link.household_id, requestedName)
-    await setActiveAlexaShoppingList(alexaUserId, created.id)
-    return createAlexaResponse(`Liste ${sanitizeForSpeech(created.name)} ist angelegt und aktiv.`)
+    try {
+      const created = await createShoppingListForHousehold(link.user_id, link.household_id, requestedName)
+      await setActiveAlexaShoppingList(alexaUserId, created.id)
+      return createAlexaResponse(`Liste ${sanitizeForSpeech(created.name)} ist angelegt und aktiv.`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Die Liste konnte nicht erstellt werden.'
+      return createAlexaResponse(message)
+    }
   }
 
   if (intentName === 'AddItemsIntent') {
@@ -183,7 +195,7 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
       return createAlexaResponse('Ich konnte keine Produkte zum Entfernen erkennen.')
     }
 
-    const result = await removeProductsFromList(link.shopping_list_id, parsed)
+    const result = await removeProductsFromList(link.shopping_list_id, parsed, link.user_id)
 
     if (result.removedCount === 0) {
       return createAlexaResponse('Ich habe keine passenden Produkte auf deiner Liste gefunden.')
@@ -206,7 +218,7 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
       return createAlexaResponse('Ich brauche eine konkrete Menge, zum Beispiel 2 Liter Milch.')
     }
 
-    const result = await setQuantitiesOnList(link.shopping_list_id, parsedWithQuantity)
+    const result = await setQuantitiesOnList(link.shopping_list_id, parsedWithQuantity, link.user_id)
     return createAlexaResponse(`Erledigt. ${result.changedCount} Mengen wurden aktualisiert.`)
   }
 
@@ -215,7 +227,26 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
 
 export async function POST(request: NextRequest) {
   try {
+    const tooLarge = enforceContentLength(
+      request,
+      MAX_ALEXA_REQUEST_BYTES,
+      'Alexa-Request ist zu gross.'
+    )
+    if (tooLarge) {
+      return NextResponse.json(
+        createAlexaResponse('Request ist zu gross.', { shouldEndSession: true }),
+        { status: 200 }
+      )
+    }
+
     const rawBody = await request.text()
+    const rawBodyBytes = new TextEncoder().encode(rawBody).length
+    if (rawBodyBytes > MAX_ALEXA_REQUEST_BYTES) {
+      return NextResponse.json(
+        createAlexaResponse('Request ist zu gross.', { shouldEndSession: true }),
+        { status: 200 }
+      )
+    }
 
     let envelope: AlexaRequestEnvelope
     try {
@@ -224,24 +255,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(createAlexaResponse('Systemfehler: Ungültiges JSON format.'), { status: 200 })
     }
 
-    // WARN: Verification disabled for debugging
-    const shouldVerifySignature = false 
-    
-    logger.debug('[alexa] incoming request', { verifySignature: shouldVerifySignature })
-    logger.debug('[alexa] headers', { headers: Object.fromEntries(request.headers.entries()) })
-    logger.debug('[alexa] body', { body: rawBody })
+    const shouldVerifySignature = isSignatureVerificationEnabled()
+    logger.debug('[alexa] incoming request', {
+      requestType: envelope.request.type,
+      requestId: envelope.request.requestId,
+      verifySignature: shouldVerifySignature,
+      hasSignatureHeaders:
+        Boolean(request.headers.get('signaturecertchainurl')) &&
+        Boolean(request.headers.get('signature-256')),
+    })
 
     if (shouldVerifySignature) {
-      await verifyAlexaRequest(rawBody, request.headers, envelope.request.timestamp)
+      try {
+        await verifyAlexaRequest(rawBody, request.headers, envelope.request.timestamp)
+      } catch (verificationError) {
+        logger.warn('[alexa] signature verification failed', {
+          message: verificationError instanceof Error ? verificationError.message : String(verificationError),
+        })
+        return NextResponse.json(
+          createAlexaResponse('Signaturpruefung fehlgeschlagen.', { shouldEndSession: true }),
+          { status: 200 }
+        )
+      }
     }
 
-    const expectedSkillId = process.env.ALEXA_SKILL_ID
+    const expectedSkillId = process.env.ALEXA_SKILL_ID?.trim()
     const incomingSkillId = getAppId(envelope)
-    
-    // Log ID mismatch but don't fail for now to debug
-    if (expectedSkillId && incomingSkillId && expectedSkillId !== incomingSkillId) {
-      logger.warn('[alexa] Skill ID mismatch', { expected: expectedSkillId, got: incomingSkillId })
-      // return NextResponse.json(createAlexaResponse('Skill-ID ist ungueltig.', { shouldEndSession: true }), { status: 200 })
+
+    if (expectedSkillId && incomingSkillId !== expectedSkillId) {
+      logger.warn('[alexa] skill ID mismatch', {
+        expectedSkillId,
+        incomingSkillId: incomingSkillId || null,
+      })
+      return NextResponse.json(
+        createAlexaResponse('Skill-ID ist ungueltig.', { shouldEndSession: true }),
+        { status: 200 }
+      )
     }
 
     const alexaUserId = getAlexaUserId(envelope)
@@ -299,9 +348,8 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     logger.error('[alexa] error', error)
-    const activeError = error instanceof Error ? error.message : 'Unbekannter Fehler'
     return NextResponse.json(
-      createAlexaResponse(`Systemfehler: ${activeError}`),
+      createAlexaResponse('Systemfehler. Bitte versuche es spaeter erneut.'),
       { status: 200 }
     )
   }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Loader2, Plus, Trash2, Save } from "lucide-react"
@@ -10,7 +10,6 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import {
   Card,
   CardContent,
@@ -40,12 +39,12 @@ const budgetSchema = z.object({
 type BudgetFormData = z.infer<typeof budgetSchema>
 
 export function BudgetSettings() {
-  const { currentHousehold, isAdmin } = useHousehold()
+  const { currentHousehold } = useHousehold()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
   const form = useForm<BudgetFormData>({
-    resolver: zodResolver(budgetSchema) as any,
+    resolver: zodResolver(budgetSchema) as Resolver<BudgetFormData>,
     defaultValues: {
       period_type: "monthly",
       total_amount: 0,
@@ -68,7 +67,7 @@ export function BudgetSettings() {
           form.reset({
             period_type: budget.period_type as "monthly" | "weekly",
             total_amount: budget.total_amount_cents / 100,
-            categories: budget.category_budgets.map((cb: any) => ({
+            categories: budget.category_budgets.map((cb: { category: string; amount_cents: number }) => ({
               category: cb.category,
               amount: cb.amount_cents / 100
             }))
@@ -85,7 +84,7 @@ export function BudgetSettings() {
     loadBudget()
   }, [currentHousehold, form])
 
-  const onSubmit: import("react-hook-form").SubmitHandler<BudgetFormData> = async (data) => {
+  const onSubmit = async (data: BudgetFormData) => {
     if (!currentHousehold) return
     setIsSaving(true)
 
@@ -99,9 +98,9 @@ export function BudgetSettings() {
         }))
       })
       toast.success("Budget Einstellungen gespeichert")
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error("Fehler beim Speichern", {
-        description: error.message
+        description: error instanceof Error ? error.message : "Unbekannter Fehler"
       })
     } finally {
       setIsSaving(false)

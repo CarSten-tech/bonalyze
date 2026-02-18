@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Loader2, ArrowLeft, History, FileX } from 'lucide-react'
+import { Loader2, ArrowLeft, FileX } from 'lucide-react'
 
 import { useHousehold } from '@/contexts/household-context'
 import { useSettlementHistory } from '@/hooks/use-settlement-history'

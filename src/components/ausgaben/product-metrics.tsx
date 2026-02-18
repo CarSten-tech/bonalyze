@@ -1,12 +1,11 @@
 'use client'
 
 import { 
-  Store, ShoppingCart, TrendingDown, Tag, Coins 
+  ShoppingCart, TrendingDown, Coins 
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProductAnalyticsData } from '@/hooks/use-product-analytics'
 import { formatCurrency } from '@/components/common/currency'
-import { cn } from '@/lib/utils'
 
 interface ProductMetricsProps {
   data: ProductAnalyticsData

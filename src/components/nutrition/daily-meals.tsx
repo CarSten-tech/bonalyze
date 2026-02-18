@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 
 import Link from 'next/link'
 import { Coffee, Utensils, Moon, Cookie, Plus, Trash2, ChevronDown } from 'lucide-react'

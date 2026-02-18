@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Trash2, AlertTriangle, GripVertical, Shield, ShieldAlert, Calendar } from 'lucide-react'
+import { Trash2, AlertTriangle, GripVertical, Shield, Calendar } from 'lucide-react'
 import { addYears } from 'date-fns'
 
 import { cn } from '@/lib/utils'
@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
 import {
   Tooltip,
   TooltipContent,

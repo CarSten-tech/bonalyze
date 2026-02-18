@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Save, User, Mail, Bell, Link2 } from 'lucide-react'
+import { Loader2, User, Bell, Link2 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -43,7 +43,6 @@ export default function ProfileSettingsPage() {
 
   // Alexa State
   const [linkCode, setLinkCode] = useState<string | null>(null)
-  const [linkCodeExpiresAt, setLinkCodeExpiresAt] = useState<string | null>(null)
   const [isGeneratingCode, setIsGeneratingCode] = useState(false)
   const [isLinked, setIsLinked] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
@@ -155,7 +154,6 @@ export default function ProfileSettingsPage() {
         return
       }
       setLinkCode(data.code)
-      setLinkCodeExpiresAt(data.expiresAt)
     } catch {
       setLinkError('Fehler beim Erstellen')
     } finally {
@@ -290,7 +288,7 @@ export default function ProfileSettingsPage() {
               <div className="rounded-md bg-muted p-3 mt-2">
                 <p className="text-2xl font-bold tracking-widest text-center">{linkCode}</p>
                 <p className="text-xs text-center text-muted-foreground mt-1">
-                  Sage: "Alexa, verknuepfen mit Code {linkCode}"
+                  Sage: &quot;Alexa, verknuepfen mit Code {linkCode}&quot;
                 </p>
               </div>
             )}

@@ -94,3 +94,16 @@ export const notificationIdSchema = uuidSchema
 export const shoppingListIdSchema = uuidSchema
 
 export const searchQuerySchema = z.string().max(200).optional()
+
+// ============================================================================
+// Validation Helpers
+// ============================================================================
+
+export function getZodIssueMessage(error: z.ZodError, fallback = 'Ungueltige Eingabedaten.'): string {
+  return error.issues[0]?.message || fallback
+}
+
+export function formatValidationMessage(error: z.ZodError, prefix = 'Ungueltige Eingabe'): string {
+  const issue = getZodIssueMessage(error)
+  return `${prefix}: ${issue}`
+}

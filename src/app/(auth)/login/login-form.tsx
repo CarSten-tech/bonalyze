@@ -74,7 +74,7 @@ export function LoginForm() {
     if (authData.session) {
       toast.success('Erfolgreich angemeldet')
       // Hard redirect to ensure cookies are properly set
-      window.location.href = redirectTo
+      window.location.assign(redirectTo)
     } else {
       toast.error('Anmeldung fehlgeschlagen', {
         description: 'Bitte versuche es erneut.',
@@ -125,7 +125,7 @@ export function LoginForm() {
     })
 
     // Redirect to verify page
-    window.location.href = `/verify?email=${encodeURIComponent(email)}`
+    window.location.assign(`/verify?email=${encodeURIComponent(email)}`)
   }
 
   return (

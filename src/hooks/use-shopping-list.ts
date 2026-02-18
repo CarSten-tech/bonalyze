@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 
 import { useShoppingLists } from './shopping-list/use-lists'
 import { useShoppingItems, type ShoppingListItem } from './shopping-list/use-items'
@@ -20,12 +20,7 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
   // 2. Selection State
   const [currentListId, setCurrentListId] = useState<string | null>(null)
 
-  // Auto-select first list if none selected
-  useEffect(() => {
-    if (!currentListId && lists.length > 0) {
-      setCurrentListId(lists[0].id)
-    }
-  }, [lists, currentListId])
+  const effectiveCurrentListId = currentListId ?? lists[0]?.id ?? null
 
   // 3. Items
   const { 
@@ -35,13 +30,13 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     updateItem: updateItemMutation, 
     deleteItem: deleteItemMutation,
     moveItem: moveItemMutation
-  } = useShoppingItems(currentListId)
+  } = useShoppingItems(effectiveCurrentListId)
 
   // 4. Prices
   const { productPrices } = useProductPrices(householdId)
 
   // 5. Realtime Sync
-  useShoppingListRealtime(householdId, currentListId)
+  useShoppingListRealtime(householdId, effectiveCurrentListId)
 
   // Derived State
   const uncheckedItems = useMemo(() => 
@@ -92,12 +87,11 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
   }
 
   // State for internal selection
-  const isSelectingList = !isLoadingLists && lists.length > 0 && !currentListId
-  const isLoading = isLoadingLists || isSelectingList || (!!currentListId && isLoadingItems)
+  const isLoading = isLoadingLists || (!!effectiveCurrentListId && isLoadingItems)
 
   const currentList = useMemo(() => 
-    lists.find(l => l.id === currentListId) || null,
-  [lists, currentListId])
+    lists.find(l => l.id === effectiveCurrentListId) || null,
+  [lists, effectiveCurrentListId])
 
   const updateItem = async (id: string, updates: Partial<ShoppingListItem>) => {
       await updateItemMutation.mutateAsync({ id, updates })
@@ -107,7 +101,7 @@ export function useShoppingList({ householdId }: UseShoppingListProps) {
     // Data
     lists,
     currentList, // Added
-    currentListId, // Kept for internal use if needed
+    currentListId: effectiveCurrentListId,
     items,
     checkedItems,
     uncheckedItems,

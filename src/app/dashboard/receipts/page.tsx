@@ -148,15 +148,19 @@ export default function ReceiptsPage() {
   }, [currentHousehold, supabase, merchantFilter, memberFilter, timeFilter])
 
   useEffect(() => {
-    if (currentHousehold) {
-      loadFilterOptions()
-    }
+    if (!currentHousehold) return
+    const timeoutId = window.setTimeout(() => {
+      void loadFilterOptions()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [currentHousehold, loadFilterOptions])
 
   useEffect(() => {
-    if (currentHousehold) {
-      loadReceipts()
-    }
+    if (!currentHousehold) return
+    const timeoutId = window.setTimeout(() => {
+      void loadReceipts()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [currentHousehold, loadReceipts])
 
   const hasActiveFilters = merchantFilter !== 'all' || memberFilter !== 'all' || timeFilter !== 'all'

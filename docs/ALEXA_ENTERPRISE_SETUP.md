@@ -9,7 +9,7 @@ Diese Anleitung richtet den eigenen Alexa Skill gegen eure App ein.
 
 2. Umgebungsvariablen setzen:
 - `ALEXA_SKILL_ID=amzn1.ask.skill.<deine-skill-id>`
-- `ALEXA_VERIFY_SIGNATURE=true`
+- `ALEXA_VERIFY_SIGNATURE=true` (Standard ist Verifikation aktiv; nur fuer lokale Debug-Zwecke auf `false` setzen)
 - `ALEXA_LINK_CODE_SALT=<lange-zufaellige-secret-zeichenfolge>`
 
 3. Endpoint deployen:

@@ -181,7 +181,7 @@ export default function DashboardPage() {
     !isLoading && data && data.current.receiptCount === 0 && hasAnyReceipts
 
   // Generate insights based on real data
-  const insights = useMemo(() => {
+  const insights = (() => {
     if (!data || data.current.receiptCount === 0) return []
 
     const insightsList = []
@@ -219,12 +219,11 @@ export default function DashboardPage() {
     }
 
     return insightsList
-  }, [data])
+  })()
 
   // Use real data from analytics hook
   const totalSpent = data?.current.totalSpent ?? 0
   const trend = data?.comparison.totalSpentChange ?? null
-  const receiptCount = data?.current.receiptCount ?? 0
 
   return (
     <div className="space-y-5 pb-6">

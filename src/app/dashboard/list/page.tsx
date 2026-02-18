@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { ShoppingCart, LayoutGrid, List, Layers, AlignJustify } from "lucide-react"
+import { ShoppingCart, LayoutGrid, List, Layers } from "lucide-react"
 import { 
   AddItemInput, 
   ItemTileGrid, 
@@ -39,27 +39,22 @@ const STORAGE_KEY_LIST = "shopping-list-current"
 
 export default function ShoppingListPage() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
-  const [isCategorized, setIsCategorized] = useState(true)
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "grid"
+    const savedView = localStorage.getItem(STORAGE_KEY_VIEW)
+    return savedView === "list" ? "list" : "grid"
+  })
+  const [isCategorized, setIsCategorized] = useState(() => {
+    if (typeof window === "undefined") return true
+    const savedGrouping = localStorage.getItem(STORAGE_KEY_GROUPING)
+    return savedGrouping !== null ? savedGrouping === "true" : true
+  })
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({})
   
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   const supabase = createClient()
-
-  // Load view preferences from localStorage
-  useEffect(() => {
-    const savedView = localStorage.getItem(STORAGE_KEY_VIEW) as ViewMode | null
-    if (savedView === "grid" || savedView === "list") {
-      setViewMode(savedView)
-    }
-    
-    const savedGrouping = localStorage.getItem(STORAGE_KEY_GROUPING)
-    if (savedGrouping !== null) {
-      setIsCategorized(savedGrouping === "true")
-    }
-  }, [])
 
   // Save view preference to localStorage
   const handleViewChange = (mode: ViewMode) => {
@@ -453,7 +448,7 @@ export default function ShoppingListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Produkt existiert bereits</AlertDialogTitle>
             <AlertDialogDescription>
-              "{duplicateWarning?.matchName}" steht schon auf der Liste. Möchtest du "{duplicateWarning?.originalName}" trotzdem hinzufügen?
+              &quot;{duplicateWarning?.matchName}&quot; steht schon auf der Liste. Möchtest du &quot;{duplicateWarning?.originalName}&quot; trotzdem hinzufügen?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,18 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, TrendingUp, Wallet, CheckCircle2 } from "lucide-react"
+import { AlertTriangle, Wallet } from "lucide-react"
 import { format, differenceInDays } from "date-fns"
 import { de } from "date-fns/locale"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getBudgetStatus } from "@/app/actions/budget"
-import { useHousehold } from "@/contexts/household-context"
-import { formatCurrency } from "@/components/common/currency"
 import { cn } from "@/lib/utils"
 
 export interface BudgetStatus {
@@ -80,8 +75,6 @@ export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetPr
   
   // Calculate Daily Budget (Left / Days Remaining)
   const today = new Date()
-  const daysInPeriod = differenceInDays(period.end, period.start) + 1
-  const daysPassed = Math.max(0, differenceInDays(today, period.start))
   const daysRemaining = Math.max(1, differenceInDays(period.end, today) + 1) // +1 because today counts
   
   const dailyBudgetLeft = Math.max(0, remainingAmount / daysRemaining)

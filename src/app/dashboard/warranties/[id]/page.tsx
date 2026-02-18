@@ -3,13 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Download, Share2, Shield, Calendar, Receipt } from 'lucide-react'
-import { format, differenceInMonths, differenceInDays, parseISO } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { format, differenceInDays, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 

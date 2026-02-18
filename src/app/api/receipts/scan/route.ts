@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createServerClient } from '@/lib/supabase-server'
 import { ReceiptAIResponseSchema } from '@/types/receipt-ai'
 import { logger } from '@/lib/logger'
+import { sendOperationalAlert } from '@/lib/alerting'
+import {
+  enforceContentLength,
+  mbToBytes,
+  requireAuthenticatedUser,
+  requireHouseholdMembership,
+  uuidParamSchema,
+} from '@/lib/api-guards'
+import { getRouteLogMeta, resolveCorrelationId, withCorrelationId } from '@/lib/request-tracing'
+import { trackAiQualityMetric } from '@/lib/ai-quality-metrics'
 
 const RECEIPT_PROMPT = `
 ROLE:
@@ -95,36 +104,62 @@ CATEGORIES (Nutze nur diese):
 WICHTIG: Antworte NUR mit dem JSON. Kein Markdown, kein Text.
 `;
 
+const MAX_RECEIPT_SCAN_PAYLOAD_BYTES = mbToBytes(12)
+const MAX_RECEIPT_IMAGE_BYTES = mbToBytes(10)
+const ALLOWED_RECEIPT_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+])
+
 export async function POST(request: NextRequest) {
+  const correlationId = resolveCorrelationId(request.headers)
+  const route = 'api/receipts/scan'
+  const logMeta = getRouteLogMeta(route, correlationId)
+  const respond = (body: unknown, init?: ResponseInit) =>
+    withCorrelationId(NextResponse.json(body, init), correlationId)
   const debug: Record<string, unknown> = { timestamp: new Date().toISOString() }
 
   try {
+    const tooLarge = enforceContentLength(
+      request,
+      MAX_RECEIPT_SCAN_PAYLOAD_BYTES,
+      'Upload ist zu gross.'
+    )
+    if (tooLarge) {
+      return respond(
+        { success: false, error: 'PAYLOAD_TOO_LARGE', message: 'Upload ist zu gross.' },
+        { status: 413 }
+      )
+    }
+
     // Check for Gemini API key
     const geminiApiKey = process.env.GEMINI_API_KEY
     debug.hasGeminiKey = !!geminiApiKey
     if (!geminiApiKey) {
-      return NextResponse.json(
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: 'Gemini API key missing for receipts scan',
+        correlationId,
+      })
+      return respond(
         { success: false, error: 'MISSING_API_KEY', message: 'Gemini API key nicht konfiguriert', debug },
         { status: 500 }
       )
     }
 
-    // Get authenticated user
-    const supabase = await createServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    debug.userId = user?.id || null
-    debug.authError = authError?.message || null
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'UNAUTHORIZED', message: 'Nicht eingeloggt', debug },
+    const auth = await requireAuthenticatedUser('receipts/scan')
+    if (!auth.ok) {
+      return respond(
+        { success: false, error: 'UNAUTHORIZED', message: 'Nicht eingeloggt' },
         { status: 401 }
       )
     }
+    const { supabase, userId } = auth.context
+    debug.userId = userId
 
     // Parse form data
     const formData = await request.formData()
@@ -138,41 +173,61 @@ export async function POST(request: NextRequest) {
     debug.householdId = householdId
 
     if (!image) {
-      return NextResponse.json(
+      return respond(
         { success: false, error: 'NO_IMAGE', message: 'Kein Bild hochgeladen', debug },
         { status: 400 }
       )
     }
 
     if (!householdId) {
-      return NextResponse.json(
+      return respond(
         { success: false, error: 'NO_HOUSEHOLD', message: 'Kein Haushalt angegeben', debug },
         { status: 400 }
       )
     }
 
+    const parsedHouseholdId = uuidParamSchema.safeParse(householdId)
+    if (!parsedHouseholdId.success) {
+      return respond(
+        { success: false, error: 'INVALID_HOUSEHOLD', message: 'Ungueltige Household-ID', debug },
+        { status: 400 }
+      )
+    }
+    const normalizedHouseholdId = parsedHouseholdId.data
+
+    if (image.size > MAX_RECEIPT_IMAGE_BYTES) {
+      return respond(
+        { success: false, error: 'IMAGE_TOO_LARGE', message: 'Bild ist zu gross (max. 10 MB).', debug },
+        { status: 413 }
+      )
+    }
+
+    const requestedMimeType = (image.type || 'image/jpeg').toLowerCase()
+    if (!ALLOWED_RECEIPT_IMAGE_MIME_TYPES.has(requestedMimeType)) {
+      return respond(
+        { success: false, error: 'INVALID_IMAGE_TYPE', message: 'Nicht unterstuetztes Bildformat.', debug },
+        { status: 400 }
+      )
+    }
+
     // Verify user is member of household
-    const { data: membership, error: membershipError } = await supabase
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', user.id)
-      .single()
-
-    debug.hasMembership = !!membership
-    debug.membershipError = membershipError?.message || null
-
-    if (!membership) {
-      return NextResponse.json(
+    const membershipResponse = await requireHouseholdMembership(
+      supabase,
+      userId,
+      normalizedHouseholdId,
+      'receipts/scan'
+    )
+    if (membershipResponse) {
+      return respond(
         { success: false, error: 'NOT_MEMBER', message: 'Kein Zugriff auf diesen Haushalt', debug },
-        { status: 403 }
+        { status: membershipResponse.status }
       )
     }
 
     // Upload image to Supabase Storage
-    const mimeType = image.type || 'image/jpeg'
+    const mimeType = requestedMimeType
     const extension = mimeType.split('/')[1]?.replace('heif', 'heic') || 'jpg'
-    const fileName = `${householdId}/${Date.now()}-receipt.${extension}`
+    const fileName = `${normalizedHouseholdId}/${Date.now()}-receipt.${extension}`
     debug.fileName = fileName
     debug.mimeType = mimeType
     debug.extension = extension
@@ -181,7 +236,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
     debug.bufferSize = buffer.length
 
-    logger.debug('[receipts/scan] Before upload', debug)
+    logger.debug('[receipts/scan] Before upload', { ...debug, ...logMeta })
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('receipts')
@@ -194,11 +249,21 @@ export async function POST(request: NextRequest) {
     debug.uploadError = uploadError ? { message: uploadError.message, name: uploadError.name, cause: uploadError.cause } : null
     debug.uploadPath = uploadData?.path || null
 
-    logger.debug('[receipts/scan] After upload', { uploadSuccess: debug.uploadSuccess, uploadError: debug.uploadError })
+    logger.debug('[receipts/scan] After upload', {
+      uploadSuccess: debug.uploadSuccess,
+      uploadError: debug.uploadError,
+      ...logMeta,
+    })
 
     if (uploadError) {
-      logger.error('[receipts/scan] Upload error', uploadError)
-      return NextResponse.json(
+      logger.error('[receipts/scan] Upload error', uploadError, logMeta)
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: 'Receipt image upload failed',
+        correlationId,
+      })
+      return respond(
         { success: false, error: 'UPLOAD_FAILED', message: 'Bild konnte nicht hochgeladen werden', debug },
         { status: 500 }
       )
@@ -210,7 +275,13 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(uploadData.path, 3600)
 
     if (!signedUrlData?.signedUrl) {
-      return NextResponse.json(
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: 'Signed URL creation failed for receipt scan',
+        correlationId,
+      })
+      return respond(
         { success: false, error: 'URL_FAILED', message: 'Konnte keine URL für das Bild erstellen' },
         { status: 500 }
       )
@@ -248,7 +319,7 @@ export async function POST(request: NextRequest) {
       const parsed = JSON.parse(jsonText)
       aiResult = ReceiptAIResponseSchema.parse(parsed)
     } catch (parseError) {
-      logger.error('[receipts/scan] AI Parse error', parseError, { rawResponse: responseText })
+      logger.error('[receipts/scan] AI Parse error', parseError, { rawResponse: responseText, ...logMeta })
       
       const debugInfo = {
          error: parseError instanceof Error ? parseError.message : String(parseError),
@@ -256,7 +327,7 @@ export async function POST(request: NextRequest) {
          parsedJson: jsonText
       }
       
-      return NextResponse.json(
+      return respond(
         {
           success: false,
           error: 'PARSE_FAILED',
@@ -269,7 +340,7 @@ export async function POST(request: NextRequest) {
 
     // Check if it looks like a receipt
     if (!aiResult.items || aiResult.items.length === 0) {
-      return NextResponse.json(
+      return respond(
         {
           success: false,
           error: 'NO_RECEIPT_DETECTED',
@@ -298,7 +369,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    await trackAiQualityMetric({
+      metricType: 'receipt_scan',
+      householdId: normalizedHouseholdId,
+      userId,
+      confidence: typeof aiResult.meta?.confidence === 'number' ? aiResult.meta.confidence : null,
+      model: 'gemini-2.5-flash-lite',
+      metadata: {
+        itemCount: aiResult.items.length,
+        merchant: aiResult.merchant,
+        healthScoreImpact: aiResult.meta?.health_score_impact ?? null,
+      },
+    })
+
+    return respond({
       success: true,
       data: {
         image_path: uploadData.path,
@@ -307,11 +391,17 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    logger.error('[receipts/scan] Scan error', error)
+    logger.error('[receipts/scan] Scan error', error, logMeta)
+    await sendOperationalAlert({
+      route,
+      severity: 'critical',
+      message: 'Unhandled receipts scan failure',
+      correlationId,
+    })
     const errorInfo = error instanceof Error
       ? { message: error.message, name: error.name, stack: error.stack?.split('\n').slice(0, 5) }
       : { raw: String(error) }
-    return NextResponse.json(
+    return respond(
       {
         success: false,
         error: 'SERVER_ERROR',

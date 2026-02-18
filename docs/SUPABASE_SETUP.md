@@ -15,18 +15,27 @@ Your Supabase database is ready with:
 ## 📁 Files Created
 
 ```
-types/
-  └── database.types.ts         # TypeScript types for all tables
+src/types/
+  └── database.types.ts             # TypeScript types for all tables
 
 src/lib/
-  ├── supabase.ts               # Client-side Supabase client
-  └── supabase-server.ts        # Server-side Supabase client
+  ├── supabase.ts                   # Client-side Supabase client
+  └── supabase-server.ts            # Server-side Supabase client
 
-migrations/
-  ├── 001_initial_schema.sql    # Database schema
-  ├── 002_rls_policies.sql      # Security policies
-  └── 003_seed_data.sql         # Seed data (5 merchants, 20 products)
+supabase/migrations/                # OFFICIAL migration path
+  ├── 2026..._*.sql                 # Versioned SQL migrations
+  └── ...
+
+migrations/                         # Legacy reference only (do not add new files)
 ```
+
+---
+
+## 📌 Migration Standard (Important)
+
+- Official path: `supabase/migrations/`
+- Legacy path: `migrations/` (reference only)
+- New schema changes must always be added under `supabase/migrations/`.
 
 ---
 

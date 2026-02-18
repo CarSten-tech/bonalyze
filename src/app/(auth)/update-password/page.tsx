@@ -71,7 +71,7 @@ export default function UpdatePasswordPage() {
     })
 
     // Redirect to dashboard after password update
-    window.location.href = '/dashboard'
+    window.location.assign('/dashboard')
   }
 
   return (

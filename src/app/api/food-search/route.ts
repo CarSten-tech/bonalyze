@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { circuitBreaker, CIRCUITS } from '@/lib/circuit-breaker'
 import { serverCache, createCacheKey } from '@/lib/cache'
 import { logger } from '@/lib/logger'
+import { createApiErrorResponse, requireAuthenticatedUser } from '@/lib/api-guards'
 
 export interface OpenFoodFactsProduct {
   code: string
@@ -38,6 +40,10 @@ interface TransformedProduct {
 /** Timeout for Open Food Facts API requests in ms */
 const API_TIMEOUT_MS = 20000 // Increased for slower connections
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+const foodSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(120).optional(),
+  page: z.coerce.number().int().min(1).max(50).default(1),
+})
 
 /**
  * Creates an AbortController with timeout
@@ -109,9 +115,24 @@ async function fetchFromOpenFoodFacts(query: string, page: string): Promise<Tran
  * GET /api/food-search?q=<query>&page=<page>
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuthenticatedUser('food-search')
+  if (!auth.ok) return auth.response
+
   const searchParams = request.nextUrl.searchParams
-  const query = searchParams.get('q')
-  const page = searchParams.get('page') || '1'
+  const parsedQuery = foodSearchQuerySchema.safeParse({
+    q: searchParams.get('q') ?? undefined,
+    page: searchParams.get('page') ?? '1',
+  })
+  if (!parsedQuery.success) {
+    return createApiErrorResponse(
+      'INVALID_QUERY',
+      parsedQuery.error.issues[0]?.message || 'Ungueltige Query-Parameter',
+      400
+    )
+  }
+
+  const query = parsedQuery.data.q
+  const page = String(parsedQuery.data.page)
 
   if (!query || query.length < 2) {
     return NextResponse.json({ products: [], fromCache: false, circuitOpen: false })
@@ -120,7 +141,7 @@ export async function GET(request: NextRequest) {
   const cacheKey = createCacheKey('off-search', query.toLowerCase(), page)
 
   // Check cache first
-  const cached = serverCache.get<TransformedProduct[]>(cacheKey)
+  const cached = await serverCache.get<TransformedProduct[]>(cacheKey)
   if (cached) {
     return NextResponse.json({ products: cached, count: cached.length, fromCache: true, circuitOpen: false })
   }
@@ -135,7 +156,7 @@ export async function GET(request: NextRequest) {
 
     // Cache successful results
     if (products.length > 0) {
-      serverCache.set(cacheKey, products, CACHE_TTL_MS)
+      await serverCache.set(cacheKey, products, CACHE_TTL_MS)
     }
 
     const stats = circuitBreaker.getStats(CIRCUITS.OPEN_FOOD_FACTS)
@@ -148,11 +169,13 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error('[food-search] Circuit breaker error', error)
-    return NextResponse.json({ 
-      products: [], 
-      fromCache: false, 
+    return NextResponse.json({
+      success: false,
+      error: 'SERVICE_UNAVAILABLE',
+      message: 'Service temporarily unavailable',
+      products: [],
+      fromCache: false,
       circuitOpen: true,
-      error: 'Service temporarily unavailable'
     })
   }
 }

@@ -1,11 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { X, Loader2, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 
 interface BarcodeScannerProps {
   onScan: (decodedText: string) => void
@@ -17,6 +15,31 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const cleanupScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop()
+        }
+        scannerRef.current.clear()
+      } catch (err) {
+        console.error('Failed to clear scanner', err)
+      }
+      scannerRef.current = null
+    }
+  }, [])
+
+  const handleScanSuccess = useCallback(
+    (decodedText: string) => {
+      if (navigator.vibrate) {
+        navigator.vibrate(200)
+      }
+      cleanupScanner()
+      onScan(decodedText)
+    },
+    [cleanupScanner, onScan]
+  )
 
   useEffect(() => {
     if (!isOpen) {
@@ -72,34 +95,7 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
     return () => {
       cleanupScanner()
     }
-  }, [isOpen])
-
-  const cleanupScanner = async () => {
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop()
-        }
-        scannerRef.current.clear()
-      } catch (err) {
-        console.error('Failed to clear scanner', err)
-      }
-      scannerRef.current = null
-    }
-  }
-
-  const handleScanSuccess = (decodedText: string) => {
-    // Haptic feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(200)
-    }
-    
-    // Stop scanning and cleanup
-    cleanupScanner()
-    
-    // Notify parent
-    onScan(decodedText)
-  }
+  }, [cleanupScanner, handleScanSuccess, isOpen])
 
   if (!isOpen) return null
 

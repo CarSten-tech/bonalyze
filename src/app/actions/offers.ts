@@ -3,6 +3,7 @@
 import { createServerClient as createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { logger } from '@/lib/logger'
+import { trackAiQualityMetric } from '@/lib/ai-quality-metrics'
 
 export interface Offer {
   id: string
@@ -34,9 +35,7 @@ interface OfferOptions {
   stores: string[]
 }
 
-
-/** Maps a raw DB offer row to the typed Offer interface */
-function mapOffer(o: {
+interface OfferRow {
   id: string
   product_name: string
   price: number
@@ -54,7 +53,15 @@ function mapOffer(o: {
   currency: string | null
   offer_id: string | null
   scraped_at: string
-}): Offer {
+}
+
+interface SemanticOfferRow extends OfferRow {
+  similarity?: number | null
+}
+
+
+/** Maps a raw DB offer row to the typed Offer interface */
+function mapOffer(o: OfferRow): Offer {
   return {
     id: o.id,
     product_name: o.product_name,
@@ -116,7 +123,7 @@ export async function getOffers(
   }
 
   return {
-    offers: (data || []).map(mapOffer),
+    offers: ((data || []) as OfferRow[]).map(mapOffer),
     total: count ?? 0,
   }
 }
@@ -178,14 +185,20 @@ export async function getOfferMatches(
 
   if (!items || items.length === 0) return []
 
-// 2. Use the semantic matching RPC to find relevant offers
-  // This RPC looks at the household's top products and finds offers with similar embeddings
-  // We use the authenticated client or admin client - RPC is SECURITY DEFINER so it works either way
-  // but we already verified household membership above.
-  
+  // Build a small stats summary for better UX labels.
+  const productCounts = new Map<string, number>()
+  for (const item of items) {
+    const key = item.product_name?.trim()
+    if (!key) continue
+    productCounts.set(key, (productCounts.get(key) || 0) + 1)
+  }
+  const [topProductName = 'Dein Einkaufsprofil', topProductCount = 0] =
+    [...productCounts.entries()].sort((a, b) => b[1] - a[1])[0] || []
+
+  // 2. Use semantic matching RPC to find relevant offers.
   const { data, error } = await supabase.rpc('get_semantic_matches', {
     p_household_id: householdId,
-    p_threshold: 0.60, // Good balance for recall
+    p_threshold: 0.60,
     p_limit: limit
   })
   
@@ -193,48 +206,40 @@ export async function getOfferMatches(
     logger.error('Error fetching semantic match offers', error)
     return []
   }
-  
-  // Group results by input product for the UI structure
-  // The RPC returns a flat list of offers. The UI expects OfferMatch objects which group by "product_name".
-  // Since semantic matching is fuzzy, we can't easily group by "original product".
-  // FOR NOW: We will map the flat offers to a structure that fits OfferMatch, 
-  // maybe grouping by category or just returning them as a single "Recommended" block?
-  // 
-  // The current UI in insights/page.tsx iterates over OfferMatch[] and shows "Because you bought {product_name}".
-  // The RPC returns distinct offers.
-  // 
-  // To verify: The RPC uses "top purchased products" internally to find matches.
-  // Ideally the RPC would return "matched_source_product" so we can group.
-  // 
-  // Let's look at the RPC again. It returns `DISTINCT ON (o.id)`. It doesn't return which product it matched.
-  // 
-  // If we want to keep the "Because you bought X" UI, we might need to change the RPC or the strategy.
-  // 
-  // Alternative: The user just said "Refactor getOfferMatches... to use get_semantic_matches".
-  // If the UI expects `OfferMatch` (product_name, count, offers[]), 
-  // and our RPC just gives flat offers...
-  // 
-  // We can change the return type of `getOfferMatches`? 
-  // Let's check `src/app/dashboard/insights/page.tsx` usage.
-  // 
-  // If I change the return type heavily, I break the UI.
-  // 
-  // Let's do a trick: Group the semantic matches by their own category or name to fit the structure,
-  // OR update the RPC to return the source product name. 
-  // 
-  // Updating the RPC is providing "Enterprise Level" so let's check if we can get the source match.
-  // 
-  // Actually, the current RPC does:
-  // SELECT MAX(1 - (o.embedding <=> pe)) ... FROM unnest(v_product_embeddings)
-  // It aggregates. It doesn't tell us WHICH `pe` (product embedding) was the match.
-  // 
-  // Workaround: return a single "pseudo-match" group called "Based on your purchase history".
-  // 
-  return [{
-      product_name: "Dein Einkaufsprofil",
-      purchase_count: 99, // Dummy
-      offers: (data || []).map(mapOffer)
-  }]
+
+  const semanticRows = ((data || []) as SemanticOfferRow[])
+  const matchedOffers = semanticRows.map(mapOffer)
+  if (matchedOffers.length === 0) return []
+
+  const similarities = semanticRows
+    .map((row) => row.similarity)
+    .filter((value): value is number => typeof value === 'number')
+  const avgSimilarity =
+    similarities.length > 0
+      ? similarities.reduce((sum, value) => sum + value, 0) / similarities.length
+      : null
+
+  await trackAiQualityMetric({
+    metricType: 'offer_match',
+    householdId,
+    userId: user.id,
+    confidence: avgSimilarity,
+    matchScore: avgSimilarity,
+    model: 'text-embedding-004-768',
+    metadata: {
+      threshold: 0.6,
+      limit,
+      matchCount: matchedOffers.length,
+    },
+  })
+
+  return [
+    {
+      product_name: topProductName,
+      purchase_count: topProductCount,
+      offers: matchedOffers,
+    },
+  ]
 }
 
 // ---------- Shopping List Offer Matching ----------
@@ -301,4 +306,3 @@ export async function getShoppingListOfferMatches(
 
   return result
 }
-

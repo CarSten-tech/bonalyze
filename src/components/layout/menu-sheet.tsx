@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   LayoutGrid, 
@@ -60,7 +60,7 @@ interface MenuSheetProps {
 
 export function MenuSheet({ open, onOpenChange }: MenuSheetProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -92,7 +92,7 @@ export function MenuSheet({ open, onOpenChange }: MenuSheetProps) {
       setIsLoading(false)
     }
 
-    loadProfile()
+    void loadProfile()
   }, [supabase, router, open])
 
   const handleLogout = async () => {
@@ -109,7 +109,7 @@ export function MenuSheet({ open, onOpenChange }: MenuSheetProps) {
     }
 
     toast.success('Erfolgreich abgemeldet')
-    window.location.href = '/login'
+    router.replace('/login')
   }
 
   const handleMenuItemClick = (href: string) => {

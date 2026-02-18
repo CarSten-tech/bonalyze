@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, Search, Filter, X } from 'lucide-react'
-import { format, differenceInDays, getMonth, getYear } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { Bell, Search, X } from 'lucide-react'
+import { differenceInDays, getMonth, getYear } from 'date-fns'
 
 import { createClient } from '@/lib/supabase'
 import { useHousehold } from '@/contexts/household-context'
@@ -60,7 +59,18 @@ export default function WarrantyPage() {
       if (error) {
         console.error("Failed to fetch warranties", error)
       } else {
-        const mappedItems: WarrantyItem[] = data.map((d: any) => ({
+        type WarrantyRow = {
+          id: string
+          product_name: string
+          warranty_end_date: string
+          receipts: {
+            date: string
+            image_url: string | null
+            merchants?: { name?: string } | null
+          }
+        }
+
+        const mappedItems: WarrantyItem[] = ((data || []) as WarrantyRow[]).map((d) => ({
           id: d.id,
           product_name: d.product_name,
           warranty_end_date: d.warranty_end_date,

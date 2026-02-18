@@ -1,6 +1,6 @@
 'use client'
 
-import { Shield, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface WarrantyStatsProps {

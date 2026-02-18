@@ -12,7 +12,7 @@ const MetricValue = ({ value, className, currencyClassName }: { value: string; c
   const match = value.match(/^(.+?)\s*(EUR|€)$/)
   
   if (match) {
-    const [_, number, currency] = match
+    const [, number] = match
     return (
       <div className={cn("flex items-baseline gap-1", className)}>
         <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
@@ -175,7 +175,7 @@ export function HeroKPICard({
             </p>
             {icon && (
               <div className="p-2.5 rounded-xl bg-muted/50 text-muted-foreground">
-                {React.isValidElement(icon) ? React.cloneElement(icon, { className: "w-6 h-6" } as any) : icon}
+                {React.isValidElement<{ className?: string }>(icon) ? React.cloneElement(icon, { className: "w-6 h-6" }) : icon}
               </div>
             )}
           </div>

@@ -209,7 +209,10 @@ export default function NutritionSettingsPage() {
           <CardHeader className="pb-4">
             <CardTitle className="text-lg flex items-center gap-2">
               {member.avatarUrl ? (
-                <img src={member.avatarUrl} alt="" className="h-8 w-8 rounded-full" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={member.avatarUrl} alt="" className="h-8 w-8 rounded-full" />
+                </>
               ) : (
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                   {member.displayName.charAt(0).toUpperCase()}

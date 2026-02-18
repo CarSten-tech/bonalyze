@@ -5,6 +5,31 @@ import { getVapidPublicKey, saveSubscription, deleteSubscription } from '@/app/a
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
 
+const SW_READY_TIMEOUT_MS = 2000
+
+async function getReadyServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error('SW_TIMEOUT')), SW_READY_TIMEOUT_MS)
+    ),
+  ]).catch(() => null)
+}
+
+async function ensureServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
+  const existingRegistration = await getReadyServiceWorker()
+  if (existingRegistration) return existingRegistration
+
+  logger.debug('Service Worker not ready, attempting manual registration...')
+  try {
+    await navigator.serviceWorker.register('/sw.js')
+    return getReadyServiceWorker()
+  } catch (error) {
+    logger.error('Manual SW registration failed', error)
+    return null
+  }
+}
+
 export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [subscription, setSubscription] = useState<PushSubscription | null>(null)
@@ -18,26 +43,11 @@ export function usePushNotifications() {
 
     const checkSubscription = async () => {
       try {
-        // In dev mode, SW might not be registered. ready promise never resolves.
-        // We race a timeout to prevent infinite loading.
-        const registration = await Promise.race([
-            navigator.serviceWorker.ready,
-            new Promise<ServiceWorkerRegistration | null>((_, reject) => 
-                setTimeout(() => reject(new Error('SW_TIMEOUT')), 2000)
-            )
-        ]) .catch(err => null)
+        const registration = await ensureServiceWorkerRegistration()
 
         if (!registration) {
-             logger.debug('Service Worker not ready, attempting manual registration...')
-             try {
-                const reg = await navigator.serviceWorker.register('/sw.js')
-                await navigator.serviceWorker.ready
-                return // Retry immediately handled by react state or user click
-             } catch (err) {
-                logger.error('Manual SW registration failed', err)
-                setLoading(false)
-                return
-             }
+          setLoading(false)
+          return
         }
 
         const sub = await registration.pushManager.getSubscription()
@@ -95,34 +105,9 @@ export function usePushNotifications() {
         return
       }
 
-      let registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise<ServiceWorkerRegistration | null>((_, reject) => 
-            setTimeout(() => reject(new Error('SW_TIMEOUT')), 2000)
-        )
-      ]) .catch(err => null)
-
+      const registration = await ensureServiceWorkerRegistration()
       if (!registration) {
-         console.log('subscribeToPush: Service Worker not ready, attempting manual registration...')
-         try {
-            const reg = await navigator.serviceWorker.register('/sw.js')
-            console.log('subscribeToPush: Manual registration successful', reg)
-            
-            // Wait for it to be ready, but with another timeout
-            registration = await Promise.race([
-                navigator.serviceWorker.ready,
-                new Promise<ServiceWorkerRegistration | null>((_, reject) => 
-                    setTimeout(() => reject(new Error('SW_v2_TIMEOUT')), 2000)
-                )
-            ]) .catch(err => null)
-
-            if (!registration) {
-                 throw new Error('Service Worker konnte auch nach manuellem Versuch nicht geladen werden.')
-            }
-         } catch (err) {
-            console.error('subscribeToPush: Manual SW registration failed:', err)
-            throw new Error('Service Worker Registrierung fehlgeschlagen. Bitte Seite neu laden.')
-         }
+        throw new Error('Service Worker konnte nicht geladen werden. Bitte Seite neu laden.')
       }
 
       const vapidPublicKey = await getVapidPublicKey()
@@ -159,9 +144,9 @@ export function usePushNotifications() {
         throw new Error(result.error)
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error subscribing:', error)
-      toast.error(`Fehler beim Aktivieren: ${error.message || 'Unbekannter Fehler'}`)
+      toast.error(`Fehler beim Aktivieren: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`)
     } finally {
       setLoading(false)
     }

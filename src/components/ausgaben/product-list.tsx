@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { formatCurrency } from '@/components/common/currency'
@@ -12,6 +13,8 @@ interface ProductListProps {
 }
 
 export function ProductList({ items, isLoading }: ProductListProps) {
+  const router = useRouter()
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -36,11 +39,7 @@ export function ProductList({ items, isLoading }: ProductListProps) {
       {items.map((item) => (
         <button 
           key={item.id} 
-          onClick={() => {
-              // We need to use window location or passed router, 
-              // but cleaner is to modify component to accept onProductClick or use useRouter
-              window.location.href = `/dashboard/ausgaben/produkt/${encodeURIComponent(item.productName)}`
-          }}
+          onClick={() => router.push(`/dashboard/ausgaben/produkt/${encodeURIComponent(item.productName)}`)}
           className="w-full bg-card rounded-xl p-4 border border-border shadow-sm flex items-center justify-between hover:bg-muted transition-colors text-left"
         >
           <div className="flex items-center gap-4 overflow-hidden">

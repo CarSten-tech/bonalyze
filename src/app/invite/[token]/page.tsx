@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Home, UserPlus, XCircle, AlertTriangle, Clock, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,6 +34,7 @@ interface InviteData {
 type InviteStatus = 'loading' | 'valid' | 'expired' | 'used' | 'not_found' | 'not_logged_in' | 'already_member'
 
 export default function InvitePage() {
+  const router = useRouter()
   const params = useParams()
   const token = params.token as string
 
@@ -43,12 +44,15 @@ export default function InvitePage() {
   const [isDeclining, setIsDeclining] = useState(false)
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
+    let isActive = true
+
     const loadInvite = async () => {
       // Check if user is logged in
       const { data: { user } } = await supabase.auth.getUser()
+      if (!isActive) return
 
       if (!user) {
         // Store token in sessionStorage for after login
@@ -77,6 +81,7 @@ export default function InvitePage() {
         `)
         .eq('token', token)
         .single()
+      if (!isActive) return
 
       if (error || !inviteData) {
         setStatus('not_found')
@@ -137,7 +142,10 @@ export default function InvitePage() {
       setStatus('valid')
     }
 
-    loadInvite()
+    void loadInvite()
+    return () => {
+      isActive = false
+    }
   }, [supabase, token])
 
   const handleAccept = async () => {
@@ -164,7 +172,7 @@ export default function InvitePage() {
       // Store token and redirect to profile setup
       sessionStorage.setItem('pending_invite_token', token)
       toast.info('Bitte vervollstaendige zuerst dein Profil')
-      window.location.href = '/onboarding/profile'
+      router.replace('/onboarding/profile')
       return
     }
 
@@ -195,7 +203,7 @@ export default function InvitePage() {
     sessionStorage.removeItem('pending_invite_token')
 
     toast.success(`Willkommen bei "${invite.household.name}"!`)
-    window.location.href = '/dashboard'
+    router.replace('/dashboard')
   }
 
   const handleDecline = async () => {
@@ -205,7 +213,7 @@ export default function InvitePage() {
     sessionStorage.removeItem('pending_invite_token')
 
     toast.info('Einladung abgelehnt')
-    window.location.href = '/dashboard'
+    router.replace('/dashboard')
   }
 
   // Loading state

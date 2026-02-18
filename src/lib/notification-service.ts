@@ -2,15 +2,21 @@ import 'server-only'
 import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { logger } from '@/lib/logger'
+import { enqueueNotificationRetry } from '@/lib/notification-retry-queue'
 
 // --- Types ---
 interface PushSubscription {
   id: string
+  user_id: string
   endpoint: string
   auth_keys: {
     auth: string
     p256dh: string
   }
+}
+
+interface PushServiceError {
+  statusCode?: number
 }
 
 // --- Configuration ---
@@ -136,28 +142,39 @@ export async function notifyShoppingListUpdate(
 
   const { data: subscriptions, error: subError } = await supabase
     .from('push_subscriptions')
-    .select('id, endpoint, auth_keys')
+    .select('id, user_id, endpoint, auth_keys')
     .in('user_id', recipientIds)
 
   if (subError) logger.error('Subscription fetch error', subError)
 
   if (!subscriptions || subscriptions.length === 0) return { success: true, method: 'db-only' }
 
-  const payload = JSON.stringify({
+  const payloadBody = {
     title,
     body: message,
     icon: '/icons/icon-192.png',
     data,
-  })
+  }
+  const payload = JSON.stringify(payloadBody)
 
   const pushPromises = subscriptions.map(async (sub) => {
     try {
-      await wp.sendNotification({ endpoint: sub.endpoint, keys: sub.auth_keys as any }, payload)
-    } catch (err: any) {
-      if (err.statusCode === 410) {
+      const pushKeys = sub.auth_keys as PushSubscription['auth_keys']
+      await wp.sendNotification({ endpoint: sub.endpoint, keys: pushKeys }, payload)
+    } catch (err: unknown) {
+      if ((err as PushServiceError).statusCode === 410) {
         await supabase.from('push_subscriptions').delete().eq('id', sub.id)
       } else {
         logger.error('Push failed', err, { endpoint: sub.endpoint })
+        await enqueueNotificationRetry({
+          householdId,
+          userId: sub.user_id,
+          subscriptionId: sub.id,
+          endpoint: sub.endpoint,
+          payload: payloadBody,
+          notificationType: 'shopping_list_update',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        })
       }
     }
   })

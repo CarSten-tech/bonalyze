@@ -120,6 +120,12 @@ export function ItemTile({ item, onCheck, onUncheck, onDetailsClick, estimatedPr
             {quantityDisplay}
           </span>
         )}
+
+        {estimatedPrice !== undefined && !item.is_checked && (
+          <span className="text-[10px] text-muted-foreground tabular-nums">
+            ~{(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+          </span>
+        )}
       </button>
     </div>
   )

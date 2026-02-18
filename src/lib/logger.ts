@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { captureException } from '@/lib/monitoring'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -34,6 +35,16 @@ class Logger {
       timestamp,
       level,
       message,
+      environment:
+        process.env.SENTRY_ENVIRONMENT ||
+        process.env.VERCEL_ENV ||
+        process.env.NODE_ENV ||
+        'unknown',
+      release:
+        process.env.SENTRY_RELEASE ||
+        process.env.VERCEL_GIT_COMMIT_SHA ||
+        process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+        null,
       ...this.context,
       ...meta,
     }
@@ -73,14 +84,23 @@ class Logger {
     } : { message: String(error) }
 
     const entry = this.formatMessage('error', message, { ...meta, error: errorObj })
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.error(`[ERROR] ${message}`, error, meta || '')
     } else {
       console.error(entry)
-      // Here we would also send to Sentry
-      // Sentry.captureException(error, { extra: meta })
     }
+
+    void captureException(error ?? new Error(message), {
+      context: {
+        message,
+        ...this.context,
+        ...meta,
+      },
+      tags: {
+        level: 'error',
+      },
+    })
   }
 
   public debug(message: string, meta?: LogContext) {

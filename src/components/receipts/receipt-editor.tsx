@@ -500,21 +500,32 @@ export function ReceiptEditor({
 
       {/* Submit Button */}
       <div className="sticky bottom-4 bg-background pt-4 pb-2 -mx-4 px-4 border-t">
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="w-full"
-          size="lg"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Wird gespeichert...
-            </>
-          ) : (
-            'Kassenbon speichern'
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="w-full"
+            size="lg"
+          >
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="w-full"
+            size="lg"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Wird gespeichert...
+              </>
+            ) : (
+              'Kassenbon speichern'
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* New Merchant Dialog */}

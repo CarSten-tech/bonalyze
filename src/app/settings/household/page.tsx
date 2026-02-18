@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -74,7 +75,8 @@ const nameSchema = z.object({
 type NameFormData = z.infer<typeof nameSchema>
 
 export default function HouseholdSettingsPage() {
-  const { currentHousehold, isAdmin, refreshHouseholds } = useHousehold()
+  const router = useRouter()
+  const { currentHousehold, refreshHouseholds } = useHousehold()
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [isLoadingMembers, setIsLoadingMembers] = useState(true)
@@ -85,7 +87,7 @@ export default function HouseholdSettingsPage() {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const nameForm = useForm<NameFormData>({
     resolver: zodResolver(nameSchema),
@@ -164,11 +166,14 @@ export default function HouseholdSettingsPage() {
       setInvites(data || [])
     }
     setIsLoadingInvites(false)
-  }, [supabase, currentHousehold, isAdmin])
+  }, [supabase, currentHousehold])
 
   useEffect(() => {
-    loadMembers()
-    loadInvites()
+    const timeoutId = window.setTimeout(() => {
+      void loadMembers()
+      void loadInvites()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [loadMembers, loadInvites])
 
   const handleSaveName = async (data: NameFormData) => {
@@ -232,12 +237,14 @@ export default function HouseholdSettingsPage() {
 
   const handleResendInvite = async (inviteId: string, email: string) => {
     setActionLoading(inviteId)
+    const newExpiry = new Date()
+    newExpiry.setDate(newExpiry.getDate() + 7)
 
     // Update expires_at to extend the invite
     const { error } = await supabase
       .from('household_invites')
       .update({
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        expires_at: newExpiry.toISOString(),
       })
       .eq('id', inviteId)
 
@@ -314,7 +321,7 @@ export default function HouseholdSettingsPage() {
     }
 
     toast.success('Haushalt verlassen')
-    window.location.href = '/onboarding/household'
+    router.replace('/onboarding/household')
   }
 
   if (!currentHousehold) {

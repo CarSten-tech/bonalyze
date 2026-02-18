@@ -19,7 +19,7 @@ describe('Sync Queue', () => {
   })
 
   it('should queue an action', async () => {
-    const mockGet = vi.mocked(idb.get).mockResolvedValue([])
+    vi.mocked(idb.get).mockResolvedValue([])
     const mockSet = vi.mocked(idb.set).mockResolvedValue()
 
     await queueAction('ADD_NUTRITION_LOG', { foo: 'bar' })
@@ -35,7 +35,7 @@ describe('Sync Queue', () => {
 
   it('should process queue when online', async () => {
     const mockAction = vi.fn().mockResolvedValue({ success: true })
-    // @ts-ignore - injecting mock action
+    // @ts-expect-error - injecting mock action for runtime behavior test
     SYNC_ACTIONS['ADD_NUTRITION_LOG'] = mockAction
 
     const mockItem = {
@@ -58,16 +58,16 @@ describe('Sync Queue', () => {
 
   it('should not process queue if offline', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false })
-    const mockGet = vi.mocked(idb.get)
+    const mockedGet = vi.mocked(idb.get)
 
     await processQueue()
 
-    expect(mockGet).not.toHaveBeenCalled()
+    expect(mockedGet).not.toHaveBeenCalled()
   })
 
   it('should handle failed syncs and retry', async () => {
     const mockAction = vi.fn().mockRejectedValue(new Error('api fail'))
-    // @ts-ignore
+    // @ts-expect-error - injecting mock action for runtime behavior test
     SYNC_ACTIONS['ADD_NUTRITION_LOG'] = mockAction
 
     const mockItem = {

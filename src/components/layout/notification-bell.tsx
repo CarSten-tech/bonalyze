@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { Bell, Check, Info, Receipt, Wallet, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 
@@ -37,7 +36,6 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = React.useState(false)
   const [notifications, setNotifications] = React.useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = React.useState(0)
-  const [isLoading, setIsLoading] = React.useState(false)
 
   const fetchNotifications = React.useCallback(async () => {
     try {
@@ -55,7 +53,7 @@ export function NotificationBell() {
         setNotifications(mapped)
         setUnreadCount(mapped.filter(n => !n.is_read).length)
       }
-    } catch (error) {
+    } catch {
       // Silent fail for background fetches
     }
   }, [])

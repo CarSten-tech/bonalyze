@@ -20,6 +20,27 @@ interface CategoryChartProps {
   className?: string
 }
 
+interface CategoryTooltipProps {
+  active?: boolean
+  payload?: Array<{ payload: CategoryData }>
+}
+
+function CategoryTooltipContent({ active, payload }: CategoryTooltipProps) {
+  if (active && payload && payload.length) {
+    const entry = payload[0].payload
+    return (
+      <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium">{entry.name}</p>
+        <p className="text-muted-foreground">
+          {formatCurrency(entry.amount, { inCents: true })}
+        </p>
+        <p className="text-muted-foreground">{entry.percentage.toFixed(1)}%</p>
+      </div>
+    )
+  }
+  return null
+}
+
 /**
  * Category Donut Chart Component
  *
@@ -86,23 +107,6 @@ export function CategoryChart({
     )
   }
 
-  // Custom tooltip component
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: CategoryData }> }) => {
-    if (active && payload && payload.length) {
-      const entry = payload[0].payload
-      return (
-        <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
-          <p className="font-medium">{entry.name}</p>
-          <p className="text-muted-foreground">
-            {formatCurrency(entry.amount, { inCents: true })}
-          </p>
-          <p className="text-muted-foreground">{entry.percentage.toFixed(1)}%</p>
-        </div>
-      )
-    }
-    return null
-  }
-
   return (
     <Card className={className}>
       <CardHeader className="pb-4">
@@ -132,7 +136,7 @@ export function CategoryChart({
                   />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CategoryTooltipContent />} />
             </PieChart>
           </ResponsiveContainer>
         </div>

@@ -104,7 +104,23 @@ export function useProductAnalytics(productName: string) {
       let categoryName: string | undefined
       let categorySlug: string | undefined
 
-      items.forEach((item: any) => {
+      type ProductItemRow = {
+        price_cents: number
+        quantity: number | null
+        receipts: {
+          date: string
+          merchants?: {
+            name?: string
+            logo_url?: string | null
+          } | null
+        }
+        categories?: {
+          name?: string
+          slug?: string
+        } | null
+      }
+
+      ;(items as ProductItemRow[]).forEach((item) => {
         // Extract category from the first item found (assuming valuable info is consistent)
         if (!categoryName && item.categories) {
             categoryName = item.categories.name

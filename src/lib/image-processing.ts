@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { getOpenCV, safeDelete, type CvMatLike } from '@/lib/opencv-loader'
 
 export interface Point {
   x: number
@@ -75,14 +76,14 @@ export async function applyPerspectiveWarp(
         // -----------------------------------------------------
         // 1. OpenCV Method (High Quality)
         // -----------------------------------------------------
-        if (window.cv && window.cv.Mat) {
-           const cv = window.cv
+        const cv = getOpenCV()
+        if (cv) {
            
-           let src = cv.imread(img)
-           let dst = new cv.Mat()
+           const src = cv.imread(img)
+           const dst = new cv.Mat()
            
            // Source Points: The user's corners (Sorted)
-           let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+           const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
               tl.x, tl.y, 
               tr.x, tr.y, 
               br.x, br.y, 
@@ -92,15 +93,15 @@ export async function applyPerspectiveWarp(
            // Dest Points: The rectangle 0,0 -> w,h
            // Correct Order for: [TopLeft, TopRight, BottomRight, BottomLeft]
            // This maps the user's TL to 0,0, TR to w,0, etc.
-           let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+           const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
               0, 0, 
               finalWidth, 0, 
               finalWidth, finalHeight, 
               0, finalHeight
            ])
            
-           let M = cv.getPerspectiveTransform(srcTri, dstTri)
-           let dsize = new cv.Size(finalWidth, finalHeight)
+           const M = cv.getPerspectiveTransform(srcTri, dstTri)
+           const dsize = new cv.Size(finalWidth, finalHeight)
            
            cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar())
            
@@ -108,7 +109,7 @@ export async function applyPerspectiveWarp(
            const canvas = document.createElement('canvas')
            cv.imshow(canvas, dst) // writes to canvas, resizing it to dst size
            
-           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+           safeDelete(src); safeDelete(dst); safeDelete(M); safeDelete(srcTri); safeDelete(dstTri);
            
            canvas.toBlob((blob) => {
               if (blob) resolve(blob)
@@ -216,11 +217,11 @@ export async function applyFilter(
       // -----------------------------------------------------
       // OpenCV Method (High Quality Adaptive Threshold)
       // -----------------------------------------------------
-      if (type === 'bw' && window.cv && window.cv.Mat) {
+      const cv = getOpenCV()
+      if (type === 'bw' && cv) {
          try {
-             const cv = window.cv
-             let src = cv.imread(canvas)
-             let dst = new cv.Mat()
+             const src = cv.imread(canvas)
+             const dst = new cv.Mat()
              
              cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0)
              
@@ -230,7 +231,7 @@ export async function applyFilter(
              cv.adaptiveThreshold(src, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15)
              
              cv.imshow(canvas, dst)
-             src.delete(); dst.delete()
+             safeDelete(src); safeDelete(dst)
              
              canvas.toBlob((b) => {
                  if (b) resolve(b)
@@ -290,9 +291,9 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
     
     img.onload = () => {
       // 1. Check for OpenCV
-      if (window.cv) {
+      const cv = getOpenCV()
+      if (cv) {
           try {
-              const cv = window.cv
               const maxDim = 500
               const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
               const w = Math.floor(img.width * scale)
@@ -305,8 +306,8 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
               if (!ctx) throw new Error('No ctx')
               ctx.drawImage(img, 0, 0, w, h)
 
-              let src = cv.imread(canvas)
-              let dst = new cv.Mat()
+              const src = cv.imread(canvas)
+              const dst = new cv.Mat()
               
               // Preprocess
               cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0)
@@ -318,33 +319,33 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
               cv.Canny(dst, dst, 75, 200)
               
               // Dilate to close gaps (text lines etc)
-              let M = cv.Mat.ones(3, 3, cv.CV_8U)
+              const M = cv.Mat.ones(3, 3, cv.CV_8U)
               cv.dilate(dst, dst, M, new cv.Point(-1, -1), 2, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue())
               
               // Find Contours
-              let contours = new cv.MatVector()
-              let hierarchy = new cv.Mat()
+              const contours = new cv.MatVector()
+              const hierarchy = new cv.Mat()
               cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
               let maxArea = 0
-              let bestBlock = null
+              let bestBlock: CvMatLike | null = null
 
               for (let i = 0; i < contours.size(); ++i) {
-                  let cnt = contours.get(i)
-                  let area = cv.contourArea(cnt)
+                  const cnt = contours.get(i)
+                  const area = cv.contourArea(cnt)
                   
                   if (area < (w * h * 0.05)) { // Min 5% area
                       cnt.delete()
                       continue
                   }
 
-                  let peri = cv.arcLength(cnt, true)
-                  let approx = new cv.Mat()
+                  const peri = cv.arcLength(cnt, true)
+                  const approx = new cv.Mat()
                   cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
 
                   if (approx.rows === 4 && area > maxArea) {
                       maxArea = area
-                      if (bestBlock) bestBlock.delete()
+                      safeDelete(bestBlock)
                       bestBlock = approx
                   } else {
                       approx.delete()
@@ -356,7 +357,7 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
                   const invScale = 1 / scale
                   // Extract and Sort Corners (TL, TR, BR, BL)
                   const ptr = bestBlock.data32S
-                  let pts: Point[] = [
+                  const pts: Point[] = [
                       { x: ptr[0], y: ptr[1] },
                       { x: ptr[2], y: ptr[3] },
                       { x: ptr[4], y: ptr[5] },
@@ -379,13 +380,13 @@ export async function detectDocumentEdges(imageSource: string | HTMLImageElement
                       { x: sorted[3].x * invScale, y: sorted[3].y * invScale }
                   ]
 
-                  src.delete(); dst.delete(); M.delete(); contours.delete(); hierarchy.delete(); bestBlock.delete()
+                  safeDelete(src); safeDelete(dst); safeDelete(M); safeDelete(contours); safeDelete(hierarchy); safeDelete(bestBlock)
                   resolve(finalCorners)
                   return
               }
               
               // Cleanup if no detection
-              src.delete(); dst.delete(); M.delete(); contours.delete(); hierarchy.delete()
+              safeDelete(src); safeDelete(dst); safeDelete(M); safeDelete(contours); safeDelete(hierarchy)
 
           } catch (e) {
               logger.error("OpenCV Detect Error", e)
@@ -421,12 +422,12 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
         const img = new Image()
         img.crossOrigin = 'anonymous'
         img.onload = () => {
-             if (!window.cv) {
+             const cv = getOpenCV()
+             if (!cv) {
                  resolve({ horizontal: [], vertical: [] })
                  return
              }
              try {
-                 const cv = window.cv
                  const canvas = document.createElement('canvas')
                  // Downscale for performance
                  const scale = 500 / Math.max(img.width, img.height)
@@ -438,12 +439,12 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
                  if(!ctx) return resolve({ horizontal: [], vertical: [] })
                  ctx.drawImage(img, 0, 0, w, h)
                  
-                 let src = cv.imread(canvas)
-                 let dst = new cv.Mat()
+                 const src = cv.imread(canvas)
+                 const dst = new cv.Mat()
                  cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0)
                  cv.Canny(src, dst, 50, 200, 3)
                  
-                 let lines = new cv.Mat()
+                 const lines = new cv.Mat()
                  // Threshold = 80, MinLineLength = 30, MaxLineGap = 10
                  cv.HoughLinesP(dst, lines, 1, Math.PI / 180, 80, 30, 10)
                  
@@ -452,8 +453,8 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
                  const invScale = 1/scale
 
                  for (let i = 0; i < lines.rows; ++i) {
-                     let startPoint = { x: lines.data32S[i * 4], y: lines.data32S[i * 4 + 1] }
-                     let endPoint = { x: lines.data32S[i * 4 + 2], y: lines.data32S[i * 4 + 3] }
+                     const startPoint = { x: lines.data32S[i * 4], y: lines.data32S[i * 4 + 1] }
+                     const endPoint = { x: lines.data32S[i * 4 + 2], y: lines.data32S[i * 4 + 3] }
                      
                      // Check angle
                      const dx = Math.abs(endPoint.x - startPoint.x)
@@ -468,7 +469,7 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
                      }
                  }
 
-                 src.delete(); dst.delete(); lines.delete()
+                 safeDelete(src); safeDelete(dst); safeDelete(lines)
                  resolve({ horizontal, vertical })
              } catch (e) {
                  logger.error("Line detection failed", e)
@@ -477,72 +478,6 @@ export async function detectStrongLines(imageSource: string | HTMLImageElement):
         }
         img.src = typeof imageSource === 'string' ? imageSource : imageSource.src
     })
-}
-
-// --- Geometry Helpers ---
-
-function crossProduct(o: Point, a: Point, b: Point) {
-   return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-}
-
-function convexHull(points: Point[]): Point[] {
-   points.sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x)
-   
-   const lower: Point[] = []
-   for (const p of points) {
-       while (lower.length >= 2 && crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-           lower.pop()
-       }
-       lower.push(p)
-   }
-   
-   const upper: Point[] = []
-   for (let i = points.length - 1; i >= 0; i--) {
-       const p = points[i]
-        while (upper.length >= 2 && crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-           upper.pop()
-       }
-       upper.push(p)
-   }
-   
-   upper.pop()
-   lower.pop()
-   return lower.concat(upper)
-}
-
-// Find 4 extreme points
-function findQuadFromHull(hull: Point[], w: number, h: number): [Point, Point, Point, Point] {
-    if (hull.length < 4) return [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}]
-    
-    // Heuristic: Points closest to the 4 corners of the image bounds
-    // This assumes the receipt is somewhat centered and not rotated 45deg
-    // Robust "Rotating Calipers" is better but harder.
-    // Let's use: max dist sum to corners (TL, TR, BR, BL).
-    
-    // Actually, to handle rotation:
-    // 1. Find centroid
-    // 2. Find points in 4 quadrants relative to centroid?
-    // 
-    // Simplest robust method for document:
-    // Sum of x+y (max = BR), x-y (max = TR), -x+y (max=BL), -x-y (max=TL)
-    
-    let tl = hull[0], tr = hull[0], br = hull[0], bl = hull[0]
-    let minSum = Infinity, maxSum = -Infinity, minDiff = Infinity, maxDiff = -Infinity
-    
-    for(const p of hull) {
-        const sum = p.x + p.y
-        const diff = p.x - p.y
-        
-        if (sum < minSum) { minSum = sum; tl = p }
-        if (sum > maxSum) { maxSum = sum; br = p }
-        if (diff < minDiff) { minDiff = diff; bl = p }
-        if (diff > maxDiff) { maxDiff = diff; tr = p }
-    }
-    
-    // Ensure they are distinct (e.g. if diamond shape)
-    // If not, just return image bounds with padding.
-    
-    return [tl, tr, br, bl]
 }
 
 // --- Helpers ---
@@ -625,7 +560,6 @@ function computeHomography(
 
 function solveHomography(src: number[], dst: number[]) {
   // src: x1,y1... dst: x1,y1...
-  let i = 0
   const A = []
   const B = []
   

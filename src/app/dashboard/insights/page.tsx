@@ -8,6 +8,7 @@ import {
   Calendar,
   Store,
   Tag,
+  ShieldCheck,
 } from 'lucide-react'
 
 import { DetailHeader } from '@/components/layout/page-header'
@@ -39,11 +40,14 @@ export default function SmartInsightsPage() {
   // Fetch offer matches
   useEffect(() => {
     if (!currentHousehold?.id) return
-    setMatchesLoading(true)
-    getOfferMatches(currentHousehold.id, 8)
-      .then(setOfferMatches)
-      .catch(console.error)
-      .finally(() => setMatchesLoading(false))
+    const timeoutId = window.setTimeout(() => {
+      setMatchesLoading(true)
+      getOfferMatches(currentHousehold.id, 8)
+        .then(setOfferMatches)
+        .catch(console.error)
+        .finally(() => setMatchesLoading(false))
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [currentHousehold?.id])
 
   // Handle month navigation
@@ -202,6 +206,24 @@ export default function SmartInsightsPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="space-y-3">
+          <SectionHeader
+            title="Enterprise Ops"
+            icon={<ShieldCheck className="w-5 h-5 text-muted-foreground" />}
+          />
+          <Card
+            className="rounded-2xl shadow-elevation-1 border-0 bg-card cursor-pointer hover:bg-accent/30 transition-colors"
+            onClick={() => router.push('/dashboard/insights/enterprise')}
+          >
+            <CardContent className="p-4">
+              <p className="text-sm font-medium">Audit, Retry Queue und AI Quality</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Öffnet das Enterprise-Monitoring für Nachvollziehbarkeit und Zustellqualität.
+              </p>
+            </CardContent>
+          </Card>
         </section>
 
         {/* Concrete Tips Section */}

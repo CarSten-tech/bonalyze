@@ -57,7 +57,6 @@ export function AnalyticsKPICard({
   // Determine trend direction and styling
   const isUp = percentageChange !== null && percentageChange > 0
   const isDown = percentageChange !== null && percentageChange < 0
-  const isNeutral = percentageChange === null || percentageChange === 0
 
   // For spending: up = bad (red), down = good (green)
   const trendColor = isUp

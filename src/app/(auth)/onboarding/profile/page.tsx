@@ -52,7 +52,7 @@ export default function OnboardingProfilePage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        window.location.href = '/login'
+        window.location.assign('/login')
         return
       }
 
@@ -64,7 +64,7 @@ export default function OnboardingProfilePage() {
 
       if (profile?.display_name) {
         // User already has a profile, redirect to dashboard
-        window.location.href = '/dashboard'
+        window.location.assign('/dashboard')
         return
       }
 
@@ -83,7 +83,7 @@ export default function OnboardingProfilePage() {
       toast.error('Nicht angemeldet', {
         description: 'Bitte melde dich erneut an.',
       })
-      window.location.href = '/login'
+      window.location.assign('/login')
       return
     }
 
@@ -119,10 +119,10 @@ export default function OnboardingProfilePage() {
 
     if (membership) {
       // User already has a household, redirect to dashboard
-      window.location.href = '/dashboard'
+      window.location.assign('/dashboard')
     } else {
       // User needs to create/join a household
-      window.location.href = '/onboarding/household'
+      window.location.assign('/onboarding/household')
     }
   }
 

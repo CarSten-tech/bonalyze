@@ -173,7 +173,7 @@ export function StoreSelector({
                 <span>Neuen Store anlegen</span>
                 {searchValue && (
                   <span className="ml-1 text-muted-foreground">
-                    "{searchValue}"
+                    &quot;{searchValue}&quot;
                   </span>
                 )}
               </CommandItem>

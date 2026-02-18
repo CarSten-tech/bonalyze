@@ -1,4 +1,4 @@
-import { get, set, del, keys } from './idb'
+import { get, set } from './idb'
 import { SYNC_ACTIONS, SyncActionType } from './sync-actions'
 import { logger } from './logger'
 import { toast } from 'sonner'
@@ -6,14 +6,14 @@ import { toast } from 'sonner'
 interface QueueItem {
   id: string
   action: SyncActionType
-  payload: any
+  payload: unknown
   timestamp: number
   retryCount: number
 }
 
 const QUEUE_KEY = 'sync-queue'
 
-export async function queueAction(action: SyncActionType, payload: any) {
+export async function queueAction(action: SyncActionType, payload: unknown) {
   const item: QueueItem = {
     id: crypto.randomUUID(),
     action,
@@ -48,7 +48,7 @@ export async function processQueue() {
         throw new Error(`Unknown action: ${item.action}`)
       }
 
-      await actionFn(item.payload)
+      await actionFn(item.payload as never)
       successCount++
       logger.info(`Synced item: ${item.id}`)
     } catch (error) {

@@ -38,7 +38,7 @@ export function useShoppingListRealtime(householdId: string | null, currentListI
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shopping_list_items', filter: `shopping_list_id=eq.${currentListId}` },
-        (payload) => {
+        () => {
            // Basic Invalidation strategy
            // React Query keeps previous data visible while fetching new data
            queryClient.invalidateQueries({ queryKey: ['shopping_list_items', currentListId] })

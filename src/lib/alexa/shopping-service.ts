@@ -2,6 +2,9 @@ import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { normalizeCompareName, type ParsedProductInput } from './parser'
 import { logger } from '@/lib/logger'
+import type { Database } from '@/types/database.types'
+import { assertUserHouseholdPermission } from '@/lib/household-roles'
+import { writeAuditLog } from '@/lib/audit-log'
 
 export interface AlexaLink {
   alexa_user_id: string
@@ -11,32 +14,25 @@ export interface AlexaLink {
   is_active: boolean
 }
 
-interface LinkCodeRecord {
-  id: string
-  user_id: string
-  household_id: string
-  shopping_list_id: string
-  expires_at: string
-  used_at: string | null
-}
-
-interface ShoppingListItemRow {
-  id: string
-  product_name: string
-  quantity: number | null
-  unit: string | null
-  is_checked: boolean
-  created_at: string
-}
-
-interface ShoppingListRow {
-  id: string
-  name: string
-  household_id: string
-}
+type LinkCodeRecord = Pick<
+  Database['public']['Tables']['alexa_link_codes']['Row'],
+  'id' | 'user_id' | 'household_id' | 'shopping_list_id' | 'expires_at' | 'used_at'
+>
+type ShoppingListItemRow = Pick<
+  Database['public']['Tables']['shopping_list_items']['Row'],
+  'id' | 'product_name' | 'quantity' | 'unit' | 'is_checked' | 'created_at'
+>
+type ShoppingListRow = Pick<
+  Database['public']['Tables']['shopping_lists']['Row'],
+  'id' | 'name' | 'household_id'
+>
 
 const CODE_TTL_MINUTES = 10
 const MISSING_TABLE_CODE = '42P01'
+
+function createAlexaAdminClient() {
+  return createAdminClient()
+}
 
 function codeSalt(): string {
   return process.env.ALEXA_LINK_CODE_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'bonalyze-alexa-default-salt'
@@ -64,9 +60,9 @@ export function createLinkCode() {
 }
 
 export async function getAlexaLinkStatus(userId: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { data, error } = await supabase
-    .from('alexa_user_links' as never)
+    .from('alexa_user_links')
     .select('created_at, household_id, shopping_list_id, is_active')
     .eq('user_id', userId)
     .eq('is_active', true)
@@ -80,14 +76,14 @@ export async function getAlexaLinkStatus(userId: string) {
 
   return {
     isLinked: true as const,
-    linkedAt: (data as { created_at: string }).created_at,
-    householdId: (data as { household_id: string }).household_id,
-    shoppingListId: (data as { shopping_list_id: string }).shopping_list_id,
+    linkedAt: data.created_at,
+    householdId: data.household_id,
+    shoppingListId: data.shopping_list_id,
   }
 }
 
 export async function createAlexaLinkCodeForUser(userId: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
 
   const { data: membership, error: membershipError } = await supabase
     .from('household_members')
@@ -149,13 +145,13 @@ export async function createAlexaLinkCodeForUser(userId: string) {
     const { code, codeHash, expiresAt } = createLinkCode()
 
     await supabase
-      .from('alexa_link_codes' as never)
+      .from('alexa_link_codes')
       .delete()
       .eq('user_id', userId)
       .is('used_at', null)
 
     const { error: insertFallbackError } = await supabase
-      .from('alexa_link_codes' as never)
+      .from('alexa_link_codes')
       .insert({
         user_id: userId,
         household_id: householdId,
@@ -183,13 +179,13 @@ export async function createAlexaLinkCodeForUser(userId: string) {
   const { code, codeHash, expiresAt } = createLinkCode()
 
   await supabase
-    .from('alexa_link_codes' as never)
+    .from('alexa_link_codes')
     .delete()
     .eq('user_id', userId)
     .is('used_at', null)
 
   const { error: insertError } = await supabase
-    .from('alexa_link_codes' as never)
+    .from('alexa_link_codes')
     .insert({
       user_id: userId,
       household_id: householdId,
@@ -214,7 +210,7 @@ export async function createAlexaLinkCodeForUser(userId: string) {
 }
 
 export async function getShoppingListsForHousehold(householdId: string): Promise<ShoppingListRow[]> {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { data, error } = await supabase
     .from('shopping_lists')
     .select('id, name, household_id')
@@ -249,7 +245,12 @@ export async function createShoppingListForHousehold(
   householdId: string,
   name: string
 ): Promise<ShoppingListRow> {
-  const supabase = createAdminClient() as any
+  const permission = await assertUserHouseholdPermission(userId, householdId, 'shopping.create_list')
+  if (!permission.allowed) {
+    throw new Error('Keine Berechtigung zum Anlegen neuer Listen.')
+  }
+
+  const supabase = createAlexaAdminClient()
   const normalizedName = normalizeListName(name)
 
   const existing = await findShoppingListByName(householdId, normalizedName)
@@ -267,13 +268,24 @@ export async function createShoppingListForHousehold(
     .single()
 
   if (error) throw error
+  await writeAuditLog({
+    householdId,
+    actorUserId: userId,
+    action: 'create',
+    entityType: 'shopping_list',
+    entityId: data.id,
+    details: {
+      name: normalizedName,
+      source: 'alexa',
+    },
+  })
   return data as ShoppingListRow
 }
 
 export async function setActiveAlexaShoppingList(alexaUserId: string, shoppingListId: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { error } = await supabase
-    .from('alexa_user_links' as never)
+    .from('alexa_user_links')
     .update({
       shopping_list_id: shoppingListId,
       last_seen_at: new Date().toISOString(),
@@ -285,7 +297,7 @@ export async function setActiveAlexaShoppingList(alexaUserId: string, shoppingLi
 }
 
 export async function getShoppingListById(listId: string): Promise<ShoppingListRow | null> {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { data, error } = await supabase
     .from('shopping_lists')
     .select('id, name, household_id')
@@ -296,11 +308,11 @@ export async function getShoppingListById(listId: string): Promise<ShoppingListR
 }
 
 export async function consumeLinkCode(alexaUserId: string, code: string, locale?: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const codeHash = hashCode(code)
 
   const { data: codeRecord, error: codeError } = await supabase
-    .from('alexa_link_codes' as never)
+    .from('alexa_link_codes')
     .select('id, user_id, household_id, shopping_list_id, expires_at, used_at')
     .eq('code_hash', codeHash)
     .is('used_at', null)
@@ -318,7 +330,7 @@ export async function consumeLinkCode(alexaUserId: string, code: string, locale?
   }
 
   const { error: upsertError } = await supabase
-    .from('alexa_user_links' as never)
+    .from('alexa_user_links')
     .upsert(
       {
         alexa_user_id: alexaUserId,
@@ -335,7 +347,7 @@ export async function consumeLinkCode(alexaUserId: string, code: string, locale?
   if (upsertError) throw upsertError
 
   const { error: updateCodeError } = await supabase
-    .from('alexa_link_codes' as never)
+    .from('alexa_link_codes')
     .update({ used_at: new Date().toISOString() })
     .eq('id', typedCodeRecord.id)
 
@@ -349,9 +361,9 @@ export async function consumeLinkCode(alexaUserId: string, code: string, locale?
 }
 
 export async function getAlexaLinkByAlexaUserId(alexaUserId: string): Promise<AlexaLink | null> {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { data, error } = await supabase
-    .from('alexa_user_links' as never)
+    .from('alexa_user_links')
     .select('alexa_user_id, user_id, household_id, shopping_list_id, is_active')
     .eq('alexa_user_id', alexaUserId)
     .eq('is_active', true)
@@ -364,15 +376,15 @@ export async function getAlexaLinkByAlexaUserId(alexaUserId: string): Promise<Al
 }
 
 export async function touchAlexaLink(alexaUserId: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   await supabase
-    .from('alexa_user_links' as never)
+    .from('alexa_user_links')
     .update({ last_seen_at: new Date().toISOString() })
     .eq('alexa_user_id', alexaUserId)
 }
 
 export async function readShoppingList(listId: string): Promise<ShoppingListItemRow[]> {
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const { data, error } = await supabase
     .from('shopping_list_items')
     .select('id, product_name, quantity, unit, is_checked, created_at')
@@ -402,7 +414,7 @@ import { notifyShoppingListUpdate } from '@/lib/notification-service'
 export async function addProductsToList(listId: string, products: ParsedProductInput[], actorUserId?: string) {
   if (products.length === 0) return { addedCount: 0, updatedCount: 0 }
 
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const currentItems = await readShoppingList(listId)
   const byName = mergeItemsByName(currentItems)
 
@@ -463,15 +475,38 @@ export async function addProductsToList(listId: string, products: ParsedProductI
     }
   }
 
+  if (householdId && actorUserId && (addedCount > 0 || updatedCount > 0)) {
+    await writeAuditLog({
+      householdId,
+      actorUserId,
+      action: 'update',
+      entityType: 'shopping_list',
+      entityId: listId,
+      details: {
+        source: 'alexa',
+        addedCount,
+        updatedCount,
+        products: products.map((product) => ({
+          name: product.productName,
+          quantity: product.quantity,
+          unit: product.unit,
+        })),
+      },
+    })
+  }
+
   return { addedCount, updatedCount }
 }
 
-export async function removeProductsFromList(listId: string, products: ParsedProductInput[]) {
+export async function removeProductsFromList(listId: string, products: ParsedProductInput[], actorUserId?: string) {
   if (products.length === 0) return { removedCount: 0 }
 
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const currentItems = await readShoppingList(listId)
   const byName = mergeItemsByName(currentItems)
+  let householdId: string | null = null
+  const { data: list } = await supabase.from('shopping_lists').select('household_id').eq('id', listId).single()
+  if (list) householdId = list.household_id
 
   let removedCount = 0
 
@@ -486,15 +521,33 @@ export async function removeProductsFromList(listId: string, products: ParsedPro
     }
   }
 
+  if (householdId && actorUserId && removedCount > 0) {
+    await writeAuditLog({
+      householdId,
+      actorUserId,
+      action: 'update',
+      entityType: 'shopping_list',
+      entityId: listId,
+      details: {
+        source: 'alexa',
+        removedCount,
+        removedProducts: products.map((product) => product.productName),
+      },
+    })
+  }
+
   return { removedCount }
 }
 
-export async function setQuantitiesOnList(listId: string, products: ParsedProductInput[]) {
+export async function setQuantitiesOnList(listId: string, products: ParsedProductInput[], actorUserId?: string) {
   if (products.length === 0) return { changedCount: 0 }
 
-  const supabase = createAdminClient() as any
+  const supabase = createAlexaAdminClient()
   const currentItems = await readShoppingList(listId)
   const byName = mergeItemsByName(currentItems)
+  let householdId: string | null = null
+  const { data: list } = await supabase.from('shopping_lists').select('household_id').eq('id', listId).single()
+  if (list) householdId = list.household_id
 
   let changedCount = 0
 
@@ -539,6 +592,25 @@ export async function setQuantitiesOnList(listId: string, products: ParsedProduc
       if (error) throw error
       changedCount += 1
     }
+  }
+
+  if (householdId && actorUserId && changedCount > 0) {
+    await writeAuditLog({
+      householdId,
+      actorUserId,
+      action: 'update',
+      entityType: 'shopping_list',
+      entityId: listId,
+      details: {
+        source: 'alexa',
+        changedCount,
+        quantities: products.map((product) => ({
+          name: product.productName,
+          quantity: product.quantity,
+          unit: product.unit,
+        })),
+      },
+    })
   }
 
   return { changedCount }

@@ -1,8 +1,8 @@
 'use client'
+/* eslint-disable @next/next/no-img-element -- scanner previews use local object URLs */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Camera, ImagePlus, Loader2, AlertCircle, RotateCcw, X, Scan } from 'lucide-react'
-import { toast } from 'sonner'
+import { ImagePlus, Loader2, AlertCircle, RotateCcw, Scan } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,7 +18,27 @@ interface ReceiptScannerProps {
   initialCamera?: boolean
 }
 
-type ScanState = 'idle' | 'capturing' | 'uploading' | 'processing' | 'error'
+type ScanState = 'idle' | 'uploading' | 'processing' | 'error'
+
+interface ScanSuccessPayload {
+  ai_result: ReceiptAIResponse
+  image_path: string
+  merchant_match?: { id: string; name: string }
+}
+
+interface ScanApiSuccess {
+  success: true
+  data: ScanSuccessPayload
+  debug?: Record<string, unknown>
+}
+
+interface ScanApiFailure {
+  success: false
+  message?: string
+  debug?: Record<string, unknown>
+}
+
+type ScanApiResponse = ScanApiSuccess | ScanApiFailure
 
 export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialFile, initialCamera }: ReceiptScannerProps) {
   const [state, setState] = useState<ScanState>('idle')
@@ -30,15 +50,11 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Handle initial props
   useEffect(() => {
-    if (initialFile) {
-        processImage(initialFile)
-    } else if (initialCamera) {
-        setShowSmartCamera(true)
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
-  }, []) // Run once on mount
-
+  }, [previewUrl])
 
   const resetState = useCallback(() => {
     setState('idle')
@@ -51,11 +67,14 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
     }
   }, [previewUrl])
 
-  const processImage = async (file: File) => {
+  const processImage = useCallback(async (file: File) => {
     try {
       // Show preview
       const preview = URL.createObjectURL(file)
-      setPreviewUrl(preview)
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return preview
+      })
 
       // Start upload
       setState('uploading')
@@ -78,11 +97,14 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
         method: 'POST',
         body: formData,
       })
+      if (!response.ok) {
+        throw new Error(`Scan request failed with status ${response.status}`)
+      }
 
       setState('processing')
       setProgress(60)
 
-      const result = await response.json()
+      const result = (await response.json()) as ScanApiResponse
 
       // Log debug info
       if (result.debug) {
@@ -111,7 +133,18 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
       setState('error')
       setErrorMessage('Verbindungsfehler. Bitte erneut versuchen.')
     }
-  }
+  }, [householdId, onScanComplete])
+
+  // Handle initial props
+  useEffect(() => {
+    if (initialFile) {
+      void processImage(initialFile)
+      return
+    }
+    if (initialCamera) {
+      setShowSmartCamera(true)
+    }
+  }, [initialFile, initialCamera, processImage]) // Run once on mount for provided initial values
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]

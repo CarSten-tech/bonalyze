@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 
@@ -9,7 +9,6 @@ import { createClient } from '@/lib/supabase'
 import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { InstallBanner, UpdatePrompt } from '@/components/pwa'
-import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/layout/notification-bell'
 
 interface DashboardLayoutProps {
@@ -20,16 +19,15 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
-  const { currentHousehold, isLoading: isHouseholdLoading, households } = useHousehold()
-
-  const supabase = createClient()
+  const { isLoading: isHouseholdLoading, households } = useHousehold()
 
   useEffect(() => {
     const loadProfile = async () => {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        window.location.href = '/login'
+        router.replace('/login')
         return
       }
 
@@ -41,22 +39,22 @@ function DashboardContent({ children }: DashboardLayoutProps) {
 
       if (!profile?.display_name) {
         // Redirect to settings to set up profile
-        window.location.href = '/settings'
+        router.replace('/settings')
         return
       }
 
       setIsLoading(false)
     }
 
-    loadProfile()
-  }, [supabase])
+    void loadProfile()
+  }, [router])
 
   // Redirect to settings if no household
   useEffect(() => {
     if (!isHouseholdLoading && !isLoading && households.length === 0) {
-      window.location.href = '/settings/household'
+      router.replace('/settings/household')
     }
-  }, [isHouseholdLoading, isLoading, households])
+  }, [households, isHouseholdLoading, isLoading, router])
 
 
 

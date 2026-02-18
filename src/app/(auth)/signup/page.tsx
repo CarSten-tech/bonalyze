@@ -86,11 +86,11 @@ export default function SignupPage() {
       toast.success('Registrierung erfolgreich', {
         description: 'Bitte bestatige deine E-Mail-Adresse',
       })
-      window.location.href = `/verify?email=${encodeURIComponent(data.email)}`
+      window.location.assign(`/verify?email=${encodeURIComponent(data.email)}`)
     } else if (authData.session) {
       // If email confirmation is disabled, redirect to onboarding
       toast.success('Willkommen bei Bonalyze!')
-      window.location.href = '/onboarding/profile'
+      window.location.assign('/onboarding/profile')
     } else {
       toast.error('Registrierung fehlgeschlagen', {
         description: 'Bitte versuche es erneut.',
@@ -140,7 +140,7 @@ export default function SignupPage() {
       description: 'Pruefe dein E-Mail-Postfach',
     })
 
-    window.location.href = `/verify?email=${encodeURIComponent(email)}`
+    window.location.assign(`/verify?email=${encodeURIComponent(email)}`)
   }
 
   return (

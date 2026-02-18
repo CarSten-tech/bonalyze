@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, LogOut, Settings, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase'
 import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
@@ -26,20 +26,18 @@ interface SettingsLayoutProps {
 
 function SettingsContent({ children }: SettingsLayoutProps) {
   const router = useRouter()
-  const pathname = usePathname()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { currentHousehold, isLoading: isHouseholdLoading, households } = useHousehold()
 
-  const supabase = createClient()
-
   useEffect(() => {
     const loadProfile = async () => {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        window.location.href = '/login'
+        router.replace('/login')
         return
       }
 
@@ -50,7 +48,7 @@ function SettingsContent({ children }: SettingsLayoutProps) {
         .single()
 
       if (!profile?.display_name) {
-        window.location.href = '/onboarding/profile'
+        router.replace('/onboarding/profile')
         return
       }
 
@@ -58,18 +56,19 @@ function SettingsContent({ children }: SettingsLayoutProps) {
       setIsLoading(false)
     }
 
-    loadProfile()
-  }, [supabase])
+    void loadProfile()
+  }, [router])
 
   // Redirect to onboarding if no household
   useEffect(() => {
     if (!isHouseholdLoading && !isLoading && households.length === 0) {
-      window.location.href = '/onboarding/household'
+      router.replace('/onboarding/household')
     }
-  }, [isHouseholdLoading, isLoading, households])
+  }, [households, isHouseholdLoading, isLoading, router])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
+    const supabase = createClient()
 
     const { error } = await supabase.auth.signOut()
 
@@ -82,7 +81,7 @@ function SettingsContent({ children }: SettingsLayoutProps) {
     }
 
     toast.success('Erfolgreich abgemeldet')
-    window.location.href = '/login'
+    router.replace('/login')
   }
 
   // Handlers for scan actions

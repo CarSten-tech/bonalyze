@@ -4,11 +4,11 @@ test('has title and login', async ({ page }) => {
   await page.goto('/');
 
   // Should redirect to /login or /dashboard
-  const url = page.url();
-  expect(url).toContain('login');
-  
-  // Check for login text
-  await expect(page.getByRole('heading')).toBeVisible();
+  await expect(page).toHaveURL(/\/(login|dashboard)/);
+
+  if (page.url().includes('/login')) {
+    await expect(page.getByRole('button', { name: /anmelden/i })).toBeVisible();
+  }
 });
 
 test('can navigate to nutrition page', async ({ page }) => {

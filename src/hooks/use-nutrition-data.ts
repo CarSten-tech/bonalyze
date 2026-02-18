@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/contexts/household-context'
 import { createClient } from '@/lib/supabase'
@@ -117,7 +117,10 @@ export function useNutritionData(date: Date): UseNutritionDataReturn {
   }, [supabase])
 
   const dateStr = format(date, 'yyyy-MM-dd')
-  const queryKey = ['nutrition_data', currentHousehold?.id, userId, dateStr]
+  const queryKey = useMemo(
+    () => ['nutrition_data', currentHousehold?.id, userId, dateStr],
+    [currentHousehold?.id, userId, dateStr]
+  )
 
   const query = useQuery({
     queryKey,

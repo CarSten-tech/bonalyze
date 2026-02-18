@@ -76,13 +76,6 @@ export function InviteDialog({ open, onOpenChange, onInviteSent }: InviteDialogP
       return
     }
 
-    // Check if email is already a member
-    const { data: existingMember } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .single()
-
     // Check for existing invite
     const { data: existingInvite } = await supabase
       .from('household_invites')
@@ -93,11 +86,14 @@ export function InviteDialog({ open, onOpenChange, onInviteSent }: InviteDialogP
       .single()
 
     if (existingInvite) {
+      const newExpiry = new Date()
+      newExpiry.setDate(newExpiry.getDate() + 7)
+
       // Update existing invite
       const { error } = await supabase
         .from('household_invites')
         .update({
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: newExpiry.toISOString(),
         })
         .eq('id', existingInvite.id)
         .select('token')

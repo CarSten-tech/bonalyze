@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Package, Settings } from 'lucide-react'
+import { Package } from 'lucide-react'
 import Link from 'next/link'
 
 import { Card, CardContent } from '@/components/ui/card'

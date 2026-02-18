@@ -105,7 +105,10 @@ export function HouseholdProvider({ children }: HouseholdProviderProps) {
   }, [supabase])
 
   useEffect(() => {
-    loadHouseholds()
+    const timeoutId = window.setTimeout(() => {
+      void loadHouseholds()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [loadHouseholds])
 
   const switchHousehold = useCallback((householdId: string) => {

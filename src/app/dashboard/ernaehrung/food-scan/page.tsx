@@ -202,7 +202,7 @@ export default function FoodScanPage() {
 
   // ─── Capture ─────────────────────────────────────────────────────────────
 
-  const captureFromCamera = useCallback(() => {
+  const captureFromCamera = () => {
     const video = videoRef.current
     if (!video || video.videoWidth === 0) {
       toast.error('Kamera ist noch nicht bereit.')
@@ -222,9 +222,9 @@ export default function FoodScanPage() {
     setPreviewUrl(dataUrl)
     const base64 = dataUrl.split(',')[1]
     analyzeImage(base64, 'image/jpeg')
-  }, [stopCamera])
+  }
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
@@ -248,7 +248,7 @@ export default function FoodScanPage() {
     }
     reader.onerror = () => toast.error('Fehler beim Lesen des Bildes.')
     reader.readAsDataURL(file)
-  }, [])
+  }
 
   // ─── AI Analysis ────────────────────────────────────────────────────────
 

@@ -52,7 +52,7 @@ export function SmartReceiptCamera({ onCapture, onClose }: SmartReceiptCameraPro
     if (!detectedCorners) {
        runDetection()
     }
-  }, [capturedImage, mode])
+  }, [capturedImage, mode, detectedCorners])
 
   const handleCapture = async (imageSrc: string, corners?: {x:number, y:number}[]) => {
     // 1. Immediate UI Switch

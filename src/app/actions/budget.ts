@@ -2,8 +2,8 @@
 
 import { createServerClient as createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, parseISO } from "date-fns"
-import { upsertBudgetSchema, uuidSchema } from "@/lib/validations"
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns"
+import { formatValidationMessage, upsertBudgetSchema } from "@/lib/validations"
 import { logger } from "@/lib/logger"
 
 export async function upsertBudget(
@@ -17,7 +17,7 @@ export async function upsertBudget(
   // Validate inputs
   const parsed = upsertBudgetSchema.safeParse({ householdId, data })
   if (!parsed.success) {
-    throw new Error(`Ungueltige Eingabe: ${parsed.error.issues[0]?.message}`)
+    throw new Error(formatValidationMessage(parsed.error))
   }
 
   const supabase = await createClient()

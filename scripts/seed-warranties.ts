@@ -47,7 +47,7 @@ async function seed() {
   const merchantMap = new Map<string, string>()
 
   for (const m of merchants) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('merchants')
       .upsert({ name: m.name, created_by: user_id }, { onConflict: 'name' })
       .select('id, name')

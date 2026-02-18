@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Tag, ChevronLeft, Loader2, Store } from 'lucide-react'
+import { Search, Tag, ChevronLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { getOffers, getOfferOptions, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
+
+const OFFERS_REFERENCE_NOW_MS = Date.now()
 
 function OfferCard({ offer }: { offer: Offer }) {
   const [imageError, setImageError] = useState(false)
@@ -77,7 +79,7 @@ function OfferCard({ offer }: { offer: Offer }) {
                   <span className={cn(
                     "text-[10px] mt-1.5 inline-block",
                     // Highlight if expiring soon (within 2 days)
-                    new Date(offer.valid_until).getTime() - Date.now() < 2 * 24 * 60 * 60 * 1000
+                    new Date(offer.valid_until).getTime() - OFFERS_REFERENCE_NOW_MS < 2 * 24 * 60 * 60 * 1000
                       ? "text-orange-600 dark:text-orange-400 font-medium"
                       : "text-muted-foreground"
                   )}>
@@ -152,8 +154,6 @@ export default function AngebotePage() {
   
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [isPending, startTransition] = useTransition()
-
   const LIMIT = 30
 
   const loadOffers = useCallback(async (

@@ -1,27 +1,21 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type ComponentType } from 'react'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar, ReferenceLine 
+  PieChart, Pie, Cell, BarChart, Bar 
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { StoreStat, PricePoint } from '@/hooks/use-product-analytics'
 import { formatCurrency } from '@/components/common/currency'
-import { format, subDays, subMonths, subYears, isAfter, startOfDay } from 'date-fns'
+import { format, subDays, subMonths, subYears, isAfter } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { TrendingUp, PieChart as PieChartIcon } from 'lucide-react'
 
-interface ProductChartsProps {
-  priceHistory: PricePoint[]
-  storeStats: StoreStat[]
-}
-
 const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'] // Blue, Green, Amber, Red, Purple
 
-function EmptyChartState({ message, icon: Icon }: { message: string, icon?: any }) {
+function EmptyChartState({ message, icon: Icon }: { message: string, icon?: ComponentType<{ className?: string }> }) {
     return (
         <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
             {Icon && <Icon className="w-8 h-8 mb-2 opacity-50" />}
@@ -63,7 +57,7 @@ export function StoreDistributionChart({ storeStats }: { storeStats: StoreStat[]
                     </Pie>
                     <Tooltip 
                         cursor={{ fill: 'transparent' }}
-                        formatter={(value: any) => [`${value}x`, 'Käufe']}
+                        formatter={(value: number | string | undefined) => [`${value ?? 0}x`, 'Käufe']}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                 </PieChart>
@@ -138,7 +132,10 @@ export function StorePriceComparison({ storeStats }: { storeStats: StoreStat[] }
                             tickLine={false}
                         />
                         <Tooltip 
-                            formatter={(value: any) => [formatCurrency(value, { inCents: true }), 'Ø Preis']}
+                            formatter={(value: number | string | undefined) => [
+                              formatCurrency(typeof value === 'number' ? value : Number(value ?? 0), { inCents: true }),
+                              'Ø Preis'
+                            ]}
                             cursor={{ fill: 'transparent' }}
                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
@@ -248,9 +245,9 @@ export function PriceHistoryChart({ priceHistory }: { priceHistory: PricePoint[]
                         />
                         <Tooltip 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            formatter={(value: any, name: any, props: any) => [
-                                formatCurrency(value, { inCents: true }), 
-                                props.payload.merchantName
+                            formatter={(value: number | string | undefined, _name: string | number | undefined, props: { payload?: { merchantName?: string } }) => [
+                                formatCurrency(typeof value === 'number' ? value : Number(value ?? 0), { inCents: true }), 
+                                props.payload?.merchantName || 'Unbekannt'
                             ]}
                             labelFormatter={(label) => label}
                         />

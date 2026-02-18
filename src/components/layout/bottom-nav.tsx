@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Receipt, ShoppingCart, Menu, Camera, Image, Sparkles } from "lucide-react"
+import { Home, Receipt, ShoppingCart, Menu, Camera, ImageIcon, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -148,7 +148,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                   className="w-full justify-start gap-3 h-14 rounded-xl"
                   onClick={handleGalleryClick}
                 >
-                  <Image className="w-5 h-5" />
+                  <ImageIcon className="w-5 h-5" />
                   <span>Kassenbon aus Galerie</span>
                 </Button>
               </div>

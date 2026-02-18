@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useHousehold } from '@/contexts/household-context'
 import { createClient } from '@/lib/supabase'
 import type { FilterType } from '@/components/ausgaben/filter-pills'
@@ -124,69 +124,7 @@ export function useExpensesData({
     }
   }, [currentHousehold, supabase])
 
-  const fetchMonthlyData = useCallback(async () => {
-    if (!currentHousehold) {
-      setMonths([])
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Try RPC first
-      const { data: rpcData, error: rpcError } = await supabase
-        .rpc('get_monthly_expenses_by_category', {
-          p_household_id: currentHousehold.id,
-          p_year: year,
-          p_payment_type: paymentType === 'alle' ? undefined : paymentType,
-          p_purpose: purpose || undefined,
-        })
-
-      console.log('[DEBUG useExpensesData] RPC result:', {
-        hasData: !!rpcData,
-        dataLength: rpcData?.length,
-        error: rpcError,
-        rpcData: rpcData,
-      })
-
-      if (!rpcError && rpcData) {
-        // Transform RPC data to our format
-        const transformed: MonthData[] = rpcData.map((m: {
-          month_number: number
-          month_name: string
-          year: number
-          receipt_count: number
-          total_amount_cents: number
-          categories: unknown
-        }) => ({
-          year: m.year,
-          monthNumber: m.month_number,
-          monthName: monthNames[m.month_number - 1] || m.month_name,
-          receiptCount: m.receipt_count,
-          totalAmountCents: m.total_amount_cents,
-          categories: parseCategories(m.categories),
-        }))
-
-        console.log('[DEBUG useExpensesData] Transformed RPC data:', transformed)
-
-        setMonths(transformed.sort((a, b) => b.monthNumber - a.monthNumber))
-        setIsLoading(false)
-        return
-      }
-
-      // Fallback: Manual aggregation
-      console.log('[DEBUG useExpensesData] RPC not available, using fallback aggregation')
-      await fetchWithFallback()
-    } catch (err) {
-      console.error('Error fetching monthly data:', err)
-      setError('Fehler beim Laden der Daten')
-      setIsLoading(false)
-    }
-  }, [currentHousehold, supabase, year, paymentType, purpose])
-
-  const fetchWithFallback = async () => {
+  const fetchWithFallback = useCallback(async () => {
     if (!currentHousehold) return
 
     // Get receipts for the year
@@ -361,14 +299,82 @@ export function useExpensesData({
     result.sort((a, b) => b.monthNumber - a.monthNumber)
     setMonths(result)
     setIsLoading(false)
-  }
+  }, [currentHousehold, supabase, year, paymentType, purpose])
+
+  const fetchMonthlyData = useCallback(async () => {
+    if (!currentHousehold) {
+      setMonths([])
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Try RPC first
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_monthly_expenses_by_category', {
+          p_household_id: currentHousehold.id,
+          p_year: year,
+          p_payment_type: paymentType === 'alle' ? undefined : paymentType,
+          p_purpose: purpose || undefined,
+        })
+
+      console.log('[DEBUG useExpensesData] RPC result:', {
+        hasData: !!rpcData,
+        dataLength: rpcData?.length,
+        error: rpcError,
+        rpcData: rpcData,
+      })
+
+      if (!rpcError && rpcData) {
+        // Transform RPC data to our format
+        const transformed: MonthData[] = rpcData.map((m: {
+          month_number: number
+          month_name: string
+          year: number
+          receipt_count: number
+          total_amount_cents: number
+          categories: unknown
+        }) => ({
+          year: m.year,
+          monthNumber: m.month_number,
+          monthName: monthNames[m.month_number - 1] || m.month_name,
+          receiptCount: m.receipt_count,
+          totalAmountCents: m.total_amount_cents,
+          categories: parseCategories(m.categories),
+        }))
+
+        console.log('[DEBUG useExpensesData] Transformed RPC data:', transformed)
+
+        setMonths(transformed.sort((a, b) => b.monthNumber - a.monthNumber))
+        setIsLoading(false)
+        return
+      }
+
+      // Fallback: Manual aggregation
+      console.log('[DEBUG useExpensesData] RPC not available, using fallback aggregation')
+      await fetchWithFallback()
+    } catch (err) {
+      console.error('Error fetching monthly data:', err)
+      setError('Fehler beim Laden der Daten')
+      setIsLoading(false)
+    }
+  }, [currentHousehold, supabase, year, paymentType, purpose, fetchWithFallback])
 
   useEffect(() => {
-    fetchAvailableYears()
+    const timeoutId = window.setTimeout(() => {
+      void fetchAvailableYears()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [fetchAvailableYears])
 
   useEffect(() => {
-    fetchMonthlyData()
+    const timeoutId = window.setTimeout(() => {
+      void fetchMonthlyData()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [fetchMonthlyData])
 
   const refresh = useCallback(() => {

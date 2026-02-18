@@ -9,6 +9,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', 'e2e/**', 'playwright-report/**', 'test-results/**'],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'src/test/setup.ts'],

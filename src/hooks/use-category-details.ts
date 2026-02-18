@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useHousehold } from '@/contexts/household-context'
-import { startOfYear, endOfYear, parseISO, format } from 'date-fns'
 
 export interface CategoryProductItem {
   id: string
@@ -82,10 +81,24 @@ export function useCategoryDetails({ categorySlug, year }: UseCategoryDetailsOpt
 
       if (itemsError) throw itemsError
 
-      const formattedItems: CategoryProductItem[] = (receiptItems || []).map((item: any) => ({
+      type ReceiptItemRow = {
+        id: string
+        product_name: string
+        price_cents: number
+        quantity: number
+        receipts?: {
+          date?: string
+          merchants?: {
+            name?: string
+            logo_url?: string | null
+          } | null
+        } | null
+      }
+
+      const formattedItems: CategoryProductItem[] = ((receiptItems || []) as ReceiptItemRow[]).map((item) => ({
         id: item.id,
         productName: item.product_name,
-        date: item.receipts?.date,
+        date: item.receipts?.date || '',
         price: item.price_cents,
         quantity: item.quantity,
         merchantName: item.receipts?.merchants?.name || 'Unbekannt',
