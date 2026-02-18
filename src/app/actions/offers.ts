@@ -41,6 +41,7 @@ function mapOffer(o: {
   product_name: string
   price: number
   original_price: number | null
+  regular_price?: number | null
   store: string
   image_url: string | null
   valid_from: string | null
@@ -70,7 +71,7 @@ function mapOffer(o: {
     weight_volume: o.weight_volume,
     currency: o.currency,
     offer_id: o.offer_id,
-    regular_price: o.original_price,
+    regular_price: o.regular_price ?? o.original_price ?? null,
     scraped_at: o.scraped_at,
   }
 }
@@ -300,5 +301,4 @@ export async function getShoppingListOfferMatches(
 
   return result
 }
-
 

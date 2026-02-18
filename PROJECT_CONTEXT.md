@@ -123,7 +123,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 GEMINI_API_KEY=your_gemini_api_key
 
 # Embeddings
-# Must use models/gemini-embedding-001 with output_dimensionality: 768
+# Embedding Standard: models/text-embedding-004, Output: 768-dim
 
 ```
 
