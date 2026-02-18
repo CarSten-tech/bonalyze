@@ -63,12 +63,25 @@ function OfferCard({ offer }: { offer: Offer }) {
             
             <div className="flex items-end justify-between mt-2">
               <div className="flex flex-col">
-                 <span className="text-lg font-bold text-primary leading-none">
-                  {offer.price != null ? `${offer.price.toFixed(2).replace('.', ',')} €` : '—'}
-                </span>
+                 <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-bold text-primary leading-none">
+                      {offer.price != null ? `${offer.price.toFixed(2).replace('.', ',')} €` : '—'}
+                    </span>
+                    {offer.original_price && offer.original_price > offer.price && (
+                      <span className="text-xs text-muted-foreground line-through decoration-border">
+                        {offer.original_price.toFixed(2).replace('.', ',')}
+                      </span>
+                    )}
+                 </div>
                 {offer.valid_until && (
-                  <span className="text-[10px] text-muted-foreground mt-1">
-                    Bis {new Date(offer.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                  <span className={cn(
+                    "text-[10px] mt-1.5 inline-block",
+                    // Highlight if expiring soon (within 2 days)
+                    new Date(offer.valid_until).getTime() - Date.now() < 2 * 24 * 60 * 60 * 1000
+                      ? "text-orange-600 dark:text-orange-400 font-medium"
+                      : "text-muted-foreground"
+                  )}>
+                    Bis {new Date(offer.valid_until).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                   </span>
                 )}
               </div>
