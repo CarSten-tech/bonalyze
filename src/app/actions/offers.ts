@@ -67,7 +67,6 @@ function mapOffer(o: {
     source_url: o.source_url,
     price_per_unit: o.price_per_unit,
     weight_volume: o.weight_volume,
-    weight_volume: o.weight_volume,
     currency: o.currency,
     offer_id: o.offer_id,
     scraped_at: o.scraped_at,
