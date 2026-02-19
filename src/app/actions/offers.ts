@@ -66,7 +66,7 @@ function normalizeFilterValue(value?: string): string | undefined {
   return normalized
 }
 
-function decodeCategoryFilterValues(filter: string): string[] | null {
+function decodeTokenFilterValues(filter: string): string[] | null {
   if (filter.startsWith('raw:')) {
     const value = decodeURIComponent(filter.slice(4)).trim()
     return value ? [value] : null
@@ -127,11 +127,20 @@ export async function getOffers(
     .order('scraped_at', { ascending: false })
 
   if (storeFilter) {
-    query = query.ilike('store', storeFilter)
+    const storeValues = decodeTokenFilterValues(storeFilter)
+    if (storeValues && storeValues.length > 0) {
+      if (storeValues.length === 1) {
+        query = query.eq('store', storeValues[0])
+      } else {
+        query = query.in('store', storeValues)
+      }
+    } else {
+      query = query.ilike('store', storeFilter)
+    }
   }
 
   if (categoryFilter) {
-    const categoryValues = decodeCategoryFilterValues(categoryFilter)
+    const categoryValues = decodeTokenFilterValues(categoryFilter)
     if (categoryValues && categoryValues.length > 0) {
       if (categoryValues.length === 1) {
         query = query.eq('category', categoryValues[0])
@@ -177,7 +186,16 @@ export async function getOfferOptions(store?: string): Promise<OfferOptions> {
     .gte('valid_until', nowIso)
 
   if (storeFilter) {
-    categoryQuery = categoryQuery.ilike('store', storeFilter)
+    const storeValues = decodeTokenFilterValues(storeFilter)
+    if (storeValues && storeValues.length > 0) {
+      if (storeValues.length === 1) {
+        categoryQuery = categoryQuery.eq('store', storeValues[0])
+      } else {
+        categoryQuery = categoryQuery.in('store', storeValues)
+      }
+    } else {
+      categoryQuery = categoryQuery.ilike('store', storeFilter)
+    }
   }
 
   const [catRes, storeRes] = await Promise.all([

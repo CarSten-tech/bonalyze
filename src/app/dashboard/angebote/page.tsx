@@ -24,6 +24,12 @@ interface SubCategoryFilter {
   token: string
 }
 
+interface StoreFilter {
+  label: string
+  token: string
+  values: string[]
+}
+
 type GroupedCategoryFilters = Record<MainCategoryFilterKey, SubCategoryFilter[]>
 
 const MAIN_CATEGORY_PILLS: Array<{ key: MainCategoryFilterKey; label: string }> = [
@@ -57,8 +63,95 @@ function normalizeText(value: string): string {
     .replace(/ß/g, 'ss')
 }
 
-function hasAnyKeyword(value: string, keywords: string[]): boolean {
-  return keywords.some((keyword) => value.includes(keyword))
+type ClassifiableMainCategoryKey = Exclude<MainCategoryFilterKey, 'sonstiges'>
+
+const MAIN_CATEGORY_KEYWORDS: Record<ClassifiableMainCategoryKey, string[]> = {
+  lebensmittel: [
+    'lebensmittel', 'gemuse', 'obst', 'frucht', 'beere', 'salat', 'kartoffel', 'brot', 'back',
+    'fleisch', 'wurst', 'fisch', 'vegan', 'vegetar', 'molkerei', 'milch', 'kaese', 'joghurt',
+    'quark', 'butter', 'sahne', 'eier', 'teig', 'nudel', 'reis', 'konserve', 'gewuerz',
+    'sauce', 'aufstrich', 'snack', 'suss', 'schokolade', 'keks', 'bonbon', 'tiefkuehl',
+    'tiefkuhl', 'fertig', 'pizza', 'frische',
+  ],
+  getraenke: [
+    'getrank', 'getraenk', 'getraenke', 'drink', 'trink', 'wasser', 'saft', 'smoothie',
+    'cola', 'limo', 'limonade', 'softdrink', 'soda', 'sirup', 'tee', 'kaffee', 'kakao',
+    'bier', 'wein', 'sekt', 'spirituose', 'alkohol', 'energy', 'isotonisch',
+  ],
+  drogerie: [
+    'drogerie', 'pflege', 'hygiene', 'kosmetik', 'beauty', 'makeup', 'make up', 'parfum',
+    'shampoo', 'dusch', 'deo', 'zahnpasta', 'zahnpflege', 'rasur', 'rasier', 'hautpflege',
+    'koerperpflege', 'baby', 'windel', 'gesundheit',
+  ],
+  haushalt: [
+    'haushalt', 'reinigung', 'putz', 'spul', 'spuel', 'wasch', 'waesche', 'kueche', 'kuche',
+    'toilettenpapier', 'kuechenrolle', 'muell', 'folie', 'beutel', 'haushaltswaren',
+    'tierbedarf', 'heimtier', 'katzen', 'hunde',
+  ],
+}
+
+function normalizeForMatching(value: string): string {
+  return normalizeText(value)
+    .replace(/>=|<=|=>|=<|[><=]/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractCategorySignals(value: string): string[] {
+  const signals = new Set<string>()
+  const normalizedFull = normalizeForMatching(value)
+  if (normalizedFull) {
+    signals.add(normalizedFull)
+  }
+
+  const parts = value.split(/[>/|,;:+()]/g)
+  for (const part of parts) {
+    const normalizedPart = normalizeForMatching(part)
+    if (normalizedPart) {
+      signals.add(normalizedPart)
+    }
+  }
+
+  for (const token of normalizedFull.split(' ')) {
+    if (token.length >= 3) {
+      signals.add(token)
+    }
+  }
+
+  return [...signals]
+}
+
+function scoreSignalsForKeywords(signals: string[], keywords: string[]): number {
+  if (signals.length === 0 || keywords.length === 0) return 0
+  let score = 0
+
+  for (const rawKeyword of keywords) {
+    const keyword = normalizeForMatching(rawKeyword)
+    if (!keyword) continue
+
+    let keywordScore = 0
+    for (const signal of signals) {
+      if (signal === keyword) {
+        keywordScore = 6
+        break
+      }
+      if (signal.startsWith(`${keyword} `) || signal.endsWith(` ${keyword}`) || signal.includes(` ${keyword} `)) {
+        keywordScore = Math.max(keywordScore, 4)
+        continue
+      }
+      if (signal.includes(keyword)) {
+        keywordScore = Math.max(keywordScore, 3)
+        continue
+      }
+      if (keyword.includes(signal) && signal.length >= 5) {
+        keywordScore = Math.max(keywordScore, 1)
+      }
+    }
+    score += keywordScore
+  }
+
+  return score
 }
 
 function toTitleCase(value: string): string {
@@ -81,127 +174,171 @@ function formatStoreLabel(store: string): string {
 }
 
 function formatCategoryLabel(category: string): string {
-  const cleaned = category.replace(/[_-]+/g, ' ').trim()
+  const cleaned = category
+    .replace(/>=|<=|=>|=<|[><=]/g, ' ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
   return toTitleCase(cleaned)
 }
 
-function createRawCategoryToken(category: string): string {
-  return `raw:${encodeURIComponent(category)}`
+function createRawFilterToken(value: string): string {
+  return `raw:${encodeURIComponent(value)}`
 }
 
-function createInCategoryToken(categories: string[]): string {
-  return `in:${categories.map((category) => encodeURIComponent(category)).join('||')}`
+function createInFilterToken(values: string[]): string {
+  return `in:${values.map((value) => encodeURIComponent(value)).join('||')}`
 }
 
-function classifyMainCategory(category: string): MainCategoryFilterKey {
-  const normalized = normalizeText(category)
-
-  const beverageKeywords = [
-    'getrank',
-    'trink',
-    'wasser',
-    'saft',
-    'cola',
-    'limo',
-    'softdrink',
-    'bier',
-    'wein',
-    'sekt',
-    'spirituose',
-    'alkohol',
-    'sirup',
-    'kaffee',
-    'tee',
-    'kakao',
-  ]
-
-  const drogerieKeywords = [
-    'drogerie',
-    'pflege',
-    'kosmetik',
-    'hygiene',
-    'shampoo',
-    'deo',
-    'zahnpasta',
-    'baby',
-    'windel',
-  ]
-
-  const haushaltKeywords = [
-    'haushalt',
-    'reinigung',
-    'putz',
-    'wasch',
-    'spul',
-    'kuche',
-    'kueche',
-    'toilettenpapier',
-    'muell',
-    'haushaltswaren',
-    'tier',
-  ]
-
-  const foodKeywords = [
-    'lebensmittel',
-    'gemuse',
-    'obst',
-    'frucht',
-    'brot',
-    'back',
-    'fleisch',
-    'wurst',
-    'fisch',
-    'veggie',
-    'vegetar',
-    'vegan',
-    'milch',
-    'kaese',
-    'joghurt',
-    'dessert',
-    'snack',
-    'suss',
-    'schokolade',
-    'konserve',
-    'teig',
-    'nudel',
-    'reis',
-    'tiefkuhl',
-    'fertig',
-    'pizza',
-  ]
-
-  if (hasAnyKeyword(normalized, beverageKeywords)) return 'getraenke'
-  if (hasAnyKeyword(normalized, drogerieKeywords)) return 'drogerie'
-  if (hasAnyKeyword(normalized, haushaltKeywords)) return 'haushalt'
-  if (hasAnyKeyword(normalized, foodKeywords)) return 'lebensmittel'
-  return 'sonstiges'
-}
-
-function classifyDrinkBucket(category: string): 'alkoholfrei' | 'alkoholisch' | 'weitere' {
-  const normalized = normalizeText(category)
-  const alcoholKeywords = ['alkohol', 'bier', 'wein', 'sekt', 'spirituose', 'likor', 'likoer', 'vodka', 'gin', 'rum']
-  const nonAlcoholKeywords = [
-    'wasser',
-    'saft',
-    'cola',
-    'limo',
-    'softdrink',
-    'tee',
-    'kaffee',
-    'kakao',
-    'sirup',
-    'milch',
-    'smoothie',
-    'alkoholfrei',
-  ]
-
-  if (hasAnyKeyword(normalized, alcoholKeywords)) return 'alkoholisch'
-  if (hasAnyKeyword(normalized, nonAlcoholKeywords)) return 'alkoholfrei'
-  return 'weitere'
+function normalizeKey(value: string): string {
+  return normalizeText(value).replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function sortUnique(values: string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b, 'de'))
+}
+
+function createTokenForValues(values: string[]): string {
+  const uniqueValues = sortUnique(values)
+  if (uniqueValues.length === 1) {
+    return createRawFilterToken(uniqueValues[0])
+  }
+  return createInFilterToken(uniqueValues)
+}
+
+function buildStoreFilters(stores: string[]): StoreFilter[] {
+  const groupedStores = new Map<string, { label: string; values: Set<string> }>()
+
+  for (const store of stores) {
+    const trimmed = store?.trim()
+    if (!trimmed) continue
+    const label = formatStoreLabel(trimmed)
+    const key = normalizeKey(label)
+
+    if (!groupedStores.has(key)) {
+      groupedStores.set(key, { label, values: new Set<string>() })
+    }
+    groupedStores.get(key)?.values.add(trimmed)
+  }
+
+  return [...groupedStores.values()]
+    .map((entry) => {
+      const values = sortUnique([...entry.values])
+      return {
+        label: entry.label,
+        token: createTokenForValues(values),
+        values,
+      }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, 'de'))
+}
+
+function classifyMainCategory(category: string): MainCategoryFilterKey {
+  const signals = extractCategorySignals(category)
+  if (signals.length === 0) return 'sonstiges'
+
+  const candidates: Array<{ key: ClassifiableMainCategoryKey; score: number }> = [
+    { key: 'lebensmittel', score: scoreSignalsForKeywords(signals, MAIN_CATEGORY_KEYWORDS.lebensmittel) },
+    { key: 'getraenke', score: scoreSignalsForKeywords(signals, MAIN_CATEGORY_KEYWORDS.getraenke) },
+    { key: 'drogerie', score: scoreSignalsForKeywords(signals, MAIN_CATEGORY_KEYWORDS.drogerie) },
+    { key: 'haushalt', score: scoreSignalsForKeywords(signals, MAIN_CATEGORY_KEYWORDS.haushalt) },
+  ]
+
+  const best = candidates.sort((a, b) => b.score - a.score)[0]
+  return best && best.score > 0 ? best.key : 'sonstiges'
+}
+
+interface CategoryBucket {
+  label: string
+  keywords: string[]
+}
+
+function buildBucketedFilters(
+  values: string[],
+  allLabel: string,
+  buckets: CategoryBucket[],
+  moreLabel: string
+): SubCategoryFilter[] {
+  const uniqueValues = sortUnique(values.map((value) => value.trim()).filter(Boolean))
+  if (uniqueValues.length === 0) return []
+
+  const bucketedValues = buckets.map(() => new Set<string>())
+  const leftovers = new Set<string>()
+
+  for (const value of uniqueValues) {
+    const signals = extractCategorySignals(value)
+    let bestBucketIndex = -1
+    let bestBucketScore = 0
+
+    buckets.forEach((bucket, index) => {
+      const bucketScore = scoreSignalsForKeywords(signals, bucket.keywords)
+      if (bucketScore > bestBucketScore) {
+        bestBucketScore = bucketScore
+        bestBucketIndex = index
+      }
+    })
+
+    const bucketIndex = bestBucketScore > 0 ? bestBucketIndex : -1
+    if (bucketIndex >= 0) {
+      bucketedValues[bucketIndex].add(value)
+    } else {
+      leftovers.add(value)
+    }
+  }
+
+  const filters: SubCategoryFilter[] = [
+    { label: allLabel, token: createTokenForValues(uniqueValues) },
+  ]
+
+  buckets.forEach((bucket, index) => {
+    const valuesForBucket = sortUnique([...bucketedValues[index]])
+    if (valuesForBucket.length > 0) {
+      filters.push({
+        label: bucket.label,
+        token: createTokenForValues(valuesForBucket),
+      })
+    }
+  })
+
+  const leftoverValues = sortUnique([...leftovers])
+  if (leftoverValues.length > 0) {
+    filters.push({
+      label: moreLabel,
+      token: createTokenForValues(leftoverValues),
+    })
+  }
+
+  return filters
+}
+
+function buildRawCategoryFilters(values: string[], allLabel: string): SubCategoryFilter[] {
+  const grouped = new Map<string, { label: string; values: Set<string> }>()
+
+  for (const value of values) {
+    const trimmed = value?.trim()
+    if (!trimmed) continue
+    const label = formatCategoryLabel(trimmed)
+    const key = normalizeKey(label)
+    if (!grouped.has(key)) {
+      grouped.set(key, { label, values: new Set<string>() })
+    }
+    grouped.get(key)?.values.add(trimmed)
+  }
+
+  const merged = [...grouped.values()]
+    .map((entry) => ({ label: entry.label, values: sortUnique([...entry.values]) }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'de'))
+
+  const allValues = sortUnique(merged.flatMap((entry) => entry.values))
+  if (allValues.length === 0) return []
+
+  return [
+    { label: allLabel, token: createTokenForValues(allValues) },
+    ...merged.map((entry) => ({
+      label: entry.label,
+      token: createTokenForValues(entry.values),
+    })),
+  ]
 }
 
 function buildGroupedCategoryFilters(categories: string[]): GroupedCategoryFilters {
@@ -227,66 +364,59 @@ function buildGroupedCategoryFilters(categories: string[]): GroupedCategoryFilte
     sonstiges: sortUnique(groupedRaw.sonstiges),
   }
 
-  const makeDefaultSubFilters = (values: string[], allLabel = 'Alle'): SubCategoryFilter[] => {
-    if (values.length === 0) return []
-    return [
-      { label: allLabel, token: createInCategoryToken(values) },
-      ...values.map((value) => ({
-        label: formatCategoryLabel(value),
-        token: createRawCategoryToken(value),
-      })),
-    ]
-  }
-
-  const beverageValues = sortedGroupedRaw.getraenke
-  const beverageBuckets: Record<'alkoholfrei' | 'alkoholisch' | 'weitere', string[]> = {
-    alkoholfrei: [],
-    alkoholisch: [],
-    weitere: [],
-  }
-
-  for (const value of beverageValues) {
-    beverageBuckets[classifyDrinkBucket(value)].push(value)
-  }
-
-  const beverageFilters: SubCategoryFilter[] = []
-  if (beverageValues.length > 0) {
-    beverageFilters.push({
-      label: 'Alle Getränke',
-      token: createInCategoryToken(beverageValues),
-    })
-  }
-  if (beverageBuckets.alkoholfrei.length > 0) {
-    beverageFilters.push({
-      label: 'Alkoholfrei',
-      token: createInCategoryToken(sortUnique(beverageBuckets.alkoholfrei)),
-    })
-  }
-  if (beverageBuckets.alkoholisch.length > 0) {
-    beverageFilters.push({
-      label: 'Alkoholisch',
-      token: createInCategoryToken(sortUnique(beverageBuckets.alkoholisch)),
-    })
-  }
-  if (beverageBuckets.weitere.length > 0) {
-    beverageFilters.push({
-      label: 'Weitere Getränke',
-      token: createInCategoryToken(sortUnique(beverageBuckets.weitere)),
-    })
-  }
-  beverageFilters.push(
-    ...beverageValues.map((value) => ({
-      label: formatCategoryLabel(value),
-      token: createRawCategoryToken(value),
-    }))
-  )
-
   return {
-    lebensmittel: makeDefaultSubFilters(sortedGroupedRaw.lebensmittel, 'Alle Lebensmittel'),
-    getraenke: beverageFilters,
-    drogerie: makeDefaultSubFilters(sortedGroupedRaw.drogerie, 'Alle Drogerie'),
-    haushalt: makeDefaultSubFilters(sortedGroupedRaw.haushalt, 'Alle Haushaltskategorien'),
-    sonstiges: makeDefaultSubFilters(sortedGroupedRaw.sonstiges, 'Alle Sonstigen'),
+    lebensmittel: buildBucketedFilters(
+      sortedGroupedRaw.lebensmittel,
+      'Alle Lebensmittel',
+      [
+        { label: 'Gemüse', keywords: ['gemuse', 'salat', 'kartoffel', 'tomate', 'gurke', 'paprika'] },
+        { label: 'Obst', keywords: ['obst', 'frucht', 'beere', 'zitrus', 'apfel', 'banane'] },
+        { label: 'Milchprodukte', keywords: ['molkerei', 'milch', 'kaese', 'joghurt', 'quark', 'butter', 'sahne'] },
+        { label: 'Fertigprodukte', keywords: ['fertig', 'tiefkuehl', 'tiefkuhl', 'pizza', 'konserve', 'instant'] },
+        { label: 'Süßigkeiten', keywords: ['suss', 'schokolade', 'keks', 'snack', 'dessert', 'bonbon', 'riegel'] },
+      ],
+      'Weitere Lebensmittel'
+    ),
+    getraenke: buildBucketedFilters(
+      sortedGroupedRaw.getraenke,
+      'Alle Getränke',
+      [
+        {
+          label: 'Alkoholfrei',
+          keywords: [
+            'alkoholfrei', 'wasser', 'saft', 'cola', 'limo', 'limonade', 'softdrink', 'smoothie',
+            'tee', 'kaffee', 'kakao', 'sirup', 'soda', 'energy',
+          ],
+        },
+        {
+          label: 'Alkoholisch',
+          keywords: ['alkohol', 'bier', 'wein', 'sekt', 'spirituose', 'likor', 'likoer', 'vodka', 'gin', 'rum'],
+        },
+      ],
+      'Weitere Getränke'
+    ),
+    drogerie: buildBucketedFilters(
+      sortedGroupedRaw.drogerie,
+      'Alle Drogerie',
+      [
+        { label: 'Hygiene & Pflege', keywords: ['hygiene', 'pflege', 'shampoo', 'deo', 'zahnpasta', 'koerper', 'koerperpflege'] },
+        { label: 'Kosmetik', keywords: ['kosmetik', 'makeup', 'make up', 'beauty', 'parfum'] },
+        { label: 'Baby', keywords: ['baby', 'windel'] },
+      ],
+      'Weitere Drogerie'
+    ),
+    haushalt: buildBucketedFilters(
+      sortedGroupedRaw.haushalt,
+      'Alle Haushaltskategorien',
+      [
+        { label: 'Reinigung', keywords: ['reinigung', 'putz', 'spul', 'desinfektion'] },
+        { label: 'Küche', keywords: ['kuche', 'kueche', 'folie', 'beutel'] },
+        { label: 'Wäsche', keywords: ['wasch', 'waesche', 'weichspuler'] },
+        { label: 'Tierbedarf', keywords: ['tier', 'heimtier', 'katze', 'hund'] },
+      ],
+      'Weitere Haushalt'
+    ),
+    sonstiges: buildRawCategoryFilters(sortedGroupedRaw.sonstiges, 'Alle Sonstigen'),
   }
 }
 
@@ -430,9 +560,8 @@ export default function AngebotePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const LIMIT = 30
+  const storeFilters = useMemo(() => buildStoreFilters(stores), [stores])
   const groupedCategoryFilters = useMemo(() => buildGroupedCategoryFilters(categories), [categories])
-  const activeSubcategoryFilters =
-    selectedMainCategory === 'all' ? [] : groupedCategoryFilters[selectedMainCategory]
 
   const loadOptions = useCallback(async (store: string) => {
     try {
@@ -492,8 +621,22 @@ export default function AngebotePage() {
     loadOffers(store, 'all', '')
   }, [searchParams, loadOffers])
 
-  const handleStoreChange = (store: string) => {
-    setSelectedStore(store)
+  useEffect(() => {
+    if (selectedStore === 'all') return
+    if (selectedStore.startsWith('raw:') || selectedStore.startsWith('in:')) return
+
+    const selectedStoreKey = normalizeKey(formatStoreLabel(selectedStore))
+    const matchingFilter = storeFilters.find((filter) =>
+      filter.values.some((value) => normalizeKey(formatStoreLabel(value)) === selectedStoreKey)
+    )
+
+    if (matchingFilter && matchingFilter.token !== selectedStore) {
+      setSelectedStore(matchingFilter.token)
+    }
+  }, [selectedStore, storeFilters])
+
+  const handleStoreChange = (storeToken: string) => {
+    setSelectedStore(storeToken)
     setSelectedMainCategory('all')
     setSelectedCategory('all')
     setSearchQuery('')
@@ -592,12 +735,12 @@ export default function AngebotePage() {
               active={selectedStore === 'all'}
               onClick={() => handleStoreChange('all')}
             />
-            {stores.map((store) => (
+            {storeFilters.map((storeFilter) => (
               <FilterPill
-                key={store}
-                label={formatStoreLabel(store)}
-                active={selectedStore === store}
-                onClick={() => handleStoreChange(store)}
+                key={storeFilter.token}
+                label={storeFilter.label}
+                active={selectedStore === storeFilter.token}
+                onClick={() => handleStoreChange(storeFilter.token)}
               />
             ))}
           </div>
@@ -609,31 +752,37 @@ export default function AngebotePage() {
               active={selectedMainCategory === 'all'}
               onClick={() => handleMainCategoryChange('all')}
             />
-            {MAIN_CATEGORY_PILLS.map((mainCategory) => (
-              <FilterPill
-                key={mainCategory.key}
-                label={mainCategory.label}
-                active={selectedMainCategory === mainCategory.key}
-                onClick={() => handleMainCategoryChange(mainCategory.key)}
-              />
-            ))}
-            <div
-              className={cn(
-                'flex items-center gap-2 overflow-hidden transition-all duration-300 ease-out',
-                selectedMainCategory === 'all' || activeSubcategoryFilters.length === 0
-                  ? 'max-w-0 opacity-0 translate-x-2'
-                  : 'max-w-[2200px] opacity-100 translate-x-0'
-              )}
-            >
-              {activeSubcategoryFilters.map((subCategory) => (
-                <FilterPill
-                  key={subCategory.token}
-                  label={subCategory.label}
-                  active={selectedCategory === subCategory.token}
-                  onClick={() => handleSubCategoryChange(subCategory.token)}
-                />
-              ))}
-            </div>
+            {MAIN_CATEGORY_PILLS.map((mainCategory) => {
+              const isActive = selectedMainCategory === mainCategory.key
+              const subFilters = groupedCategoryFilters[mainCategory.key]
+
+              return (
+                <div key={mainCategory.key} className="flex items-center gap-2">
+                  <FilterPill
+                    label={mainCategory.label}
+                    active={isActive}
+                    onClick={() => handleMainCategoryChange(mainCategory.key)}
+                  />
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out',
+                      isActive && subFilters.length > 0
+                        ? 'max-w-[2200px] opacity-100 translate-x-0'
+                        : 'max-w-0 opacity-0 -translate-x-1'
+                    )}
+                  >
+                    {subFilters.map((subCategory) => (
+                      <FilterPill
+                        key={subCategory.token}
+                        label={subCategory.label}
+                        active={selectedCategory === subCategory.token}
+                        onClick={() => handleSubCategoryChange(subCategory.token)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
