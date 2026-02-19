@@ -156,6 +156,16 @@ export default function AngebotePage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const LIMIT = 30
 
+  const loadOptions = useCallback(async (store: string) => {
+    try {
+      const options = await getOfferOptions(store === 'all' ? undefined : store)
+      setStores(options.stores)
+      setCategories(options.categories)
+    } catch (err) {
+      console.error('Error loading filter options:', err)
+    }
+  }, [])
+
   const loadOffers = useCallback(async (
     store: string,
     category: string,
@@ -190,19 +200,10 @@ export default function AngebotePage() {
     }
   }, [])
 
-  // Load filter options once
+  // Reload categories per selected store (stores remain globally active)
   useEffect(() => {
-    const loadOptions = async () => {
-      try {
-        const options = await getOfferOptions()
-        setStores(options.stores)
-        setCategories(options.categories)
-      } catch (err) {
-        console.error('Error loading filter options:', err)
-      }
-    }
-    loadOptions()
-  }, [])
+    loadOptions(selectedStore)
+  }, [selectedStore, loadOptions])
 
   // Initial load
   useEffect(() => {
@@ -213,6 +214,7 @@ export default function AngebotePage() {
 
   const handleStoreChange = (store: string) => {
     setSelectedStore(store)
+    setSelectedCategory('all')
     setSearchQuery('')
   }
 

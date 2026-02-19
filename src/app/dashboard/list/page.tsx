@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { ShoppingCart, LayoutGrid, List, Layers } from "lucide-react"
 import { 
   AddItemInput, 
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { useCategories } from "@/hooks/use-categories"
 import { CategoryHeader } from "@/components/shopping/category-header"
 import { cn } from "@/lib/utils"
-import type { ShoppingListItem } from "@/types/shopping"
+import type { Offer, ShoppingListItem } from "@/types/shopping"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,6 +119,58 @@ export default function ShoppingListPage() {
   const { data: categories } = useCategories()
   const { data: offers } = useOffers(!!householdId)
 
+  const normalizeProductName = useCallback((name: string) => name.toLowerCase().trim(), [])
+
+  const getOfferForItem = useCallback((itemName: string): Offer | undefined => {
+    if (!offers) return undefined
+    const normalized = normalizeProductName(itemName)
+    return offers.find((offerItem) => {
+      const offerName = normalizeProductName(offerItem.product_name)
+      return offerName.includes(normalized) || normalized.includes(offerName)
+    })
+  }, [offers, normalizeProductName])
+
+  const getHistoricalPriceCents = useCallback((item: ShoppingListItem): number | undefined => {
+    return (item.product_id ? productPrices[item.product_id] : undefined) || productPrices[normalizeProductName(item.product_name)]
+  }, [normalizeProductName, productPrices])
+
+  const getBestOfferPriceCents = useCallback((item: ShoppingListItem): number | undefined => {
+    const directOffer = getOfferForItem(item.product_name)
+    const directOfferCents =
+      directOffer && Number.isFinite(directOffer.price) ? Math.round(directOffer.price * 100) : undefined
+
+    const hintedOffer = item.offerHints?.find((hint) => typeof hint.price === "number" && Number.isFinite(hint.price))
+    const hintedOfferCents =
+      hintedOffer && hintedOffer.price != null ? Math.round(hintedOffer.price * 100) : undefined
+
+    if (directOfferCents !== undefined && hintedOfferCents !== undefined) {
+      return Math.min(directOfferCents, hintedOfferCents)
+    }
+    return directOfferCents ?? hintedOfferCents
+  }, [getOfferForItem])
+
+  const pricingSummary = useMemo(() => {
+    let pricedItemCount = 0
+    let totalCents = 0
+
+    for (const item of uncheckedItems) {
+      const historicalPriceCents = getHistoricalPriceCents(item)
+      const offerPriceCents = getBestOfferPriceCents(item)
+      const selectedPriceCents = offerPriceCents ?? historicalPriceCents
+
+      if (selectedPriceCents === undefined) continue
+
+      pricedItemCount += 1
+      totalCents += (item.quantity || 1) * selectedPriceCents
+    }
+
+    return {
+      pricedItemCount,
+      totalCents,
+      totalItemCount: uncheckedItems.length,
+    }
+  }, [uncheckedItems, getBestOfferPriceCents, getHistoricalPriceCents])
+
   // Group items by category (if enabled)
   const groupedItems = useMemo(() => {
     // If not using categories, return everything as 'uncategorized' effectively (or handle in render)
@@ -193,6 +245,7 @@ export default function ShoppingListPage() {
       onDetailsClick={handleDetailsClick}
       priceData={productPrices}
       offers={offers}
+      getOfferForItem={getOfferForItem}
     />
   )
 
@@ -206,10 +259,7 @@ export default function ShoppingListPage() {
           onUncheck={uncheckItem}
           onDetailsClick={handleDetailsClick}
           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
-          offer={offers?.find(o => {
-            const n = item.product_name.toLowerCase().trim()
-            return o.product_name.toLowerCase().includes(n) || n.includes(o.product_name.toLowerCase())
-          })}
+          offer={getOfferForItem(item.product_name)}
           offerHints={item.offerHints || undefined}
         />
       ))}
@@ -393,9 +443,8 @@ export default function ShoppingListPage() {
       {/* Estimated Total Footer (if > 0) */}
       {!isLoading && (
         (() => {
-          const itemsWithPrice = uncheckedItems.filter(i => (i.product_id && productPrices[i.product_id]) || productPrices[i.product_name.toLowerCase().trim()])
-          const count = itemsWithPrice.length
-          const total = uncheckedItems.length
+          const count = pricingSummary.pricedItemCount
+          const total = pricingSummary.totalItemCount
           const hasAnyPrice = count > 0
           
           if (!hasAnyPrice) return null
@@ -417,12 +466,7 @@ export default function ShoppingListPage() {
                    <span className="text-muted-foreground text-xs">({count}/{total})</span>
                 )}
                 <span className="font-bold text-foreground">
-                    {(uncheckedItems.reduce((sum, item) => {
-                        const price = (item.product_id ? productPrices[item.product_id] : undefined) 
-                                || productPrices[item.product_name.toLowerCase().trim()] 
-                                || 0
-                        return sum + (item.quantity || 1) * price
-                    }, 0) / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                  {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                 </span>
               </div>
             </div>

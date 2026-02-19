@@ -1,13 +1,13 @@
 'use client'
 
-import { WifiOff } from 'lucide-react'
+import { useState } from 'react'
+import { WifiOff, X } from 'lucide-react'
 import { useOffline } from '@/hooks/use-offline'
 import { cn } from '@/lib/utils'
 
-export function OfflineBanner() {
-  const isOffline = useOffline()
-
-  if (!isOffline) return null
+function OfflineBannerContent() {
+  const [isDismissed, setIsDismissed] = useState(false)
+  if (isDismissed) return null
 
   return (
     <div className={cn(
@@ -23,6 +23,23 @@ export function OfflineBanner() {
           Du bist offline. Änderungen werden lokal gespeichert.
         </span>
       </div>
+      <button
+        type="button"
+        onClick={() => setIsDismissed(true)}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/10 dark:hover:bg-slate-900/10"
+        aria-label="Offline-Hinweis schließen"
+        title="Schließen"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   )
+}
+
+export function OfflineBanner() {
+  const isOffline = useOffline()
+  if (!isOffline) return null
+
+  // Unmounting on reconnect resets the dismiss state for future offline sessions.
+  return <OfflineBannerContent />
 }

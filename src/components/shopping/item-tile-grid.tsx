@@ -10,6 +10,7 @@ interface ItemTileGridProps {
   onDetailsClick: (item: ShoppingListItem) => void
   priceData?: Record<string, number>
   offers?: Offer[]
+  getOfferForItem?: (itemName: string) => Offer | undefined
 }
 
 export function ItemTileGrid({ 
@@ -18,10 +19,12 @@ export function ItemTileGrid({
   onUncheck,
   onDetailsClick,
   priceData,
-  offers
+  offers,
+  getOfferForItem,
 }: ItemTileGridProps) {
   // Helper to find offer
   const getOffer = (itemName: string) => {
+    if (getOfferForItem) return getOfferForItem(itemName)
     if (!offers) return undefined
     const normalizedName = itemName.toLowerCase().trim()
     return offers.find(o => o.product_name.toLowerCase().includes(normalizedName) || normalizedName.includes(o.product_name.toLowerCase()))

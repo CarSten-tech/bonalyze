@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, Check, MoreVertical, Percent, HelpCircle } from "lucide-react"
+import { Package, Check, MoreVertical, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
 
@@ -36,6 +36,9 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
   const quantityDisplay = item.quantity && (item.quantity > 1 || item.unit)
     ? `${item.quantity}${item.unit ? ` ${item.unit}` : 'x'}`
     : item.unit || null
+
+  const hasOfferInfo = !item.is_checked && (Boolean(offer) || Boolean(offerHints?.length))
+  const primaryOfferHint = offerHints?.[0]
 
   return (
     <div
@@ -88,16 +91,6 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
            >
              {item.product_name}
            </span>
-           
-           {/* Offer Badge Next to Name */}
-           {offer && !item.is_checked && (
-            <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
-              <Percent className="w-3 h-3" />
-              <span>
-                {offer.discount_percent ? `-${offer.discount_percent}%` : 'Angebot'}
-              </span>
-            </div>
-           )}
 
            {/* Uncategorized indicator */}
            {!item.category_id && !item.is_checked && !offer && (
@@ -116,9 +109,9 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
           {estimatedPrice !== undefined && (
             <span className={cn(
               "text-xs",
-              offer ? "text-red-600 line-through decoration-slate-400/50" : "text-muted-foreground"
+              hasOfferInfo ? "text-red-600 line-through decoration-slate-400/50" : "text-muted-foreground"
             )}>
-              {offer ? '' : '~'}
+              {hasOfferInfo ? '' : '~'}
               {(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
             </span>
           )}
@@ -129,19 +122,39 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
            )}
         </div>
 
-        {/* Existing Offer Hints (if any) */}
+        {/* Offer row in same shape as previous "hint row", but in red */}
+        {offer && !item.is_checked && (
+          <span className="text-[11px] text-red-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
+            🏷{' '}
+            <span className="font-bold">
+              {offer.store} {offer.price.toFixed(2).replace('.', ',')} €
+            </span>
+            {offer.valid_until && (
+              <span className="text-red-500/80">
+                {' '}
+                (bis {new Date(offer.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})
+              </span>
+            )}
+          </span>
+        )}
+
         {offerHints && offerHints.length > 0 && !item.is_checked && !offer && (
-          <span className="text-[11px] text-green-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
-            🏷 {offerHints.map((h, i) => (
-              <span key={h.store}>
-                {i > 0 && ' · '}
-                <span className={i === 0 ? 'font-bold' : 'font-normal text-green-500/80'}>
-                  {h.store}{h.price != null ? ` ${h.price.toFixed(2).replace('.', ',')} €` : ''}
+          <span className="text-[11px] text-red-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
+            🏷{' '}
+            {offerHints.map((hint, index) => (
+              <span key={hint.store}>
+                {index > 0 && ' · '}
+                <span className={index === 0 ? 'font-bold' : 'font-normal text-red-500/80'}>
+                  {hint.store}
+                  {hint.price != null ? ` ${hint.price.toFixed(2).replace('.', ',')} €` : ''}
                 </span>
               </span>
             ))}
-            {offerHints[0]?.valid_until && (
-              <span className="text-green-500/70"> (bis {new Date(offerHints[0].valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})</span>
+            {primaryOfferHint?.valid_until && (
+              <span className="text-red-500/80">
+                {' '}
+                (bis {new Date(primaryOfferHint.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})
+              </span>
             )}
           </span>
         )}

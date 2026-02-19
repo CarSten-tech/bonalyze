@@ -59,6 +59,12 @@ interface SemanticOfferRow extends OfferRow {
   similarity?: number | null
 }
 
+function normalizeFilterValue(value?: string): string | undefined {
+  if (!value) return undefined
+  const normalized = value.trim()
+  if (!normalized || normalized === 'all') return undefined
+  return normalized
+}
 
 /** Maps a raw DB offer row to the typed Offer interface */
 function mapOffer(o: OfferRow): Offer {
@@ -92,19 +98,22 @@ export async function getOffers(
 ): Promise<OffersResult> {
   // Offers are public data - admin client is fine here (no user data accessed)
   const supabase = createAdminClient()
+  const nowIso = new Date().toISOString()
+  const storeFilter = normalizeFilterValue(store)
+  const categoryFilter = normalizeFilterValue(category)
 
   let query = supabase
     .from('offers')
     .select('*', { count: 'exact' })
-    .gte('valid_until', new Date().toISOString())
+    .gte('valid_until', nowIso)
     .order('scraped_at', { ascending: false })
 
-  if (store && store !== 'all') {
-    query = query.eq('store', store)
+  if (storeFilter) {
+    query = query.ilike('store', storeFilter)
   }
 
-  if (category && category !== 'all') {
-    query = query.eq('category', category)
+  if (categoryFilter) {
+    query = query.ilike('category', categoryFilter)
   }
 
   if (search && search.trim().length > 0) {
@@ -129,16 +138,36 @@ export async function getOffers(
 }
 
 /** Efficiently fetch distinct stores and categories for filtering */
-export async function getOfferOptions(): Promise<OfferOptions> {
+export async function getOfferOptions(store?: string): Promise<OfferOptions> {
   const supabase = createAdminClient()
+  const nowIso = new Date().toISOString()
+  const storeFilter = normalizeFilterValue(store)
+
+  let categoryQuery = supabase
+    .from('offers')
+    .select('category')
+    .not('category', 'is', null)
+    .gte('valid_until', nowIso)
+
+  if (storeFilter) {
+    categoryQuery = categoryQuery.ilike('store', storeFilter)
+  }
 
   const [catRes, storeRes] = await Promise.all([
-    supabase.from('offers').select('category').not('category', 'is', null),
-    supabase.from('offers').select('store').not('store', 'is', null)
+    categoryQuery,
+    supabase
+      .from('offers')
+      .select('store')
+      .not('store', 'is', null)
+      .gte('valid_until', nowIso),
   ])
 
-  const categories = [...new Set(catRes.data?.map(c => c.category).filter(Boolean) as string[])].sort()
-  const stores = [...new Set(storeRes.data?.map(s => s.store).filter(Boolean) as string[])].sort()
+  const categories = [
+    ...new Set(catRes.data?.map((c) => c.category).filter(Boolean) as string[]),
+  ].sort((a, b) => a.localeCompare(b, 'de'))
+  const stores = [
+    ...new Set(storeRes.data?.map((s) => s.store).filter(Boolean) as string[]),
+  ].sort((a, b) => a.localeCompare(b, 'de'))
 
   return { categories, stores }
 }
