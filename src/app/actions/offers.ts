@@ -66,6 +66,24 @@ function normalizeFilterValue(value?: string): string | undefined {
   return normalized
 }
 
+function decodeCategoryFilterValues(filter: string): string[] | null {
+  if (filter.startsWith('raw:')) {
+    const value = decodeURIComponent(filter.slice(4)).trim()
+    return value ? [value] : null
+  }
+
+  if (filter.startsWith('in:')) {
+    const values = filter
+      .slice(3)
+      .split('||')
+      .map((entry) => decodeURIComponent(entry).trim())
+      .filter(Boolean)
+    return values.length > 0 ? values : null
+  }
+
+  return null
+}
+
 /** Maps a raw DB offer row to the typed Offer interface */
 function mapOffer(o: OfferRow): Offer {
   return {
@@ -113,7 +131,16 @@ export async function getOffers(
   }
 
   if (categoryFilter) {
-    query = query.ilike('category', categoryFilter)
+    const categoryValues = decodeCategoryFilterValues(categoryFilter)
+    if (categoryValues && categoryValues.length > 0) {
+      if (categoryValues.length === 1) {
+        query = query.eq('category', categoryValues[0])
+      } else {
+        query = query.in('category', categoryValues)
+      }
+    } else {
+      query = query.ilike('category', categoryFilter)
+    }
   }
 
   if (search && search.trim().length > 0) {
