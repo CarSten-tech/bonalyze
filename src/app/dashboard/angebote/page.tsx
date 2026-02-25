@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Tag, ChevronLeft, Loader2 } from 'lucide-react'
+import { Search, Tag, ChevronLeft, Loader2, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,20 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { cn } from '@/lib/utils'
 import { getOffers, getOfferOptions, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
@@ -553,7 +567,6 @@ export default function AngebotePage() {
   const [total, setTotal] = useState(0)
   
   const [selectedStore, setSelectedStore] = useState('all')
-  const [selectedMainCategory, setSelectedMainCategory] = useState<MainCategoryKey>('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -616,7 +629,6 @@ export default function AngebotePage() {
   useEffect(() => {
     const store = searchParams.get('store') || 'all'
     setSelectedStore(store)
-    setSelectedMainCategory('all')
     setSelectedCategory('all')
     loadOffers(store, 'all', '')
   }, [searchParams, loadOffers])
@@ -637,21 +649,7 @@ export default function AngebotePage() {
 
   const handleStoreChange = (storeToken: string) => {
     setSelectedStore(storeToken)
-    setSelectedMainCategory('all')
     setSelectedCategory('all')
-    setSearchQuery('')
-  }
-
-  const handleMainCategoryChange = (mainCategory: MainCategoryKey) => {
-    setSelectedMainCategory(mainCategory)
-    if (mainCategory === 'all') {
-      setSelectedCategory('all')
-      setSearchQuery('')
-      return
-    }
-
-    const subFilters = groupedCategoryFilters[mainCategory]
-    setSelectedCategory(subFilters[0]?.token || 'all')
     setSearchQuery('')
   }
 
@@ -660,21 +658,6 @@ export default function AngebotePage() {
     setSearchQuery('')
   }
 
-  useEffect(() => {
-    if (selectedMainCategory === 'all') return
-
-    const subFilters = groupedCategoryFilters[selectedMainCategory]
-    if (subFilters.length === 0) {
-      setSelectedMainCategory('all')
-      setSelectedCategory('all')
-      return
-    }
-
-    const selectedTokenStillValid = subFilters.some((subFilter) => subFilter.token === selectedCategory)
-    if (!selectedTokenStillValid) {
-      setSelectedCategory(subFilters[0].token)
-    }
-  }, [groupedCategoryFilters, selectedMainCategory, selectedCategory])
 
   // Debounced search effect
   useEffect(() => {
@@ -717,64 +700,108 @@ export default function AngebotePage() {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Produkt suchen..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-9 bg-card border-border"
-            />
-          </div>
-
-          {/* Store Filters */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <FilterPill
-              label="Alle Märkte"
-              active={selectedStore === 'all'}
-              onClick={() => handleStoreChange('all')}
-            />
-            {storeFilters.map((storeFilter) => (
-              <FilterPill
-                key={storeFilter.token}
-                label={storeFilter.label}
-                active={selectedStore === storeFilter.token}
-                onClick={() => handleStoreChange(storeFilter.token)}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Produkt suchen..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-9 bg-card border-border"
               />
-            ))}
-          </div>
-
-          {/* Main Category Filters (Row 1) */}
-          <div className="flex gap-2 overflow-x-auto pb-1 mt-2 scrollbar-hide">
-            <FilterPill
-              label="Alle Kategorien"
-              active={selectedMainCategory === 'all'}
-              onClick={() => handleMainCategoryChange('all')}
-            />
-            {MAIN_CATEGORY_PILLS.map((mainCategory) => (
-              <FilterPill
-                key={mainCategory.key}
-                label={mainCategory.label}
-                active={selectedMainCategory === mainCategory.key}
-                onClick={() => handleMainCategoryChange(mainCategory.key)}
-              />
-            ))}
-          </div>
-
-          {/* Sub Category Filters (Row 2, conditional) */}
-          {selectedMainCategory !== 'all' && groupedCategoryFilters[selectedMainCategory].length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 mt-2 scrollbar-hide animate-in fade-in slide-in-from-top-1">
-              {groupedCategoryFilters[selectedMainCategory].map((subCategory) => (
-                <FilterPill
-                  key={subCategory.token}
-                  label={subCategory.label}
-                  active={selectedCategory === subCategory.token}
-                  onClick={() => handleSubCategoryChange(subCategory.token)}
-                />
-              ))}
             </div>
-          )}
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="shrink-0 flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filtern</span>
+                  {(selectedStore !== 'all' || selectedCategory !== 'all') && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 rounded-sm">
+                      {[selectedStore !== 'all' ? 1 : 0, selectedCategory !== 'all' ? 1 : 0].reduce((a, b) => a + b, 0)}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+                <SheetHeader className="mb-6">
+                  <SheetTitle>Filtern & Sortieren</SheetTitle>
+                  <SheetDescription>Grenze die Angebote nach Markt und Kategorie ein.</SheetDescription>
+                </SheetHeader>
+                
+                <div className="space-y-6">
+                  {/* Store Filters */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Märkte
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={selectedStore === 'all' ? "default" : "outline"}
+                        className="justify-start"
+                        onClick={() => handleStoreChange('all')}
+                      >
+                        Alle Märkte
+                      </Button>
+                      {storeFilters.map((storeFilter) => (
+                        <Button
+                          key={storeFilter.token}
+                          variant={selectedStore === storeFilter.token ? "default" : "outline"}
+                          className="justify-start"
+                          onClick={() => handleStoreChange(storeFilter.token)}
+                        >
+                          {storeFilter.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category Filters */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Kategorien
+                    </h3>
+                    <Button
+                      variant={selectedCategory === 'all' ? "default" : "outline"}
+                      className="w-full justify-start mb-2"
+                      onClick={() => handleSubCategoryChange('all')}
+                    >
+                      Alle Kategorien
+                    </Button>
+                    <Accordion type="single" collapsible className="w-full">
+                      {MAIN_CATEGORY_PILLS.map((mainCategory) => {
+                        const subs = groupedCategoryFilters[mainCategory.key];
+                        if (!subs || subs.length === 0) return null;
+                        
+                        return (
+                          <AccordionItem key={mainCategory.key} value={mainCategory.key}>
+                            <AccordionTrigger className="text-sm">
+                              {mainCategory.label}
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="flex flex-col gap-1 pt-1">
+                                {subs.map((subCategory) => (
+                                  <Button
+                                    key={subCategory.token}
+                                    variant={selectedCategory === subCategory.token ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="justify-start pl-6"
+                                    onClick={() => handleSubCategoryChange(subCategory.token)}
+                                  >
+                                    {subCategory.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
 
