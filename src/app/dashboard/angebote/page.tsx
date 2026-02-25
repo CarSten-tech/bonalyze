@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Tag, ChevronLeft, Loader2, SlidersHorizontal } from 'lucide-react'
+import { Search, Tag, ChevronLeft, Loader2, SlidersHorizontal, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
@@ -513,30 +513,6 @@ function OfferCard({ offer }: { offer: Offer }) {
   )
 }
 
-function FilterPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap border',
-        active
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'bg-background text-muted-foreground border-border hover:bg-muted'
-      )}
-    >
-      {label}
-    </button>
-  )
-}
-
 function OfferCardSkeleton() {
   return (
     <Card>
@@ -676,6 +652,14 @@ export default function AngebotePage() {
     loadOffers(selectedStore, selectedCategory, searchQuery, offers.length, true)
   }
 
+  const getCategoryLabel = useCallback((token: string) => {
+    for (const mainKey of Object.keys(groupedCategoryFilters) as MainCategoryFilterKey[]) {
+      const sub = groupedCategoryFilters[mainKey].find((s) => s.token === token)
+      if (sub) return sub.label
+    }
+    return token
+  }, [groupedCategoryFilters])
+
   const hasMore = offers.length < total
 
   return (
@@ -802,6 +786,50 @@ export default function AngebotePage() {
               </SheetContent>
             </Sheet>
           </div>
+
+          {/* Active Filter Chips */}
+          {(selectedStore !== 'all' || selectedCategory !== 'all') && (
+            <div className="flex gap-2 overflow-x-auto pb-1 mt-3 scrollbar-hide animate-in fade-in slide-in-from-top-1">
+              {selectedStore !== 'all' && (
+                <Badge variant="secondary" className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 whitespace-nowrap min-h-6">
+                  {storeFilters.find(f => f.token === selectedStore)?.label || selectedStore}
+                  <button 
+                    onClick={() => handleStoreChange('all')}
+                    className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                    title="Markt-Filter entfernen"
+                    aria-label="Markt-Filter entfernen"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              
+              {selectedCategory !== 'all' && (
+                <Badge variant="secondary" className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 whitespace-nowrap min-h-6">
+                  {getCategoryLabel(selectedCategory)}
+                  <button 
+                    onClick={() => handleSubCategoryChange('all')}
+                    className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                    title="Kategorie-Filter entfernen"
+                    aria-label="Kategorie-Filter entfernen"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+
+              {selectedStore !== 'all' && selectedCategory !== 'all' && (
+                <button
+                  onClick={() => {
+                    handleStoreChange('all');
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap px-2 flex items-center transition-colors"
+                >
+                  Alle löschen
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
