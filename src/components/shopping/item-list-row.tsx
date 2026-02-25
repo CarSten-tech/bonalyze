@@ -3,6 +3,7 @@
 import { Package, Check, MoreVertical, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 
 interface ItemListRowProps {
   item: ShoppingListItem
@@ -16,9 +17,11 @@ interface ItemListRowProps {
     price: number | null
     valid_until: string | null
   }>
+  categories?: { id: string; name: string }[]
+  onCategoryChange?: (itemId: string, categoryId: string) => void
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer, offerHints }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer, offerHints, categories, onCategoryChange }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -92,15 +95,36 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
              {item.product_name}
            </span>
 
-           {/* Uncategorized indicator */}
+           {/* Uncategorized indicator inline select */}
            {!item.category_id && !item.is_checked && !offer && (
-            <button
-              type="button"
-              onClick={handleDetailsClick}
-              className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full flex-shrink-0"
-            >
-              <HelpCircle className="w-3 h-3" />
-            </button>
+             categories && onCategoryChange ? (
+               <div onClick={(e) => e.stopPropagation()}>
+                 <Select onValueChange={(val) => onCategoryChange(item.id, val)}>
+                   <SelectTrigger 
+                     aria-label="Kategorie zuweisen" 
+                     title="Kategorie zuweisen" 
+                     className="flex h-5 items-center gap-0.5 text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0 rounded-full flex-shrink-0 border-none shadow-none hover:bg-amber-200 focus:ring-0 [&>svg]:hidden"
+                   >
+                     <HelpCircle className="w-3 h-3" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {categories.map(cat => (
+                       <SelectItem key={cat.id} value={cat.id} className="text-xs">
+                         {cat.name}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+             ) : (
+               <button
+                 type="button"
+                 onClick={handleDetailsClick}
+                 className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full flex-shrink-0"
+               >
+                 <HelpCircle className="w-3 h-3" />
+               </button>
+             )
            )}
         </div>
 

@@ -213,6 +213,10 @@ export default function ShoppingListPage() {
     })
   }
 
+  const handleCategoryChange = useCallback(async (itemId: string, categoryId: string) => {
+    await updateItem(itemId, { category_id: categoryId })
+  }, [updateItem])
+
   // Load last selected list from localStorage
   useEffect(() => {
     if (lists.length > 0 && householdId) {
@@ -261,6 +265,8 @@ export default function ShoppingListPage() {
           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
           offer={getOfferForItem(item.product_name)}
           offerHints={item.offerHints || undefined}
+          categories={categories?.map(c => ({ id: c.id, name: c.name }))}
+          onCategoryChange={handleCategoryChange}
         />
       ))}
     </div>

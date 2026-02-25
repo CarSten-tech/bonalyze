@@ -745,45 +745,36 @@ export default function AngebotePage() {
             ))}
           </div>
 
-          {/* Category Filters */}
+          {/* Main Category Filters (Row 1) */}
           <div className="flex gap-2 overflow-x-auto pb-1 mt-2 scrollbar-hide">
             <FilterPill
               label="Alle Kategorien"
               active={selectedMainCategory === 'all'}
               onClick={() => handleMainCategoryChange('all')}
             />
-            {MAIN_CATEGORY_PILLS.map((mainCategory) => {
-              const isActive = selectedMainCategory === mainCategory.key
-              const subFilters = groupedCategoryFilters[mainCategory.key]
-
-              return (
-                <div key={mainCategory.key} className="flex items-center gap-2">
-                  <FilterPill
-                    label={mainCategory.label}
-                    active={isActive}
-                    onClick={() => handleMainCategoryChange(mainCategory.key)}
-                  />
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out',
-                      isActive && subFilters.length > 0
-                        ? 'max-w-[2200px] opacity-100 translate-x-0'
-                        : 'max-w-0 opacity-0 -translate-x-1'
-                    )}
-                  >
-                    {subFilters.map((subCategory) => (
-                      <FilterPill
-                        key={subCategory.token}
-                        label={subCategory.label}
-                        active={selectedCategory === subCategory.token}
-                        onClick={() => handleSubCategoryChange(subCategory.token)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+            {MAIN_CATEGORY_PILLS.map((mainCategory) => (
+              <FilterPill
+                key={mainCategory.key}
+                label={mainCategory.label}
+                active={selectedMainCategory === mainCategory.key}
+                onClick={() => handleMainCategoryChange(mainCategory.key)}
+              />
+            ))}
           </div>
+
+          {/* Sub Category Filters (Row 2, conditional) */}
+          {selectedMainCategory !== 'all' && groupedCategoryFilters[selectedMainCategory].length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 mt-2 scrollbar-hide animate-in fade-in slide-in-from-top-1">
+              {groupedCategoryFilters[selectedMainCategory].map((subCategory) => (
+                <FilterPill
+                  key={subCategory.token}
+                  label={subCategory.label}
+                  active={selectedCategory === subCategory.token}
+                  onClick={() => handleSubCategoryChange(subCategory.token)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

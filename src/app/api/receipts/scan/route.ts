@@ -40,6 +40,7 @@ INSTRUCTIONS:
 
 3. **KATEGORISIERUNG**:
    - Ordne JEDEN Artikel einer Haupt- und Unterkategorie zu.
+   - **Komposita-Regel**: Bei Wörtern wie "Apfelwein" oder "Erdbeerkäse" bestimmt IMMER das LETZTE Wort (Grundwort) die Kategorie (Wein -> Alkohol, Käse -> Milch&Eier).
    - Nutze "Elektro & Technik" für ALLE Geräte (wichtig für Garantie!).
    - Nutze "Pfand & Leergut" nur, wenn es nicht in "amounts.deposit" verschoben werden kann.
 
