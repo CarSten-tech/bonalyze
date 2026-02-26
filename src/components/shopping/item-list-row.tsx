@@ -145,6 +145,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
               {hasOfferInfo ? '' : '~'}
               {(estimatedPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
             </span>
+          )}
         </div>
 
         {/* Offer row in same shape as previous "hint row", but in red */}
