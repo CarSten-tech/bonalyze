@@ -29,6 +29,10 @@ export interface ShoppingListItem {
     valid_until: string | null
     discount_percent: number | null
   }> | null
+  standardPrices?: Array<{
+    merchant_name: string
+    price_cents: number
+  }> | null
   created_at: string
   updated_at: string
   last_changed_by?: string | null

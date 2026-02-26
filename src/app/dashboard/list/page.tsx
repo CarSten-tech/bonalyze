@@ -149,6 +149,11 @@ export default function ShoppingListPage() {
     return directOfferCents ?? hintedOfferCents
   }, [getOfferForItem])
 
+  const getBestStandardPriceCents = useCallback((item: ShoppingListItem): number | undefined => {
+    if (!item.standardPrices || item.standardPrices.length === 0) return undefined
+    return Math.min(...item.standardPrices.map(sp => sp.price_cents))
+  }, [])
+
   const pricingSummary = useMemo(() => {
     let pricedItemCount = 0
     let totalCents = 0
@@ -156,7 +161,9 @@ export default function ShoppingListPage() {
     for (const item of uncheckedItems) {
       const historicalPriceCents = getHistoricalPriceCents(item)
       const offerPriceCents = getBestOfferPriceCents(item)
-      const selectedPriceCents = offerPriceCents ?? historicalPriceCents
+      const standardPriceCents = getBestStandardPriceCents(item)
+      
+      const selectedPriceCents = offerPriceCents ?? standardPriceCents ?? historicalPriceCents
 
       if (selectedPriceCents === undefined) continue
 
@@ -169,7 +176,62 @@ export default function ShoppingListPage() {
       totalCents,
       totalItemCount: uncheckedItems.length,
     }
-  }, [uncheckedItems, getBestOfferPriceCents, getHistoricalPriceCents])
+  }, [uncheckedItems, getBestOfferPriceCents, getHistoricalPriceCents, getBestStandardPriceCents])
+
+  const storeRecommendations = useMemo(() => {
+    const storeStats = new Map<string, { availableItems: number, totalCents: number }>()
+
+    for (const item of uncheckedItems) {
+      const storePrices = new Map<string, number>()
+      
+      // Direct offer
+      const directOffer = getOfferForItem(item.product_name)
+      if (directOffer && Number.isFinite(directOffer.price)) {
+          storePrices.set(directOffer.store, Math.round(directOffer.price * 100))
+      }
+
+      // Offer hints
+      if (item.offerHints) {
+          for (const hint of item.offerHints) {
+              if (hint.price != null && Number.isFinite(hint.price)) {
+                  const currentPrice = storePrices.get(hint.store)
+                  const hintCents = Math.round(hint.price * 100)
+                  if (currentPrice === undefined || hintCents < currentPrice) {
+                      storePrices.set(hint.store, hintCents)
+                  }
+              }
+          }
+      }
+
+      // Standard prices
+      if (item.standardPrices) {
+          for (const std of item.standardPrices) {
+              const currentPrice = storePrices.get(std.merchant_name)
+              if (currentPrice === undefined || std.price_cents < currentPrice) {
+                  storePrices.set(std.merchant_name, std.price_cents)
+              }
+          }
+      }
+
+      // Aggregate
+      const quantity = item.quantity || 1
+      for (const [store, priceCents] of Array.from(storePrices.entries())) {
+          const stats = storeStats.get(store) || { availableItems: 0, totalCents: 0 }
+          stats.availableItems += 1
+          stats.totalCents += priceCents * quantity
+          storeStats.set(store, stats)
+      }
+    }
+
+    return Array.from(storeStats.entries())
+        .map(([store, stats]) => ({ store, ...stats }))
+        .sort((a, b) => {
+            if (b.availableItems !== a.availableItems) {
+                return b.availableItems - a.availableItems
+            }
+            return a.totalCents - b.totalCents
+        })
+  }, [uncheckedItems, getOfferForItem])
 
   // Group items by category (if enabled)
   const groupedItems = useMemo(() => {
@@ -265,6 +327,7 @@ export default function ShoppingListPage() {
           estimatedPrice={(item.product_id ? productPrices[item.product_id] : undefined) || productPrices[item.product_name.toLowerCase().trim()]}
           offer={getOfferForItem(item.product_name)}
           offerHints={item.offerHints || undefined}
+          standardPrices={item.standardPrices || undefined}
           categories={categories?.map(c => ({ id: c.id, name: c.name }))}
           onCategoryChange={handleCategoryChange}
         />
@@ -456,25 +519,40 @@ export default function ShoppingListPage() {
           if (!hasAnyPrice) return null
 
           const isPartial = count < total
+          const bestStore = storeRecommendations.length > 0 ? storeRecommendations[0] : null
 
           return (
             <div 
-              className="fixed left-0 right-0 bg-card/95 backdrop-blur border-t border-border p-3 px-4 shadow-sm z-10 flex justify-between items-center text-sm"
+              className="fixed left-0 right-0 bg-card/95 backdrop-blur border-t border-border p-3 px-4 shadow-sm z-10 flex flex-col gap-1 text-sm"
               style={{ bottom: "var(--bottom-nav-height)" }}
             >
-              <span className="text-muted-foreground">Geschätzt (offen):</span>
-              <div className="flex items-center gap-2">
-                {isPartial ? (
-                   <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
-                     ⚠️ nur {count}/{total}
-                   </span>
-                ) : (
-                   <span className="text-muted-foreground text-xs">({count}/{total})</span>
-                )}
-                <span className="font-bold text-foreground">
-                  {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                </span>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Geschätzt (offen):</span>
+                <div className="flex items-center gap-2">
+                  {isPartial ? (
+                     <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
+                       ⚠️ nur {count}/{total}
+                     </span>
+                  ) : (
+                     <span className="text-muted-foreground text-xs">({count}/{total})</span>
+                  )}
+                  <span className="font-bold text-foreground">
+                    {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                </div>
               </div>
+              
+              {bestStore && bestStore.availableItems > 0 && (
+                 <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
+                    <span className="text-emerald-600 font-medium flex items-center gap-1">
+                       <ShoppingCart className="w-3 h-3" />
+                       Tipp: {bestStore.store}
+                    </span>
+                    <span className="text-emerald-600/90 font-medium">
+                      {bestStore.availableItems} Artikel für {(bestStore.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                 </div>
+              )}
             </div>
           )
         })()

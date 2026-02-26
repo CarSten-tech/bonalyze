@@ -259,69 +259,36 @@ export type Database = {
           },
         ]
       }
-      offers: {
+      circuit_breaker_state: {
         Row: {
-          category: string | null
-          created_at: string
-          discount_percent: number | null
-          id: string
-          image_url: string | null
-          original_price: number | null
-          postal_code: string | null
-          price: number
-          price_per_unit: string | null
-          product_name: string
-          product_slug: string | null
-          scraped_at: string
-          source_url: string | null
+          failures: number | null
+          last_failure: string | null
+          last_html_hash: string | null
+          last_success: string | null
+          opened_at: string | null
+          parser_failures: number | null
+          state: string
           store: string
-          valid_from: string | null
-          valid_until: string | null
-          weight_volume: string | null
-          currency: string | null
-          offer_id: string | null
         }
         Insert: {
-          category?: string | null
-          created_at?: string
-          discount_percent?: number | null
-          id?: string
-          image_url?: string | null
-          original_price?: number | null
-          postal_code?: string | null
-          price: number
-          price_per_unit?: string | null
-          product_name: string
-          product_slug?: string | null
-          scraped_at?: string
-          source_url?: string | null
+          failures?: number | null
+          last_failure?: string | null
+          last_html_hash?: string | null
+          last_success?: string | null
+          opened_at?: string | null
+          parser_failures?: number | null
+          state?: string
           store: string
-          valid_from?: string | null
-          valid_until?: string | null
-          weight_volume?: string | null
-          currency?: string | null
-          offer_id?: string | null
         }
         Update: {
-          category?: string | null
-          created_at?: string
-          discount_percent?: number | null
-          id?: string
-          image_url?: string | null
-          original_price?: number | null
-          postal_code?: string | null
-          price?: number
-          price_per_unit?: string | null
-          product_name?: string
-          product_slug?: string | null
-          scraped_at?: string
-          source_url?: string | null
+          failures?: number | null
+          last_failure?: string | null
+          last_html_hash?: string | null
+          last_success?: string | null
+          opened_at?: string | null
+          parser_failures?: number | null
+          state?: string
           store?: string
-          valid_from?: string | null
-          valid_until?: string | null
-          weight_volume?: string | null
-          currency?: string | null
-          offer_id?: string | null
         }
         Relationships: []
       }
@@ -452,6 +419,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      html_snapshots: {
+        Row: {
+          html_hash: string
+          selector_fingerprint: Json
+          store: string
+          updated_at: string | null
+        }
+        Insert: {
+          html_hash: string
+          selector_fingerprint?: Json
+          store: string
+          updated_at?: string | null
+        }
+        Update: {
+          html_hash?: string
+          selector_fingerprint?: Json
+          store?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       member_nutrition_profiles: {
         Row: {
@@ -761,6 +749,96 @@ export type Database = {
           },
         ]
       }
+      offers: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          discount_percent: number | null
+          embedding: string | null
+          id: string
+          image_url: string | null
+          offer_id: string | null
+          original_price: number | null
+          postal_code: string | null
+          price: number | null
+          price_per_unit: string | null
+          product_name: string
+          product_slug: string | null
+          regular_price: number | null
+          scraped_at: string | null
+          source_url: string | null
+          store: string
+          valid_from: string | null
+          valid_until: string | null
+          weight_volume: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          discount_percent?: number | null
+          embedding?: string | null
+          id?: string
+          image_url?: string | null
+          offer_id?: string | null
+          original_price?: number | null
+          postal_code?: string | null
+          price?: number | null
+          price_per_unit?: string | null
+          product_name: string
+          product_slug?: string | null
+          regular_price?: number | null
+          scraped_at?: string | null
+          source_url?: string | null
+          store: string
+          valid_from?: string | null
+          valid_until?: string | null
+          weight_volume?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          discount_percent?: number | null
+          embedding?: string | null
+          id?: string
+          image_url?: string | null
+          offer_id?: string | null
+          original_price?: number | null
+          postal_code?: string | null
+          price?: number | null
+          price_per_unit?: string | null
+          product_name?: string
+          product_slug?: string | null
+          regular_price?: number | null
+          scraped_at?: string | null
+          source_url?: string | null
+          store?: string
+          valid_from?: string | null
+          valid_until?: string | null
+          weight_volume?: string | null
+        }
+        Relationships: []
+      }
+      product_embeddings_cache: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category: string | null
@@ -1040,6 +1118,78 @@ export type Database = {
           },
         ]
       }
+      retailer_configs: {
+        Row: {
+          created_at: string | null
+          id: number
+          is_active: boolean | null
+          retailer_id: string
+          retailer_key: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          is_active?: boolean | null
+          retailer_id: string
+          retailer_key: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          is_active?: boolean | null
+          retailer_id?: string
+          retailer_key?: string
+        }
+        Relationships: []
+      }
+      scrape_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          store: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          store: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          store?: string
+        }
+        Relationships: []
+      }
+      scraper_config: {
+        Row: {
+          enabled_stores: string[] | null
+          household_id: string
+          postal_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          enabled_stores?: string[] | null
+          household_id: string
+          postal_code?: string
+          updated_at?: string | null
+        }
+        Update: {
+          enabled_stores?: string[] | null
+          household_id?: string
+          postal_code?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       settlement_transfers: {
         Row: {
           amount_cents: number
@@ -1142,45 +1292,71 @@ export type Database = {
       }
       shopping_list_items: {
         Row: {
+          category_id: string | null
           created_at: string
           id: string
           is_checked: boolean
+          last_changed_by: string | null
+          note: string | null
           priority: string | null
           product_id: string | null
           product_name: string
           quantity: number | null
           shopping_list_id: string
+          source: string | null
           unit: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           id?: string
           is_checked?: boolean
+          last_changed_by?: string | null
+          note?: string | null
           priority?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number | null
           shopping_list_id: string
+          source?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           id?: string
           is_checked?: boolean
+          last_changed_by?: string | null
+          note?: string | null
           priority?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number | null
           shopping_list_id?: string
+          source?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_last_changed_by_fkey"
+            columns: ["last_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shopping_list_items_product_id_fkey"
             columns: ["product_id"]
@@ -1242,11 +1418,73 @@ export type Database = {
           },
         ]
       }
+      standard_prices: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          merchant_id: string | null
+          price_cents: number
+          product_name: string
+          source_receipt_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          merchant_id?: string | null
+          price_cents: number
+          product_name: string
+          source_receipt_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          merchant_id?: string | null
+          price_cents?: number
+          product_name?: string
+          source_receipt_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standard_prices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standard_prices_source_receipt_id_fkey"
+            columns: ["source_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      offer_sync_stats: {
+        Row: {
+          last_sync: string | null
+          store: string | null
+          total_offers: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      auto_categorize_product: { Args: { p_name: string }; Returns: string }
+      cleanup_old_events: { Args: never; Returns: undefined }
+      cleanup_product_cache: {
+        Args: { days_limit?: number }
+        Returns: undefined
+      }
+      delete_expired_offers: { Args: never; Returns: undefined }
       get_available_expense_years: {
         Args: { p_household_id: string }
         Returns: {
@@ -1309,6 +1547,38 @@ export type Database = {
           unit: string
         }[]
       }
+      get_semantic_matches: {
+        Args: { p_household_id: string; p_limit?: number; p_threshold?: number }
+        Returns: {
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          discount_percent: number | null
+          embedding: string | null
+          id: string
+          image_url: string | null
+          offer_id: string | null
+          original_price: number | null
+          postal_code: string | null
+          price: number | null
+          price_per_unit: string | null
+          product_name: string
+          product_slug: string | null
+          regular_price: number | null
+          scraped_at: string | null
+          source_url: string | null
+          store: string
+          valid_from: string | null
+          valid_until: string | null
+          weight_volume: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "offers"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_supply_range: {
         Args: { p_days_lookback?: number; p_household_id: string }
         Returns: {
@@ -1359,31 +1629,41 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      get_semantic_matches: {
+      search_offers: {
         Args: {
-          p_household_id: string
-          p_threshold?: number
-          p_limit?: number
+          result_limit?: number
+          search_term: string
+          user_postal_code?: string
         }
         Returns: {
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          discount_percent: number | null
+          embedding: string | null
           id: string
-          product_name: string
-          price: number
-          original_price: number | null
-          store: string
           image_url: string | null
+          offer_id: string | null
+          original_price: number | null
+          postal_code: string | null
+          price: number | null
+          price_per_unit: string | null
+          product_name: string
+          product_slug: string | null
+          regular_price: number | null
+          scraped_at: string | null
+          source_url: string | null
+          store: string
           valid_from: string | null
           valid_until: string | null
-          discount_percent: number | null
-          category: string | null
-          source_url: string | null
-          price_per_unit: string | null
           weight_volume: string | null
-          currency: string | null
-          offer_id: string | null
-          scraped_at: string
-          similarity: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "offers"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

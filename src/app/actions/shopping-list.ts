@@ -37,22 +37,69 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
   const uncheckedItems = items.filter(i => !i.is_checked)
   const namesToMatch = uncheckedItems.map(i => i.product_name)
 
-  // 3. Fetch offers (public data, no auth needed)
+  // 3. Fetch offers (public data) and standard prices (via authenticated client)
   let offerMatches: Record<string, ShoppingListOfferHint[]> = {}
+  const standardPriceMatches: Record<string, { merchant_name: string; price_cents: number }[]> = {}
+
   if (namesToMatch.length > 0) {
     try {
       offerMatches = await getShoppingListOfferMatches(namesToMatch)
+
+      // Parallel or batched lookup for standard prices
+      // Since namesToMatch can be long, we simply iterate and do small queries
+      await Promise.all(namesToMatch.map(async (name) => {
+        const keyword = name
+          .trim()
+          .split(/[\\s,./()\\-]+/)
+          .filter(w => w.length >= 3)
+          .slice(0, 1)[0]
+          
+        if (!keyword) return
+
+        const { data: stdPrices } = await supabase
+          .from('standard_prices')
+          .select(`
+            product_name,
+            price_cents,
+            merchants(name)
+          `)
+          .ilike('product_name', `%${keyword}%`)
+          .limit(5)
+          .order('price_cents', { ascending: true })
+
+        if (stdPrices && stdPrices.length > 0) {
+          if (!standardPriceMatches[name]) {
+            standardPriceMatches[name] = []
+          }
+          const seenMerchants = new Set<string>()
+          for (const row of stdPrices) {
+            const merchantName = (row.merchants as unknown as {name: string})?.name || 'Unknown'
+            if (!seenMerchants.has(merchantName)) {
+              seenMerchants.add(merchantName)
+              standardPriceMatches[name].push({
+                merchant_name: merchantName,
+                price_cents: row.price_cents
+              })
+            }
+          }
+        }
+      }))
     } catch (err) {
-      logger.error('Error fetching offers', err)
+      logger.error('Error fetching offers or standard prices', err)
     }
   }
 
-  // 4. Merge offers into items
+  // 4. Merge offers and standard prices into items
   const enrichedItems: ShoppingListItem[] = items.map(item => {
     const enriched = { ...item } as unknown as ShoppingListItem
 
-    if (!item.is_checked && offerMatches[item.product_name]) {
-      enriched.offerHints = offerMatches[item.product_name]
+    if (!item.is_checked) {
+      if (offerMatches[item.product_name]) {
+        enriched.offerHints = offerMatches[item.product_name]
+      }
+      if (standardPriceMatches[item.product_name]) {
+        enriched.standardPrices = standardPriceMatches[item.product_name]
+      }
     }
     return enriched
   })

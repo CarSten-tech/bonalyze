@@ -17,11 +17,15 @@ interface ItemListRowProps {
     price: number | null
     valid_until: string | null
   }>
+  standardPrices?: Array<{
+    merchant_name: string
+    price_cents: number
+  }>
   categories?: { id: string; name: string }[]
   onCategoryChange?: (itemId: string, categoryId: string) => void
 }
 
-export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer, offerHints, categories, onCategoryChange }: ItemListRowProps) {
+export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimatedPrice, offer, offerHints, standardPrices, categories, onCategoryChange }: ItemListRowProps) {
   const handleClick = () => {
     if (item.is_checked) {
       onUncheck(item.id)
@@ -40,7 +44,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
     ? `${item.quantity}${item.unit ? ` ${item.unit}` : 'x'}`
     : item.unit || null
 
-  const hasOfferInfo = !item.is_checked && (Boolean(offer) || Boolean(offerHints?.length))
+  const hasOfferInfo = !item.is_checked && (Boolean(offer) || Boolean(offerHints?.length) || Boolean(standardPrices?.length))
   const primaryOfferHint = offerHints?.[0]
 
   return (
@@ -163,8 +167,8 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
         )}
 
         {offerHints && offerHints.length > 0 && !item.is_checked && !offer && (
-          <span className="text-[11px] text-red-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
-            🏷{' '}
+          <span className="text-[11px] text-red-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300 flex flex-wrap items-center gap-1">
+            <span>🏷 </span>
             {offerHints.map((hint, index) => (
               <span key={hint.store}>
                 {index > 0 && ' · '}
@@ -179,6 +183,24 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
                 {' '}
                 (bis {new Date(primaryOfferHint.valid_until).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})
               </span>
+            )}
+          </span>
+        )}
+
+        {/* Standard Price Row (if no offers, but standard prices exist) */}
+        {standardPrices && standardPrices.length > 0 && !item.is_checked && !offer && (!offerHints || offerHints.length === 0) && (
+          <span className="text-[11px] text-emerald-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300 flex flex-wrap items-center gap-1">
+            <span>✓ </span>
+            {standardPrices.slice(0, 3).map((std, index) => (
+              <span key={std.merchant_name}>
+                {index > 0 && ' · '}
+                <span className={index === 0 ? 'font-bold' : 'font-normal text-emerald-600/80'}>
+                  {std.merchant_name} {(std.price_cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                </span>
+              </span>
+            ))}
+            {standardPrices.length > 3 && (
+              <span className="text-emerald-600/80 w-auto ml-1">(+{standardPrices.length - 3})</span>
             )}
           </span>
         )}
