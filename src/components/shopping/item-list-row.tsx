@@ -1,7 +1,7 @@
 "use client"
 
 import { Package, Check, MoreVertical, HelpCircle } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatStoreName } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -153,7 +153,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
           <span className="text-[11px] text-red-600 font-medium mt-0.5 animate-in fade-in slide-in-from-top-1 duration-300">
             🏷{' '}
             <span className="font-bold">
-              {offer.store} {offer.price.toFixed(2).replace('.', ',')} €
+              {formatStoreName(offer.store)} {offer.price.toFixed(2).replace('.', ',')} €
             </span>
             {offer.valid_until && (
               <span className="text-red-500/80">
@@ -171,7 +171,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
               <span key={hint.store}>
                 {index > 0 && ' · '}
                 <span className={index === 0 ? 'font-bold' : 'font-normal text-red-500/80'}>
-                  {hint.store}
+                  {formatStoreName(hint.store)}
                   {hint.price != null ? ` ${hint.price.toFixed(2).replace('.', ',')} €` : ''}
                 </span>
               </span>
@@ -193,7 +193,7 @@ export function ItemListRow({ item, onCheck, onUncheck, onDetailsClick, estimate
               <span key={std.merchant_name}>
                 {index > 0 && ' · '}
                 <span className={index === 0 ? 'font-bold' : 'font-normal text-emerald-600/80'}>
-                  {std.merchant_name} {(std.price_cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                  {formatStoreName(std.merchant_name)} {(std.price_cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                 </span>
               </span>
             ))}

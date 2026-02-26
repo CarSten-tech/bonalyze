@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { useCategories } from "@/hooks/use-categories"
 import { CategoryHeader } from "@/components/shopping/category-header"
-import { cn } from "@/lib/utils"
+import { cn, formatStoreName } from "@/lib/utils"
 import type { Offer, ShoppingListItem } from "@/types/shopping"
 import {
   AlertDialog,
@@ -660,7 +660,7 @@ export default function ShoppingListPage() {
                  <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
                     <span className="text-emerald-600 font-medium flex items-center gap-1 xl:max-w-none max-w-[120px] truncate">
                        <ShoppingCart className="w-3 h-3 flex-shrink-0" />
-                       Tipp: {bestStore.store}
+                       Tipp: {'isSplit' in bestStore && bestStore.isSplit ? bestStore.store : formatStoreName(bestStore.store)}
                     </span>
                     <span className="text-emerald-600/90 font-medium">
                       {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} Art. für {(bestStore.knownCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} bekannt
