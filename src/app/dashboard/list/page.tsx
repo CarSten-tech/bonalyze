@@ -514,11 +514,10 @@ export default function ShoppingListPage() {
         (() => {
           const count = pricingSummary.pricedItemCount
           const total = pricingSummary.totalItemCount
-          const hasAnyPrice = count > 0
-          
-          if (!hasAnyPrice) return null
+          if (total === 0) return null
 
-          const isPartial = count < total
+          const hasAnyPrice = count > 0
+          const isPartial = count > 0 && count < total
           const bestStore = storeRecommendations.length > 0 ? storeRecommendations[0] : null
 
           return (
@@ -529,20 +528,28 @@ export default function ShoppingListPage() {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Geschätzt (offen):</span>
                 <div className="flex items-center gap-2">
-                  {isPartial ? (
-                     <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
-                       ⚠️ nur {count}/{total}
+                  {!hasAnyPrice ? (
+                     <span className="text-muted-foreground text-xs font-medium">
+                       Keine Preisdaten
                      </span>
                   ) : (
-                     <span className="text-muted-foreground text-xs">({count}/{total})</span>
+                    <>
+                      {isPartial ? (
+                         <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
+                           ⚠️ nur {count}/{total}
+                         </span>
+                      ) : (
+                         <span className="text-muted-foreground text-xs">({count}/{total})</span>
+                      )}
+                      <span className="font-bold text-foreground">
+                        {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    </>
                   )}
-                  <span className="font-bold text-foreground">
-                    {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                  </span>
                 </div>
               </div>
               
-              {bestStore && bestStore.availableItems > 0 && (
+              {bestStore && bestStore.availableItems > 0 ? (
                  <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
                     <span className="text-emerald-600 font-medium flex items-center gap-1">
                        <ShoppingCart className="w-3 h-3" />
@@ -552,6 +559,13 @@ export default function ShoppingListPage() {
                       {bestStore.availableItems} Artikel für {(bestStore.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                     </span>
                  </div>
+              ) : (
+                <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2 text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <ShoppingCart className="w-3 h-3 opacity-50" />
+                    Noch keine Empfehlung auf Basis deiner Liste
+                  </span>
+                </div>
               )}
             </div>
           )
