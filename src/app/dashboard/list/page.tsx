@@ -228,11 +228,12 @@ export default function ShoppingListPage() {
     if (allKnownStores.size === 0) return []
 
     // 2. Score each store over the ENTIRE basket
-    const storeStats = new Map<string, { availableItems: number, totalCents: number }>()
+    const storeStats = new Map<string, { knownItems: number, knownCents: number, missingItems: number }>()
 
     for (const store of Array.from(allKnownStores)) {
-      let availableItems = 0
-      let totalCents = 0
+      let knownItems = 0
+      let knownCents = 0
+      let missingItems = 0
 
       for (const item of uncheckedItems) {
         if (!item.id) continue
@@ -241,37 +242,29 @@ export default function ShoppingListPage() {
 
         if (prices && prices.has(store)) {
           // Store has a specific offer/standard price for this item
-          availableItems += 1
-          totalCents += prices.get(store)! * quantity
+          knownItems += 1
+          knownCents += prices.get(store)! * quantity
         } else {
           // Store doesn't have a specific price right now.
-          // Try to use a general historical fallback price so we don't totally ruin the score.
-          const historicalFallback = getHistoricalPriceCents(item)
-          if (historicalFallback !== undefined) {
-             // We count it as "technically available" at the general estimated price, 
-             // but perhaps we don't increment availableItems to still prefer stores with verifiable exact matches.
-             totalCents += historicalFallback * quantity
-          } else {
-             // Severe penalty if we literally have no idea what it costs anywhere
-             totalCents += 999999 * quantity
-          }
+          // User requested NOT to make up prices, so we track it as missing.
+          missingItems += 1
         }
       }
 
-      storeStats.set(store, { availableItems, totalCents })
+      storeStats.set(store, { knownItems, knownCents, missingItems })
     }
 
     return Array.from(storeStats.entries())
         .map(([store, stats]) => ({ store, ...stats }))
         // Filter out stores that have 0 specific matches
-        .filter(s => s.availableItems > 0)
+        .filter(s => s.knownItems > 0)
         .sort((a, b) => {
-            // Primary sort: Lowest total combined price (including fallbacks)
-            if (a.totalCents !== b.totalCents) {
-                return a.totalCents - b.totalCents
+            // Primary sort: Most verified prices available directly at that store (best coverage)
+            if (b.knownItems !== a.knownItems) {
+                return b.knownItems - a.knownItems
             }
-            // Secondary sort: Most verified prices available directly at that store
-            return b.availableItems - a.availableItems
+            // Secondary sort: Lowest total combined price for the known items
+            return a.knownCents - b.knownCents
         })
   }, [uncheckedItems, getOfferForItem, getHistoricalPriceCents])
 
@@ -591,14 +584,14 @@ export default function ShoppingListPage() {
                 </div>
               </div>
               
-              {bestStore && bestStore.availableItems > 0 ? (
+              {bestStore && bestStore.knownItems > 0 ? (
                  <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
                     <span className="text-emerald-600 font-medium flex items-center gap-1">
                        <ShoppingCart className="w-3 h-3" />
                        Tipp: {bestStore.store}
                     </span>
                     <span className="text-emerald-600/90 font-medium">
-                      {bestStore.availableItems} Artikel für {(bestStore.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                      {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} zu {(bestStore.knownCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} bekannt
                     </span>
                  </div>
               ) : (
