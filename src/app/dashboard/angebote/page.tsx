@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Tag, ChevronLeft, Loader2, SlidersHorizontal, X } from 'lucide-react'
+import { Search, Tag, ChevronLeft, Loader2, SlidersHorizontal, X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { createClient } from '@/lib/supabase'
+import { useShoppingLists, type ShoppingList } from '@/hooks/shopping-list/use-lists'
 import { cn } from '@/lib/utils'
 import { getOffers, getOfferOptions, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
@@ -434,8 +442,45 @@ function buildGroupedCategoryFilters(categories: string[]): GroupedCategoryFilte
   }
 }
 
-function OfferCard({ offer }: { offer: Offer }) {
+function OfferCard({ offer, lists }: { offer: Offer; lists: ShoppingList[] }) {
   const [imageError, setImageError] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const supabase = createClient()
+
+  const handleAddToList = async (list: ShoppingList) => {
+    setIsAdding(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const { data: product } = await supabase
+        .from('products')
+        .select('id')
+        .eq('name', offer.product_name.trim())
+        .maybeSingle()
+
+      const { error } = await supabase
+        .from('shopping_list_items')
+        .insert({
+          shopping_list_id: list.id,
+          product_name: offer.product_name.trim(),
+          quantity: 1,
+          unit: offer.price_per_unit || null,
+          product_id: product?.id || null,
+          is_checked: false,
+          user_id: user?.id || null,
+          last_changed_by: user?.id || null
+        })
+
+      if (error) throw error
+
+      toast.success(`Angebot zur Liste "${list.name}" hinzugefügt!`)
+    } catch (error) {
+      console.error('Error adding to list:', error)
+      toast.error('Fehler beim Hinzufügen')
+    } finally {
+      setIsAdding(false)
+    }
+  }
 
   return (
     <Card className="overflow-hidden hover:bg-accent/30 transition-colors">
@@ -505,6 +550,26 @@ function OfferCard({ offer }: { offer: Offer }) {
                   </span>
                 )}
               </div>
+              
+              {/* Add to List Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shrink-0" disabled={isAdding}>
+                    {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {lists.length > 0 ? (
+                    lists.map(list => (
+                      <DropdownMenuItem key={list.id} onClick={() => handleAddToList(list)}>
+                        Zu &quot;{list.name}&quot; hinzufügen
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground text-center">Keine Listen gefunden</div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -542,6 +607,29 @@ export default function AngebotePage() {
   const [categories, setCategories] = useState<string[]>([])
   const [total, setTotal] = useState(0)
   
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const supabase = useMemo(() => createClient(), [])
+  const { lists } = useShoppingLists(householdId)
+
+  useEffect(() => {
+    const getHousehold = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from("household_members")
+        .select("household_id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (data) {
+        setHouseholdId(data.household_id)
+      }
+    }
+
+    getHousehold()
+  }, [supabase])
+
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -850,7 +938,7 @@ export default function AngebotePage() {
         ) : (
           <>
             {offers.map((offer) => (
-              <OfferCard key={offer.id} offer={offer} />
+              <OfferCard key={offer.id} offer={offer} lists={lists} />
             ))}
 
             {hasMore && (
