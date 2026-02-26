@@ -437,7 +437,6 @@ export default function ShoppingListPage() {
           standardPrices={item.standardPrices || undefined}
           categories={categories?.map(c => ({ id: c.id, name: c.name }))}
           onCategoryChange={handleCategoryChange}
-          onUpdateItem={updateItem}
         />
       ))}
     </div>
