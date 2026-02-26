@@ -179,15 +179,22 @@ export default function ShoppingListPage() {
   }, [uncheckedItems, getBestOfferPriceCents, getHistoricalPriceCents, getBestStandardPriceCents])
 
   const storeRecommendations = useMemo(() => {
-    const storeStats = new Map<string, { availableItems: number, totalCents: number }>()
+    // Collect all stores that have AT LEAST ONE specific price (offer or standard or history) for AT LEAST ONE item.
+    // If a store doesn't carry an item, we'll try to estimate or penalize.
+    const allKnownStores = new Set<string>()
+    
+    // 1. Gather all prices per item per store
+    const itemPricesByStore = new Map<string, Map<string, number>>() // itemId -> Map<storeName, priceCents>
 
     for (const item of uncheckedItems) {
+      if (!item.id) continue
       const storePrices = new Map<string, number>()
       
       // Direct offer
       const directOffer = getOfferForItem(item.product_name)
       if (directOffer && Number.isFinite(directOffer.price)) {
           storePrices.set(directOffer.store, Math.round(directOffer.price * 100))
+          allKnownStores.add(directOffer.store)
       }
 
       // Offer hints
@@ -198,6 +205,7 @@ export default function ShoppingListPage() {
                   const hintCents = Math.round(hint.price * 100)
                   if (currentPrice === undefined || hintCents < currentPrice) {
                       storePrices.set(hint.store, hintCents)
+                      allKnownStores.add(hint.store)
                   }
               }
           }
@@ -209,29 +217,63 @@ export default function ShoppingListPage() {
               const currentPrice = storePrices.get(std.merchant_name)
               if (currentPrice === undefined || std.price_cents < currentPrice) {
                   storePrices.set(std.merchant_name, std.price_cents)
+                  allKnownStores.add(std.merchant_name)
               }
           }
       }
 
-      // Aggregate
-      const quantity = item.quantity || 1
-      for (const [store, priceCents] of Array.from(storePrices.entries())) {
-          const stats = storeStats.get(store) || { availableItems: 0, totalCents: 0 }
-          stats.availableItems += 1
-          stats.totalCents += priceCents * quantity
-          storeStats.set(store, stats)
+      itemPricesByStore.set(item.id, storePrices)
+    }
+
+    if (allKnownStores.size === 0) return []
+
+    // 2. Score each store over the ENTIRE basket
+    const storeStats = new Map<string, { availableItems: number, totalCents: number }>()
+
+    for (const store of Array.from(allKnownStores)) {
+      let availableItems = 0
+      let totalCents = 0
+
+      for (const item of uncheckedItems) {
+        if (!item.id) continue
+        const prices = itemPricesByStore.get(item.id)
+        const quantity = item.quantity || 1
+
+        if (prices && prices.has(store)) {
+          // Store has a specific offer/standard price for this item
+          availableItems += 1
+          totalCents += prices.get(store)! * quantity
+        } else {
+          // Store doesn't have a specific price right now.
+          // Try to use a general historical fallback price so we don't totally ruin the score.
+          const historicalFallback = getHistoricalPriceCents(item)
+          if (historicalFallback !== undefined) {
+             // We count it as "technically available" at the general estimated price, 
+             // but perhaps we don't increment availableItems to still prefer stores with verifiable exact matches.
+             totalCents += historicalFallback * quantity
+          } else {
+             // Severe penalty if we literally have no idea what it costs anywhere
+             totalCents += 999999 * quantity
+          }
+        }
       }
+
+      storeStats.set(store, { availableItems, totalCents })
     }
 
     return Array.from(storeStats.entries())
         .map(([store, stats]) => ({ store, ...stats }))
+        // Filter out stores that have 0 specific matches
+        .filter(s => s.availableItems > 0)
         .sort((a, b) => {
-            if (b.availableItems !== a.availableItems) {
-                return b.availableItems - a.availableItems
+            // Primary sort: Lowest total combined price (including fallbacks)
+            if (a.totalCents !== b.totalCents) {
+                return a.totalCents - b.totalCents
             }
-            return a.totalCents - b.totalCents
+            // Secondary sort: Most verified prices available directly at that store
+            return b.availableItems - a.availableItems
         })
-  }, [uncheckedItems, getOfferForItem])
+  }, [uncheckedItems, getOfferForItem, getHistoricalPriceCents])
 
   // Group items by category (if enabled)
   const groupedItems = useMemo(() => {
