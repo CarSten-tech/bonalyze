@@ -32,6 +32,7 @@ export interface ShoppingListItem {
   standardPrices?: Array<{
     merchant_name: string
     price_cents: number
+    product_name?: string
   }> | null
   created_at: string
   updated_at: string

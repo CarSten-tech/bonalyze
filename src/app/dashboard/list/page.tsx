@@ -1,5 +1,6 @@
 "use client"
 
+import { calculatePriceMultiplier } from "@/lib/quantity-parser"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { ShoppingCart, LayoutGrid, List, Layers } from "lucide-react"
 import { 
@@ -136,12 +137,21 @@ export default function ShoppingListPage() {
 
   const getBestOfferPriceCents = useCallback((item: ShoppingListItem): number | undefined => {
     const directOffer = getOfferForItem(item.product_name)
-    const directOfferCents =
-      directOffer && Number.isFinite(directOffer.price) ? Math.round(directOffer.price * 100) : undefined
+    let directOfferCents = undefined
+    
+    if (directOffer && Number.isFinite(directOffer.price)) {
+      const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, directOffer.product_name)
+      directOfferCents = Math.round(directOffer.price * multiplier * 100)
+    }
 
     const hintedOffer = item.offerHints?.find((hint) => typeof hint.price === "number" && Number.isFinite(hint.price))
-    const hintedOfferCents =
-      hintedOffer && hintedOffer.price != null ? Math.round(hintedOffer.price * 100) : undefined
+    let hintedOfferCents = undefined
+    
+    if (hintedOffer && hintedOffer.price != null) {
+      // The hint might store the matched item name, but if not, fallback to the item name
+      const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, (hintedOffer as any).item_name || item.product_name)
+      hintedOfferCents = Math.round(hintedOffer.price * multiplier * 100)
+    }
 
     if (directOfferCents !== undefined && hintedOfferCents !== undefined) {
       return Math.min(directOfferCents, hintedOfferCents)
@@ -151,7 +161,11 @@ export default function ShoppingListPage() {
 
   const getBestStandardPriceCents = useCallback((item: ShoppingListItem): number | undefined => {
     if (!item.standardPrices || item.standardPrices.length === 0) return undefined
-    return Math.min(...item.standardPrices.map(sp => sp.price_cents))
+    
+    return Math.min(...item.standardPrices.map(sp => {
+      const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, sp.product_name || item.product_name)
+      return Math.round(sp.price_cents * multiplier)
+    }))
   }, [])
 
   const pricingSummary = useMemo(() => {
@@ -168,7 +182,10 @@ export default function ShoppingListPage() {
       if (selectedPriceCents === undefined) continue
 
       pricedItemCount += 1
-      totalCents += (item.quantity || 1) * selectedPriceCents
+      // Selected price already includes multiplier via getBestOfferPriceCents
+      // Oh wait, getHistoricalPriceCents and getBestStandardPriceCents don't have multipliers built in yet at this stage
+      // The architecture here splits "pricingSummary" and "storeRecommendations". Let's handle it natively.
+      totalCents += selectedPriceCents
     }
 
     return {
@@ -193,7 +210,8 @@ export default function ShoppingListPage() {
       // Direct offer
       const directOffer = getOfferForItem(item.product_name)
       if (directOffer && Number.isFinite(directOffer.price)) {
-          storePrices.set(directOffer.store, Math.round(directOffer.price * 100))
+          const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, directOffer.product_name)
+          storePrices.set(directOffer.store, Math.round(directOffer.price * multiplier * 100))
           allKnownStores.add(directOffer.store)
       }
 
@@ -202,7 +220,8 @@ export default function ShoppingListPage() {
           for (const hint of item.offerHints) {
               if (hint.price != null && Number.isFinite(hint.price)) {
                   const currentPrice = storePrices.get(hint.store)
-                  const hintCents = Math.round(hint.price * 100)
+                  const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, (hint as any).item_name || item.product_name)
+                  const hintCents = Math.round(hint.price * multiplier * 100)
                   if (currentPrice === undefined || hintCents < currentPrice) {
                       storePrices.set(hint.store, hintCents)
                       allKnownStores.add(hint.store)
@@ -215,8 +234,13 @@ export default function ShoppingListPage() {
       if (item.standardPrices) {
           for (const std of item.standardPrices) {
               const currentPrice = storePrices.get(std.merchant_name)
-              if (currentPrice === undefined || std.price_cents < currentPrice) {
-                  storePrices.set(std.merchant_name, std.price_cents)
+              // Standard prices in DB may not always have a neat unit name on hand, 
+              // but we multiply with 1 if parsing fails anyway.
+              const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, std.product_name || item.product_name)
+              const stdCents = Math.round(std.price_cents * multiplier)
+              
+              if (currentPrice === undefined || stdCents < currentPrice) {
+                  storePrices.set(std.merchant_name, stdCents)
                   allKnownStores.add(std.merchant_name)
               }
           }
@@ -225,7 +249,7 @@ export default function ShoppingListPage() {
       itemPricesByStore.set(item.id, storePrices)
     }
 
-    if (allKnownStores.size === 0) return []
+    if (allKnownStores.size === 0) return { ranks: [], optimalSplit: null }
 
     // 2. Score each store over the ENTIRE basket
     const storeStats = new Map<string, { knownItems: number, knownCents: number, missingItems: number }>()
@@ -238,7 +262,7 @@ export default function ShoppingListPage() {
       for (const item of uncheckedItems) {
         if (!item.id) continue
         const prices = itemPricesByStore.get(item.id)
-        const quantity = item.quantity || 1
+        const quantity = 1 // Already multiplied into the stored itemPrices above!
 
         if (prices && prices.has(store)) {
           // Store has a specific offer/standard price for this item
@@ -254,7 +278,7 @@ export default function ShoppingListPage() {
       storeStats.set(store, { knownItems, knownCents, missingItems })
     }
 
-    return Array.from(storeStats.entries())
+    const ranks = Array.from(storeStats.entries())
         .map(([store, stats]) => ({ store, ...stats }))
         // Filter out stores that have 0 specific matches
         .filter(s => s.knownItems > 0)
@@ -266,6 +290,54 @@ export default function ShoppingListPage() {
             // Secondary sort: Lowest total combined price for the known items
             return a.knownCents - b.knownCents
         })
+
+    // 3. Compute Optimal Split
+    let splitKnownItems = 0
+    let splitKnownCents = 0
+    let splitMissingItems = 0
+    const storeSplits = new Map<string, number>()
+
+    for (const item of uncheckedItems) {
+      if (!item.id) continue
+      const prices = itemPricesByStore.get(item.id)
+      
+      if (prices && prices.size > 0) {
+        let bestStore = ""
+        let minPrice = Infinity
+        for (const [store, price] of Array.from(prices.entries())) {
+          if (price < minPrice) {
+            minPrice = price
+            bestStore = store
+          }
+        }
+        
+        splitKnownItems += 1
+        splitKnownCents += minPrice
+        storeSplits.set(bestStore, (storeSplits.get(bestStore) || 0) + minPrice)
+      } else {
+        splitMissingItems += 1
+      }
+    }
+
+    let optimalSplit = null
+    if (storeSplits.size > 1 && ranks.length > 0) {
+      const bestSingle = ranks[0]
+      // Only suggest split if it covers at least as many items AND is strictly cheaper
+      if (splitKnownItems >= bestSingle.knownItems && splitKnownCents < bestSingle.knownCents) {
+        const stores = Array.from(storeSplits.keys())
+        const storeLabel = stores.length <= 2 ? stores.join(' & ') : `${stores.length} Supermärkte`
+        
+        optimalSplit = {
+          store: storeLabel,
+          knownItems: splitKnownItems,
+          knownCents: splitKnownCents,
+          missingItems: splitMissingItems,
+          isSplit: true
+        }
+      }
+    }
+
+    return { ranks, optimalSplit }
   }, [uncheckedItems, getOfferForItem, getHistoricalPriceCents])
 
   // Group items by category (if enabled)
@@ -365,6 +437,7 @@ export default function ShoppingListPage() {
           standardPrices={item.standardPrices || undefined}
           categories={categories?.map(c => ({ id: c.id, name: c.name }))}
           onCategoryChange={handleCategoryChange}
+          onUpdateItem={updateItem}
         />
       ))}
     </div>
@@ -553,7 +626,7 @@ export default function ShoppingListPage() {
 
           const hasAnyPrice = count > 0
           const isPartial = count > 0 && count < total
-          const bestStore = storeRecommendations.length > 0 ? storeRecommendations[0] : null
+          const bestStore = storeRecommendations.optimalSplit || (storeRecommendations.ranks?.length > 0 ? storeRecommendations.ranks[0] : null)
 
           return (
             <div 
@@ -586,12 +659,12 @@ export default function ShoppingListPage() {
               
               {bestStore && bestStore.knownItems > 0 ? (
                  <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
-                    <span className="text-emerald-600 font-medium flex items-center gap-1">
-                       <ShoppingCart className="w-3 h-3" />
+                    <span className="text-emerald-600 font-medium flex items-center gap-1 xl:max-w-none max-w-[120px] truncate">
+                       <ShoppingCart className="w-3 h-3 flex-shrink-0" />
                        Tipp: {bestStore.store}
                     </span>
                     <span className="text-emerald-600/90 font-medium">
-                      {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} zu {(bestStore.knownCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} bekannt
+                      {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} Art. für {(bestStore.knownCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} bekannt
                     </span>
                  </div>
               ) : (

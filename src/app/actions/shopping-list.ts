@@ -39,7 +39,7 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
 
   // 3. Fetch offers (public data) and standard prices (via authenticated client)
   let offerMatches: Record<string, ShoppingListOfferHint[]> = {}
-  const standardPriceMatches: Record<string, { merchant_name: string; price_cents: number }[]> = {}
+  const standardPriceMatches: Record<string, { merchant_name: string; price_cents: number; product_name?: string }[]> = {}
 
   if (namesToMatch.length > 0) {
     try {
@@ -78,7 +78,8 @@ export async function getShoppingListItemsWithOffers(listId: string): Promise<Sh
               seenMerchants.add(merchantName)
               standardPriceMatches[name].push({
                 merchant_name: merchantName,
-                price_cents: row.price_cents
+                price_cents: row.price_cents,
+                product_name: row.product_name
               })
             }
           }
