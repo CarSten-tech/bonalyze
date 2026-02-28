@@ -320,7 +320,7 @@ export default function DashboardPage() {
                     description={driver.description}
                     variant="info"
                     icon={<Sparkles className="h-5 w-5" />}
-                    onClick={driver.actionUrl ? () => router.push(driver.actionUrl) : undefined}
+                    onClick={driver.actionUrl ? () => router.push(driver.actionUrl as string) : undefined}
                   />
                 ))}
               </div>
@@ -357,7 +357,7 @@ export default function DashboardPage() {
                     description={insight.description}
                     label={insight.label}
                     variant={insight.variant}
-                    onClick={insight.actionUrl ? () => router.push(insight.actionUrl) : undefined}
+                    onClick={insight.actionUrl ? () => router.push(insight.actionUrl as string) : undefined}
                     icon={
                       insight.variant === 'primary' ? (
                         <ShoppingCart className="h-5 w-5" />
