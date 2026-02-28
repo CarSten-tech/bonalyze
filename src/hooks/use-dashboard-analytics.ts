@@ -126,12 +126,12 @@ function buildDrivers(params: {
 
   const categoryNames = new Set([...currentCategories.keys(), ...previousCategories.keys()])
   let strongestCategory: { name: string; delta: number } | null = null
-  categoryNames.forEach((name) => {
+  for (const name of categoryNames) {
     const delta = (currentCategories.get(name) || 0) - (previousCategories.get(name) || 0)
     if (!strongestCategory || Math.abs(delta) > Math.abs(strongestCategory.delta)) {
       strongestCategory = { name, delta }
     }
-  })
+  }
 
   if (strongestCategory && strongestCategory.delta !== 0) {
     const direction = strongestCategory.delta > 0 ? 'mehr' : 'weniger'
@@ -145,7 +145,7 @@ function buildDrivers(params: {
 
   const storeIds = new Set([...currentStores.keys(), ...previousStores.keys()])
   let strongestStore: { name: string; delta: number } | null = null
-  storeIds.forEach((storeId) => {
+  for (const storeId of storeIds) {
     const current = currentStores.get(storeId)
     const previous = previousStores.get(storeId)
     const delta = (current?.amount || 0) - (previous?.amount || 0)
@@ -153,7 +153,7 @@ function buildDrivers(params: {
     if (!strongestStore || Math.abs(delta) > Math.abs(strongestStore.delta)) {
       strongestStore = { name, delta }
     }
-  })
+  }
 
   if (strongestStore && strongestStore.delta !== 0) {
     const direction = strongestStore.delta > 0 ? 'mehr' : 'weniger'
