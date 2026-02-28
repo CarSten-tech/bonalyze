@@ -107,6 +107,10 @@ WICHTIG: Antworte NUR mit dem JSON. Kein Markdown, kein Text.
 
 const MAX_RECEIPT_SCAN_PAYLOAD_BYTES = mbToBytes(12)
 const MAX_RECEIPT_IMAGE_BYTES = mbToBytes(10)
+const AI_TIMEOUT_MS = 30_000
+const AI_MAX_RETRIES = 2
+const AI_RETRY_BASE_DELAY_MS = 500
+const RETRYABLE_AI_ERROR_PATTERN = /(timeout|timed out|deadline|429|500|502|503|504|unavailable|overloaded|rate limit|network|fetch failed|socket|econnreset|enotfound|aborted)/i
 const ALLOWED_RECEIPT_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -114,6 +118,76 @@ const ALLOWED_RECEIPT_IMAGE_MIME_TYPES = new Set([
   'image/heic',
   'image/heif',
 ])
+
+type GeminiRequestPart = string | { inlineData: { mimeType: string; data: string } }
+
+class AiTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Gemini request timed out after ${timeoutMs}ms`)
+    this.name = 'AiTimeoutError'
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  return new Promise<T>((resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new AiTimeoutError(timeoutMs)), timeoutMs)
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        if (timeoutId) clearTimeout(timeoutId)
+      })
+  })
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+function isRetryableAiError(error: unknown): boolean {
+  if (error instanceof AiTimeoutError) return true
+  return RETRYABLE_AI_ERROR_PATTERN.test(getErrorMessage(error))
+}
+
+async function generateGeminiContentWithRetry(
+  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  parts: GeminiRequestPart[],
+  logMeta: Record<string, unknown>
+) {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt += 1) {
+    try {
+      return await withTimeout(model.generateContent(parts), AI_TIMEOUT_MS)
+    } catch (error) {
+      lastError = error
+      const retryable = isRetryableAiError(error)
+      const shouldRetry = retryable && attempt < AI_MAX_RETRIES
+
+      if (!shouldRetry) {
+        throw error
+      }
+
+      const waitMs = AI_RETRY_BASE_DELAY_MS * (2 ** attempt) + Math.floor(Math.random() * 200)
+      logger.warn('[receipts/scan] Gemini attempt failed, retrying', {
+        ...logMeta,
+        attempt: attempt + 1,
+        waitMs,
+        error: getErrorMessage(error),
+      })
+      await delay(waitMs)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Gemini request failed')
+}
 
 export async function POST(request: NextRequest) {
   const correlationId = resolveCorrelationId(request.headers)
@@ -270,22 +344,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get signed URL for Gemini (valid for 1 hour)
-    const { data: signedUrlData } = await supabase.storage
-      .from('receipts')
-      .createSignedUrl(uploadData.path, 3600)
-
-    if (!signedUrlData?.signedUrl) {
-      await sendOperationalAlert({
-        route,
-        severity: 'critical',
-        message: 'Signed URL creation failed for receipt scan',
-        correlationId,
-      })
+    if (!uploadData?.path) {
+      logger.error('[receipts/scan] Upload returned no path', undefined, logMeta)
       return respond(
-        { success: false, error: 'URL_FAILED', message: 'Konnte keine URL für das Bild erstellen' },
+        { success: false, error: 'UPLOAD_FAILED', message: 'Bild konnte nicht hochgeladen werden', debug },
         { status: 500 }
       )
+    }
+
+    // Signed URL is optional here (image is sent inline as base64 to Gemini anyway).
+    try {
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('receipts')
+        .createSignedUrl(uploadData.path, 3600)
+
+      debug.signedUrlCreated = Boolean(signedUrlData?.signedUrl)
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        logger.warn('[receipts/scan] Signed URL creation failed (non-blocking)', {
+          ...logMeta,
+          signedUrlError: signedUrlError?.message || null,
+        })
+        await sendOperationalAlert({
+          route,
+          severity: 'warning',
+          message: 'Signed URL creation failed for receipt scan',
+          correlationId,
+        })
+      }
+    } catch (signedUrlException) {
+      logger.warn('[receipts/scan] Signed URL creation crashed (non-blocking)', {
+        ...logMeta,
+        error: getErrorMessage(signedUrlException),
+      })
     }
 
     // Call Gemini AI
@@ -295,15 +385,41 @@ export async function POST(request: NextRequest) {
     // Convert image to base64 for Gemini
     const base64Image = buffer.toString('base64')
 
-    const result = await model.generateContent([
-      RECEIPT_PROMPT,
-      {
-        inlineData: {
-          mimeType: image.type || 'image/jpeg',
-          data: base64Image,
+    let result
+    try {
+      result = await generateGeminiContentWithRetry(
+        model,
+        [
+          RECEIPT_PROMPT,
+          {
+            inlineData: {
+              mimeType: image.type || 'image/jpeg',
+              data: base64Image,
+            },
+          },
+        ],
+        logMeta
+      )
+    } catch (aiError) {
+      const timeoutError = aiError instanceof AiTimeoutError
+      logger.error('[receipts/scan] Gemini request failed', aiError, logMeta)
+      await sendOperationalAlert({
+        route,
+        severity: 'critical',
+        message: timeoutError ? 'Receipt scan AI timeout' : 'Receipt scan AI failed',
+        correlationId,
+      })
+      return respond(
+        {
+          success: false,
+          error: timeoutError ? 'AI_TIMEOUT' : 'AI_FAILED',
+          message: timeoutError
+            ? 'Analyse dauert zu lange. Bitte erneut versuchen.'
+            : 'Kassenbon konnte nicht analysiert werden. Bitte erneut versuchen.',
         },
-      },
-    ])
+        { status: timeoutError ? 504 : 502 }
+      )
+    }
 
     const responseText = result.response.text()
 

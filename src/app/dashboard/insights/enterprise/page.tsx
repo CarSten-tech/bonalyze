@@ -58,7 +58,12 @@ export default function EnterpriseInsightsPage() {
 
       setAiSummary(aiResult.summary)
       setQueueStats(queueResult.stats)
-      setAuditLogs(auditResult as AuditItem[])
+      setAuditLogs(auditResult.logs as AuditItem[])
+
+      const issues = [aiResult.error, queueResult.error, auditResult.error].filter(
+        (message): message is string => typeof message === 'string' && message.length > 0
+      )
+      setError(issues.length > 0 ? issues.join(' · ') : null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Daten konnten nicht geladen werden.')
     } finally {
@@ -74,12 +79,12 @@ export default function EnterpriseInsightsPage() {
     if (!householdId) return
 
     startRetryTransition(async () => {
-      try {
-        await retryNotificationDeliveryQueue(householdId, 30)
-        await loadDashboard()
-      } catch (retryError) {
-        setError(retryError instanceof Error ? retryError.message : 'Retry fehlgeschlagen.')
+      const result = await retryNotificationDeliveryQueue(householdId, 30)
+      if (!result.success) {
+        setError(result.error || 'Retry fehlgeschlagen.')
+        return
       }
+      await loadDashboard()
     })
   }
 

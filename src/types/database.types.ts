@@ -116,6 +116,105 @@ export type Database = {
           },
         ]
       }
+      ai_quality_metrics: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          household_id: string | null
+          id: string
+          match_score: number | null
+          metadata: Json
+          metric_type: string
+          model: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          household_id?: string | null
+          id?: string
+          match_score?: number | null
+          metadata?: Json
+          metric_type: string
+          model?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          household_id?: string | null
+          id?: string
+          match_score?: number | null
+          metadata?: Json
+          metric_type?: string
+          model?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_quality_metrics_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_quality_metrics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          entity_id: string
+          entity_type: string
+          household_id: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id: string
+          entity_type: string
+          household_id: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string
+          entity_type?: string
+          household_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_alerts: {
         Row: {
           alert_type: string
@@ -932,6 +1031,82 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      notification_retry_queue: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          dead_letter_reason: string | null
+          endpoint: string
+          household_id: string
+          id: string
+          last_error: string | null
+          max_attempts: number
+          next_retry_at: string
+          notification_type: string
+          payload: Json
+          processed_at: string | null
+          status: string
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          dead_letter_reason?: string | null
+          endpoint: string
+          household_id: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string
+          notification_type: string
+          payload: Json
+          processed_at?: string | null
+          status?: string
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          dead_letter_reason?: string | null
+          endpoint?: string
+          household_id?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string
+          notification_type?: string
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_retry_queue_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_retry_queue_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "push_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_retry_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {

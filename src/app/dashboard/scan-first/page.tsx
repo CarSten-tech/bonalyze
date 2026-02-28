@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Sparkles,
   Landmark,
+  ScanLine,
   ArrowRightLeft,
 } from 'lucide-react'
 import { startOfMonth, endOfMonth, format, subMonths } from 'date-fns'
@@ -253,32 +254,67 @@ export default function DashboardPage() {
   const trend = data?.comparison.totalSpentChange ?? null
 
   return (
-    <div className="space-y-5 pb-6">
-      {/* 1. Month Navigation */}
-      <MonthNavigation
-        currentDate={selectedDate}
-        onMonthChange={handleMonthChange}
-        minDate={subMonths(new Date(), 24)} // Allow navigation up to 2 years back
-      />
-
-      <Card className="border-dashed border-primary/35 bg-primary/5">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Neues Scan-First Layout testen</p>
-            <p className="text-sm text-muted-foreground">
-              Die Standardansicht bleibt aktiv. Öffne die alternative UI separat zum direkten Vergleich.
+    <div className="space-y-6 pb-8">
+      <section className="relative overflow-hidden rounded-[28px] border border-teal-200/70 bg-gradient-to-br from-teal-50 via-amber-50 to-white p-6 shadow-sm">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-teal-200/50 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-14 -left-10 h-44 w-44 rounded-full bg-amber-200/50 blur-2xl" />
+        <div className="relative z-10 space-y-4">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800/80">
+              Scan-First Konzept
+            </p>
+            <h1 className="text-[1.9rem] font-semibold leading-[1.05] text-slate-900">
+              Alle Ausgaben, ein klarer Blick.
+            </h1>
+            <p className="max-w-[32ch] text-sm text-slate-600">
+              Erfasse neue Bons schnell und prüfe sofort, ob die Haushaltskosten im Rahmen bleiben.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="w-full gap-2 sm:w-auto"
-            onClick={() => router.push('/dashboard/scan-first')}
-          >
-            Zur Vergleichsansicht
-            <ArrowRightLeft className="h-4 w-4" />
-          </Button>
-        </CardContent>
-      </Card>
+
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <Button
+              className="h-11 justify-between rounded-xl bg-teal-700 px-4 text-white hover:bg-teal-800"
+              onClick={() => router.push('/dashboard/receipts/new?source=camera')}
+            >
+              Bon scannen
+              <ScanLine className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 justify-between rounded-xl border-teal-200 bg-white/80 px-4 text-slate-700 hover:bg-teal-50"
+              onClick={() => router.push('/dashboard/settlement')}
+            >
+              Abrechnung öffnen
+              <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 justify-between rounded-xl border-slate-300 bg-white/80 px-4 text-slate-700 hover:bg-slate-50"
+              onClick={() => router.push('/dashboard')}
+            >
+              Standard ansehen
+              <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <span className="rounded-full border border-teal-200 bg-white/80 px-3 py-1.5">
+              {data?.current.receiptCount ?? 0} Bons im Monat
+            </span>
+            <span className="rounded-full border border-teal-200 bg-white/80 px-3 py-1.5">
+              Zeitraum: {format(selectedDate, 'MMMM yyyy', { locale: de })}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm">
+        <MonthNavigation
+          currentDate={selectedDate}
+          onMonthChange={handleMonthChange}
+          minDate={subMonths(new Date(), 24)} // Allow navigation up to 2 years back
+        />
+      </div>
 
       {/* Error State */}
       {error && <AnalyticsErrorState message={error} onRetry={refresh} />}
@@ -297,38 +333,38 @@ export default function DashboardPage() {
       {/* Analytics Content */}
       {!error && !hasNoDataAtAll && !hasNoPeriodData && (
         <>
-          {/* 1.5 Budget Widget - Shows budget for CURRENT month */}
-          {/* 1.5 Hero KPI Card */}
-          <HeroKPICard
-            label="GESAMTAUSGABEN MONAT"
-            value={formatCurrency(totalSpent, { inCents: true })}
-            trend={trend}
-            trendLabel="vs. Vormonat"
-            icon={<Landmark className="h-6 w-6" />}
-            isLoading={isLoading}
-            onClick={() => router.push('/dashboard/receipts')}
-          />
+          <section className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+            <div className="space-y-4">
+              <HeroKPICard
+                label="GESAMTAUSGABEN MONAT"
+                value={formatCurrency(totalSpent, { inCents: true })}
+                trend={trend}
+                trendLabel="vs. Vormonat"
+                icon={<Landmark className="h-6 w-6" />}
+                isLoading={isLoading}
+                onClick={() => router.push('/dashboard/receipts')}
+              />
 
-          {/* 1.6 Budget Widget & Mini KPI */}
-          <div className="grid grid-cols-2 gap-4">
-             <MiniKPICard
-              label="Ø PRO TAG"
-              value={formatCurrency(avgPerDay, { inCents: true })}
-              progress={progressPercentage}
-              isLoading={isLoading}
-            />
-            <BudgetWidget budgetStatus={data?.budgetStatus ?? null} isLoading={isLoading} />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                 <MiniKPICard
+                  label="Ø PRO TAG"
+                  value={formatCurrency(avgPerDay, { inCents: true })}
+                  progress={progressPercentage}
+                  isLoading={isLoading}
+                />
+                <BudgetWidget budgetStatus={data?.budgetStatus ?? null} isLoading={isLoading} />
+              </div>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+            <CaloriesWidget />
+            <WarrantyWidget />
           </div>
-
-          {/* Calories Progress Widget */}
-          <CaloriesWidget />
-
-          {/* Warranty Vault Widget */}
-          <WarrantyWidget />
 
           {/* Explainable Drivers */}
           {data?.drivers && data.drivers.length > 0 && (
-            <section className="space-y-3">
+            <section className="space-y-3 rounded-[22px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
               <SectionHeader
                 title="Warum verändert sich dein Monat?"
                 icon={<span className="text-xl">📌</span>}
@@ -349,7 +385,7 @@ export default function DashboardPage() {
           )}
 
           {/* 4. Smart Insights Section */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-[22px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
             <SectionHeader
               title="Smart Insights"
               icon={<span className="text-xl">🧠</span>}
@@ -400,7 +436,7 @@ export default function DashboardPage() {
           </section>
 
           {/* 5. Letzte Ausgaben Section */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-[22px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
             <SectionHeader
               title="Letzte Ausgaben"
               actionLabel="ALLE ANSEHEN"

@@ -60,6 +60,7 @@ export interface ScanReceiptResponse {
   success: boolean
   data?: {
     image_path: string
+    image_paths?: string[]
     ai_result: ReceiptAIResponse
     merchant_match?: {
       id: string
