@@ -271,7 +271,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Button
               className="h-11 justify-between rounded-xl bg-teal-700 px-4 text-white hover:bg-teal-800"
               onClick={() => router.push('/dashboard/receipts/new?source=camera')}
@@ -292,8 +292,16 @@ export default function DashboardPage() {
               className="h-11 justify-between rounded-xl border-slate-300 bg-white/80 px-4 text-slate-700 hover:bg-slate-50"
               onClick={() => router.push('/dashboard')}
             >
-              Standard ansehen
+              Original ansehen
               <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 justify-between rounded-xl border-slate-300 bg-white/80 px-4 text-slate-700 hover:bg-slate-50"
+              onClick={() => router.push('/dashboard/design-lab')}
+            >
+              Design Lab
+              <Sparkles className="h-4 w-4" />
             </Button>
           </div>
 

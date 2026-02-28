@@ -264,19 +264,29 @@ export default function DashboardPage() {
       <Card className="border-dashed border-primary/35 bg-primary/5">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Neues Scan-First Layout testen</p>
+            <p className="text-sm font-semibold text-foreground">UI/UX Vergleichsansichten testen</p>
             <p className="text-sm text-muted-foreground">
-              Die Standardansicht bleibt aktiv. Öffne die alternative UI separat zum direkten Vergleich.
+              Die Standardansicht bleibt aktiv. Oeffne alternative Designs separat fuer direkten Vergleich.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="w-full gap-2 sm:w-auto"
-            onClick={() => router.push('/dashboard/scan-first')}
-          >
-            Zur Vergleichsansicht
-            <ArrowRightLeft className="h-4 w-4" />
-          </Button>
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => router.push('/dashboard/scan-first')}
+            >
+              Scan-First
+              <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => router.push('/dashboard/design-lab')}
+            >
+              Design Lab
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
