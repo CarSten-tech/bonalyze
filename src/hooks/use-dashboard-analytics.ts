@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
 import { createClient } from '@/lib/supabase'
 import { useHousehold } from '@/contexts/household-context'
 import {
@@ -16,6 +18,7 @@ import {
   CategoryData,
   StoreData,
   getCategoryColor,
+  AnalyticsDriver,
 } from '@/types/analytics'
 import { getBudgetStatus } from '@/app/actions/budget'
 
@@ -28,46 +31,191 @@ interface UseDashboardAnalyticsReturn extends AnalyticsState {
   refresh: () => Promise<void>
 }
 
+function formatEuro(cents: number): string {
+  return (cents / 100).toLocaleString('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  })
+}
+
+function aggregateByCategory(
+  items: Array<{ price_cents: number; quantity: number; products: { category: string | null } | null }>
+): Map<string, number> {
+  const categoryMap = new Map<string, number>()
+  items.forEach((item) => {
+    const category = item.products?.category || 'Sonstiges'
+    const amount = item.price_cents * item.quantity
+    categoryMap.set(category, (categoryMap.get(category) || 0) + amount)
+  })
+  return categoryMap
+}
+
+function aggregateByStore(
+  receipts: Array<{
+    merchant_id: string | null
+    total_amount_cents: number
+    merchants: { id: string; name: string; logo_url: string | null } | null
+  }>
+): Map<string, StoreData> {
+  const storeMap = new Map<string, StoreData>()
+
+  receipts.forEach((receipt) => {
+    if (!receipt.merchant_id || !receipt.merchants) return
+
+    const merchant = receipt.merchants
+    const existing = storeMap.get(merchant.id)
+    if (existing) {
+      existing.amount += receipt.total_amount_cents
+      existing.visitCount += 1
+    } else {
+      storeMap.set(merchant.id, {
+        id: merchant.id,
+        name: merchant.name,
+        amount: receipt.total_amount_cents,
+        visitCount: 1,
+        logoUrl: merchant.logo_url,
+      })
+    }
+  })
+
+  return storeMap
+}
+
+function buildDrivers(params: {
+  totalSpentChange: number | null
+  currentTotal: number
+  previousTotal: number
+  currentCategories: Map<string, number>
+  previousCategories: Map<string, number>
+  currentStores: Map<string, StoreData>
+  previousStores: Map<string, StoreData>
+  currentCount: number
+  previousCount: number
+}): AnalyticsDriver[] {
+  const {
+    totalSpentChange,
+    currentTotal,
+    previousTotal,
+    currentCategories,
+    previousCategories,
+    currentStores,
+    previousStores,
+    currentCount,
+    previousCount,
+  } = params
+
+  const drivers: AnalyticsDriver[] = []
+
+  if (totalSpentChange !== null) {
+    if (totalSpentChange >= 0) {
+      drivers.push({
+        id: 'total-change',
+        title: `Gesamtausgaben +${totalSpentChange.toFixed(0)}%`,
+        description: `${formatEuro(currentTotal - previousTotal)} mehr als im Vergleichszeitraum.`,
+        actionUrl: '/dashboard/ausgaben',
+      })
+    } else {
+      drivers.push({
+        id: 'total-change',
+        title: `Gesamtausgaben ${totalSpentChange.toFixed(0)}%`,
+        description: `${formatEuro(Math.abs(currentTotal - previousTotal))} weniger als im Vergleichszeitraum.`,
+        actionUrl: '/dashboard/ausgaben',
+      })
+    }
+  }
+
+  const categoryNames = new Set([...currentCategories.keys(), ...previousCategories.keys()])
+  let strongestCategory: { name: string; delta: number } | null = null
+  categoryNames.forEach((name) => {
+    const delta = (currentCategories.get(name) || 0) - (previousCategories.get(name) || 0)
+    if (!strongestCategory || Math.abs(delta) > Math.abs(strongestCategory.delta)) {
+      strongestCategory = { name, delta }
+    }
+  })
+
+  if (strongestCategory && strongestCategory.delta !== 0) {
+    const direction = strongestCategory.delta > 0 ? 'mehr' : 'weniger'
+    drivers.push({
+      id: 'category-driver',
+      title: `Treiber Kategorie: ${strongestCategory.name}`,
+      description: `${formatEuro(Math.abs(strongestCategory.delta))} ${direction} als im Vergleichszeitraum.`,
+      actionUrl: '/dashboard/ausgaben',
+    })
+  }
+
+  const storeIds = new Set([...currentStores.keys(), ...previousStores.keys()])
+  let strongestStore: { name: string; delta: number } | null = null
+  storeIds.forEach((storeId) => {
+    const current = currentStores.get(storeId)
+    const previous = previousStores.get(storeId)
+    const delta = (current?.amount || 0) - (previous?.amount || 0)
+    const name = current?.name || previous?.name || 'Unbekannt'
+    if (!strongestStore || Math.abs(delta) > Math.abs(strongestStore.delta)) {
+      strongestStore = { name, delta }
+    }
+  })
+
+  if (strongestStore && strongestStore.delta !== 0) {
+    const direction = strongestStore.delta > 0 ? 'mehr' : 'weniger'
+    drivers.push({
+      id: 'store-driver',
+      title: `Treiber Store: ${strongestStore.name}`,
+      description: `${formatEuro(Math.abs(strongestStore.delta))} ${direction} bei diesem Händler.`,
+      actionUrl: '/dashboard/receipts',
+    })
+  }
+
+  const currentAvg = currentCount > 0 ? Math.round(currentTotal / currentCount) : 0
+  const previousAvg = previousCount > 0 ? Math.round(previousTotal / previousCount) : 0
+  const avgDelta = currentAvg - previousAvg
+  if (previousCount > 0 && avgDelta !== 0) {
+    const direction = avgDelta > 0 ? 'größer' : 'kleiner'
+    drivers.push({
+      id: 'basket-driver',
+      title: `Warenkorbgröße ${direction}`,
+      description: `Ø Bon: ${formatEuro(currentAvg)} (zuvor ${formatEuro(previousAvg)}).`,
+      actionUrl: '/dashboard/receipts',
+    })
+  }
+
+  return drivers.slice(0, 3)
+}
+
 /**
  * Hook for fetching dashboard analytics data
- *
- * Performs server-side aggregations via Supabase queries
- * to calculate spending summaries, category breakdowns, and store rankings.
  */
 export function useDashboardAnalytics(
   options: UseDashboardAnalyticsOptions
 ): UseDashboardAnalyticsReturn {
   const { preset, customRange } = options
   const { currentHousehold } = useHousehold()
-  const [state, setState] = useState<AnalyticsState>({
-    data: null,
-    isLoading: true,
-    error: null,
-  })
-
   const supabase = createClient()
 
-  const fetchAnalytics = useCallback(async () => {
-    if (!currentHousehold) {
-      setState({ data: null, isLoading: false, error: null })
-      return
-    }
+  const query = useQuery<DashboardAnalytics, Error>({
+    queryKey: [
+      'dashboard-analytics',
+      currentHousehold?.id,
+      preset,
+      customRange?.startDate,
+      customRange?.endDate,
+    ],
+    enabled: Boolean(currentHousehold?.id),
+    staleTime: 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    queryFn: async () => {
+      if (!currentHousehold) {
+        throw new Error('Kein Haushalt ausgewählt')
+      }
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
-
-    try {
-      // Get date ranges
       const currentPeriod = getDateRange(preset, customRange)
       const comparisonPeriod = getComparisonPeriod(preset, customRange)
 
-      // Fetch budget status (in parallel)
       const budgetPromise = getBudgetStatus(currentHousehold.id, new Date(currentPeriod.startDate))
 
-      // Wait for all data
       const [
         { data: currentReceipts, error: currentError },
         { data: previousReceipts, error: previousError },
-        budgetStatus
+        budgetStatus,
       ] = await Promise.all([
         supabase
           .from('receipts')
@@ -87,48 +235,76 @@ export function useDashboardAnalytics(
           .lte('date', currentPeriod.endDate),
         supabase
           .from('receipts')
-          .select('total_amount_cents')
+          .select(`
+            id,
+            total_amount_cents,
+            merchant_id,
+            merchants (
+              id,
+              name,
+              logo_url
+            )
+          `)
           .eq('household_id', currentHousehold.id)
           .gte('date', comparisonPeriod.startDate)
           .lte('date', comparisonPeriod.endDate),
-        budgetPromise
+        budgetPromise,
       ])
 
       if (currentError) throw currentError
       if (previousError) throw previousError
 
-      // Fetch receipt items with product categories for current period
-      const receiptIds = currentReceipts?.map((r) => r.id) || []
+      const currentRows = (currentReceipts || []).map((receipt) => ({
+        ...receipt,
+        merchants: (receipt.merchants as { id: string; name: string; logo_url: string | null } | null) || null,
+      }))
+      const previousRows = (previousReceipts || []).map((receipt) => ({
+        ...receipt,
+        merchants: (receipt.merchants as { id: string; name: string; logo_url: string | null } | null) || null,
+      }))
+
+      const currentReceiptIds = currentRows.map((receipt) => receipt.id)
+      const previousReceiptIds = previousRows.map((receipt) => receipt.id)
+      const allReceiptIds = [...new Set([...currentReceiptIds, ...previousReceiptIds])]
+
       let categoryData: CategoryData[] = []
-      
-      if (receiptIds.length > 0) {
+      const currentCategoryMap = new Map<string, number>()
+      const previousCategoryMap = new Map<string, number>()
+
+      if (allReceiptIds.length > 0) {
         const { data: items, error: itemsError } = await supabase
           .from('receipt_items')
           .select(`
+            receipt_id,
             price_cents,
             quantity,
-            product_id,
             products (
               category
             )
           `)
-          .in('receipt_id', receiptIds)
+          .in('receipt_id', allReceiptIds)
 
         if (itemsError) throw itemsError
 
-        // Aggregate by category
-        const categoryMap = new Map<string, number>()
-        let totalItemsAmount = 0
+        const currentIdSet = new Set(currentReceiptIds)
+        const previousIdSet = new Set(previousReceiptIds)
 
-        items?.forEach((item) => {
-          const category = item.products?.category || 'Sonstiges'
-          const amount = item.price_cents * item.quantity
-          categoryMap.set(category, (categoryMap.get(category) || 0) + amount)
-          totalItemsAmount += amount
-        })
+        const currentItems = (items || []).filter((item) => currentIdSet.has(item.receipt_id))
+        const previousItems = (items || []).filter((item) => previousIdSet.has(item.receipt_id))
 
-        // Convert to array and calculate percentages
-        categoryData = Array.from(categoryMap.entries())
+        const aggregatedCurrent = aggregateByCategory(
+          currentItems as Array<{ price_cents: number; quantity: number; products: { category: string | null } | null }>
+        )
+        const aggregatedPrevious = aggregateByCategory(
+          previousItems as Array<{ price_cents: number; quantity: number; products: { category: string | null } | null }>
+        )
+
+        aggregatedCurrent.forEach((amount, name) => currentCategoryMap.set(name, amount))
+        aggregatedPrevious.forEach((amount, name) => previousCategoryMap.set(name, amount))
+
+        const totalItemsAmount = [...aggregatedCurrent.values()].reduce((sum, amount) => sum + amount, 0)
+
+        categoryData = [...aggregatedCurrent.entries()]
           .map(([name, amount], index) => ({
             name,
             amount,
@@ -137,7 +313,6 @@ export function useDashboardAnalytics(
           }))
           .sort((a, b) => b.amount - a.amount)
 
-        // Group small categories into "Sonstiges" if more than 5 categories
         if (categoryData.length > 5) {
           const topCategories = categoryData.slice(0, 4)
           const otherCategories = categoryData.slice(4)
@@ -156,54 +331,29 @@ export function useDashboardAnalytics(
         }
       }
 
-      // Aggregate store data
-      const storeMap = new Map<string, StoreData>()
-      currentReceipts?.forEach((receipt) => {
-        if (receipt.merchant_id && receipt.merchants) {
-          const merchant = receipt.merchants as { id: string; name: string; logo_url: string | null }
-          const existing = storeMap.get(merchant.id)
-          if (existing) {
-            existing.amount += receipt.total_amount_cents
-            existing.visitCount += 1
-          } else {
-            storeMap.set(merchant.id, {
-              id: merchant.id,
-              name: merchant.name,
-              amount: receipt.total_amount_cents,
-              visitCount: 1,
-              logoUrl: merchant.logo_url,
-            })
-          }
-        }
-      })
+      const currentStoreMap = aggregateByStore(currentRows)
+      const previousStoreMap = aggregateByStore(previousRows)
 
-      const topStores = Array.from(storeMap.values())
+      const topStores = Array.from(currentStoreMap.values())
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 5)
 
-      // Calculate summaries
-      const currentTotal = currentReceipts?.reduce(
-        (sum, r) => sum + r.total_amount_cents,
-        0
-      ) || 0
-      const currentCount = currentReceipts?.length || 0
-      const previousTotal = previousReceipts?.reduce(
-        (sum, r) => sum + r.total_amount_cents,
-        0
-      ) || 0
-      const previousCount = previousReceipts?.length || 0
+      const currentTotal = currentRows.reduce((sum, receipt) => sum + receipt.total_amount_cents, 0)
+      const currentCount = currentRows.length
+      const previousTotal = previousRows.reduce((sum, receipt) => sum + receipt.total_amount_cents, 0)
+      const previousCount = previousRows.length
 
-      // Map budget status correctly to the updated type
-      // Since getBudgetStatus returns the correct shape, we just need to ensure dates are Dates
-      const formattedBudgetStatus = budgetStatus ? {
-        ...budgetStatus,
-        period: {
-          start: new Date(budgetStatus.period.start),
-          end: new Date(budgetStatus.period.end)
-        }
-      } : null
+      const formattedBudgetStatus = budgetStatus
+        ? {
+            ...budgetStatus,
+            period: {
+              start: new Date(budgetStatus.period.start),
+              end: new Date(budgetStatus.period.end),
+            },
+          }
+        : null
 
-      const analytics: DashboardAnalytics = {
+      return {
         current: {
           totalSpent: currentTotal,
           receiptCount: currentCount,
@@ -216,28 +366,35 @@ export function useDashboardAnalytics(
         },
         categories: categoryData,
         topStores,
+        drivers: buildDrivers({
+          totalSpentChange: calculatePercentageChange(currentTotal, previousTotal),
+          currentTotal,
+          previousTotal,
+          currentCategories: currentCategoryMap,
+          previousCategories: previousCategoryMap,
+          currentStores: currentStoreMap,
+          previousStores: previousStoreMap,
+          currentCount,
+          previousCount,
+        }),
         periodLabel: currentPeriod.label,
-        budgetStatus: formattedBudgetStatus
+        budgetStatus: formattedBudgetStatus,
       }
+    },
+  })
 
-      setState({ data: analytics, isLoading: false, error: null })
-    } catch (error) {
-      console.error('Error fetching analytics:', error)
-      setState({
-        data: null,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load analytics',
-      })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentHousehold?.id, preset, customRange?.startDate, customRange?.endDate])
-
-  useEffect(() => {
-    fetchAnalytics()
-  }, [fetchAnalytics])
+  const refresh = useCallback(async () => {
+    await query.refetch()
+  }, [query])
 
   return {
-    ...state,
-    refresh: fetchAnalytics,
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error
+      ? query.error instanceof Error
+        ? query.error.message
+        : 'Failed to load analytics'
+      : null,
+    refresh,
   }
 }

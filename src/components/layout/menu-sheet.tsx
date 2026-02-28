@@ -3,11 +3,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  LayoutGrid, 
+  Users, 
   Target, 
-  FileDown, 
-  CreditCard, 
-  HelpCircle, 
+  User, 
   Settings, 
   LogOut,
   Loader2,
@@ -41,14 +39,12 @@ const menuGroups: MenuItem[][] = [
   [
     { href: '/dashboard/angebote', icon: Tag, label: 'Angebote' },
     { href: '/dashboard/ernaehrung', icon: Apple, label: 'Ernährung' },
-    { href: '/settings/categories', icon: LayoutGrid, label: 'Kategorien verwalten' },
-    { href: '/settings/budget', icon: Target, label: 'Budget-Ziele' },
-    { href: '/settings/export', icon: FileDown, label: 'Export (PDF/Excel)' },
-    { href: '/settings/payment-methods', icon: CreditCard, label: 'Zahlungsmethoden' },
     { href: '/dashboard/warranties', icon: Shield, label: 'Garantie-Safe' },
   ],
   [
-    { href: '/settings/help', icon: HelpCircle, label: 'Hilfe & Support' },
+    { href: '/settings/profile', icon: User, label: 'Profil-Einstellungen' },
+    { href: '/settings/household', icon: Users, label: 'Haushalt-Einstellungen' },
+    { href: '/settings/budget', icon: Target, label: 'Budget-Ziele' },
     { href: '/settings', icon: Settings, label: 'App-Einstellungen' },
   ],
 ]

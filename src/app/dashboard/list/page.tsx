@@ -1,8 +1,8 @@
 "use client"
 
 import { calculatePriceMultiplier } from "@/lib/quantity-parser"
-import { useEffect, useState, useMemo, useCallback } from "react"
-import { ShoppingCart, LayoutGrid, List, Layers } from "lucide-react"
+import { useState, useMemo, useCallback, useEffect } from "react"
+import { ShoppingCart, LayoutGrid, List, Layers, Loader2 } from "lucide-react"
 import { 
   AddItemInput, 
   ItemTileGrid, 
@@ -13,10 +13,10 @@ import {
 } from "@/components/shopping"
 import { useShoppingList } from "@/hooks/use-shopping-list"
 import { useOffers } from "@/hooks/shopping-list/use-offers"
-import { createClient } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { useCategories } from "@/hooks/use-categories"
+import { useHousehold } from "@/contexts/household-context"
 import { CategoryHeader } from "@/components/shopping/category-header"
 import { cn, formatStoreName } from "@/lib/utils"
 import type { Offer, ShoppingListItem } from "@/types/shopping"
@@ -39,7 +39,8 @@ const STORAGE_KEY_GROUPING = "shopping-list-grouping"
 const STORAGE_KEY_LIST = "shopping-list-current"
 
 export default function ShoppingListPage() {
-  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const { currentHousehold, isLoading: isHouseholdLoading } = useHousehold()
+  const householdId = currentHousehold?.id ?? null
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "grid"
     const savedView = localStorage.getItem(STORAGE_KEY_VIEW)
@@ -54,8 +55,6 @@ export default function ShoppingListPage() {
   
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
-
-  const supabase = createClient()
 
   // Save view preference to localStorage
   const handleViewChange = (mode: ViewMode) => {
@@ -77,26 +76,6 @@ export default function ShoppingListPage() {
       [categoryId]: !prev[categoryId]
     }))
   }
-
-  // Get current household ID
-  useEffect(() => {
-    const getHousehold = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from("household_members")
-        .select("household_id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (data) {
-        setHouseholdId(data.household_id)
-      }
-    }
-
-    getHousehold()
-  }, [supabase])
 
   const {
     lists,
@@ -149,7 +128,8 @@ export default function ShoppingListPage() {
     
     if (hintedOffer && hintedOffer.price != null) {
       // The hint might store the matched item name, but if not, fallback to the item name
-      const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, (hintedOffer as any).item_name || item.product_name)
+      const hintedItemName = (hintedOffer as { item_name?: string }).item_name || item.product_name
+      const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, hintedItemName)
       hintedOfferCents = Math.round(hintedOffer.price * multiplier * 100)
     }
 
@@ -220,7 +200,8 @@ export default function ShoppingListPage() {
           for (const hint of item.offerHints) {
               if (hint.price != null && Number.isFinite(hint.price)) {
                   const currentPrice = storePrices.get(hint.store)
-                  const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, (hint as any).item_name || item.product_name)
+                  const hintedItemName = (hint as { item_name?: string }).item_name || item.product_name
+                  const multiplier = calculatePriceMultiplier(item.quantity || 1, item.unit || null, hintedItemName)
                   const hintCents = Math.round(hint.price * multiplier * 100)
                   if (currentPrice === undefined || hintCents < currentPrice) {
                       storePrices.set(hint.store, hintCents)
@@ -327,18 +308,22 @@ export default function ShoppingListPage() {
         const stores = Array.from(storeSplits.keys())
         const storeLabel = stores.length <= 2 ? stores.join(' & ') : `${stores.length} Supermärkte`
         
+        // Calculate savings relative to the best single store
+        const savingsCents = bestSingle.knownCents - splitKnownCents
+        
         optimalSplit = {
           store: storeLabel,
           knownItems: splitKnownItems,
           knownCents: splitKnownCents,
           missingItems: splitMissingItems,
-          isSplit: true
+          isSplit: true,
+          savingsCents: savingsCents > 0 ? savingsCents : undefined
         }
       }
     }
 
     return { ranks, optimalSplit }
-  }, [uncheckedItems, getOfferForItem, getHistoricalPriceCents])
+  }, [uncheckedItems, getOfferForItem])
 
   // Group items by category (if enabled)
   const groupedItems = useMemo(() => {
@@ -443,7 +428,26 @@ export default function ShoppingListPage() {
   )
 
   // Final loading state
-  const isLoading = !householdId || isLoadingList
+  const isLoading = (!!householdId && isLoadingList) || isHouseholdLoading
+
+  if (isHouseholdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!householdId) {
+    return (
+      <div className="space-y-2 py-6">
+        <h1 className="text-2xl font-bold">Einkaufsliste</h1>
+        <p className="text-muted-foreground">
+          Bitte wähle einen Haushalt aus, um die Liste zu sehen.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="pt-4 pb-32">
@@ -643,10 +647,10 @@ export default function ShoppingListPage() {
                     <>
                       {isPartial ? (
                          <span className="text-amber-600 text-xs font-medium flex items-center gap-1">
-                           ⚠️ nur {count}/{total}
+                           ⚠️ {count}/{total} ermittelt
                          </span>
                       ) : (
-                         <span className="text-muted-foreground text-xs">({count}/{total})</span>
+                         <span className="text-muted-foreground text-xs">{count}/{total} ermittelt</span>
                       )}
                       <span className="font-bold text-foreground">
                         {(pricingSummary.totalCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
@@ -657,14 +661,23 @@ export default function ShoppingListPage() {
               </div>
               
               {bestStore && bestStore.knownItems > 0 ? (
-                 <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2">
-                    <span className="text-emerald-600 font-medium flex items-center gap-1 xl:max-w-none max-w-[120px] truncate">
-                       <ShoppingCart className="w-3 h-3 flex-shrink-0" />
-                       Tipp: {'isSplit' in bestStore && bestStore.isSplit ? bestStore.store : formatStoreName(bestStore.store)}
-                    </span>
-                    <span className="text-emerald-600/90 font-medium">
-                      {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} Art. für {(bestStore.knownCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} bekannt
-                    </span>
+                 <div className="flex flex-col gap-1 mt-0.5 animate-in fade-in slide-in-from-bottom-2">
+                   <div className="flex justify-between items-center text-xs">
+                      <span className="text-emerald-600 font-medium flex items-center gap-1 xl:max-w-none max-w-[120px] truncate">
+                         <ShoppingCart className="w-3 h-3 flex-shrink-0" />
+                         Tipp: {'isSplit' in bestStore && bestStore.isSplit ? bestStore.store : formatStoreName(bestStore.store)}
+                      </span>
+                       <span className="text-emerald-600/90 font-medium">
+                        {bestStore.knownItems} von {bestStore.knownItems + bestStore.missingItems} Art. bei {('isSplit' in bestStore && bestStore.isSplit) ? 'diesen Märkten' : formatStoreName(bestStore.store)} bekannt
+                      </span>
+                   </div>
+                   {'savingsCents' in bestStore && typeof bestStore.savingsCents === 'number' && (
+                     <div className="flex justify-end">
+                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                         Ersparnis: {(bestStore.savingsCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                       </span>
+                     </div>
+                   )}
                  </div>
               ) : (
                 <div className="flex justify-between items-center text-xs mt-0.5 animate-in fade-in slide-in-from-bottom-2 text-muted-foreground">

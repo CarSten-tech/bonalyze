@@ -36,12 +36,29 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
+function sanitizeRedirectTo(value: string | null): string {
+  if (!value) return '/dashboard'
+
+  const candidate = value.trim()
+  if (!candidate.startsWith('/')) return '/dashboard'
+  if (candidate.startsWith('//')) return '/dashboard'
+  if (candidate.startsWith('/\\')) return '/dashboard'
+
+  try {
+    const parsed = new URL(candidate, 'https://bonalyze.local')
+    if (parsed.origin !== 'https://bonalyze.local') return '/dashboard'
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return '/dashboard'
+  }
+}
+
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false)
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+  const redirectTo = sanitizeRedirectTo(searchParams.get('redirectTo'))
 
   const supabase = createClient()
 
@@ -108,7 +125,7 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirectTo=${redirectTo}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
       },
     })
 

@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { subMonths } from 'date-fns'
+import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp,
+  TrendingDown,
   Calendar,
   Store,
   Tag,
   ShieldCheck,
+  AlertCircle,
 } from 'lucide-react'
 
 import { DetailHeader } from '@/components/layout/page-header'
@@ -27,28 +30,26 @@ export default function SmartInsightsPage() {
   const router = useRouter()
   const { currentHousehold } = useHousehold()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [offerMatches, setOfferMatches] = useState<OfferMatch[]>([])
-  const [matchesLoading, setMatchesLoading] = useState(true)
 
   // Extract year and month from selected date
   const year = selectedDate.getFullYear()
   const month = selectedDate.getMonth() + 1 // 1-indexed
 
   // Fetch insights data
-  const { data, isLoading } = useInsightsData({ year, month })
+  const { data, isLoading, error, refresh } = useInsightsData({
+    householdId: currentHousehold?.id ?? null,
+    year,
+    month,
+  })
 
-  // Fetch offer matches
-  useEffect(() => {
-    if (!currentHousehold?.id) return
-    const timeoutId = window.setTimeout(() => {
-      setMatchesLoading(true)
-      getOfferMatches(currentHousehold.id, 8)
-        .then(setOfferMatches)
-        .catch(console.error)
-        .finally(() => setMatchesLoading(false))
-    }, 0)
-    return () => window.clearTimeout(timeoutId)
-  }, [currentHousehold?.id])
+  const offerMatchesQuery = useQuery<OfferMatch[]>({
+    queryKey: ['insights-offer-matches', currentHousehold?.id],
+    queryFn: () => getOfferMatches(currentHousehold!.id, 8),
+    enabled: Boolean(currentHousehold?.id),
+    staleTime: 5 * 60 * 1000,
+  })
+  const offerMatches = offerMatchesQuery.data ?? []
+  const matchesLoading = offerMatchesQuery.isLoading || offerMatchesQuery.isFetching
 
   // Handle month navigation
   const handleMonthChange = useCallback((newDate: Date) => {
@@ -64,6 +65,14 @@ export default function SmartInsightsPage() {
       isHighlighted: d.isHighlighted,
     }))
   }, [data])
+
+  const efficiencyText = data
+    ? `${data.isEfficiencyPositive ? '+' : ''}${data.efficiencyPercentage} %`
+    : '—'
+  const efficiencyColor = data?.isEfficiencyPositive === false ? 'text-rose-500' : 'text-green-500'
+  const efficiencyHint = data?.isEfficiencyPositive
+    ? 'BESSER ALS VORMONAT'
+    : 'MEHR AUSGABEN ALS VORMONAT'
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -98,16 +107,38 @@ export default function SmartInsightsPage() {
               <p className="text-xs text-primary font-medium uppercase tracking-wider">
                 EFFIZIENZ
               </p>
-              <p className="text-2xl font-bold tabular-nums tracking-tight text-green-500">
-                {data ? `+${data.efficiencyPercentage} %` : '—'}
+              <p className={`text-2xl font-bold tabular-nums tracking-tight ${efficiencyColor}`}>
+                {efficiencyText}
               </p>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                TOP PERFORMANCE
+                {data?.isEfficiencyPositive === false ? (
+                  <TrendingDown className="w-3 h-3" />
+                ) : (
+                  <TrendingUp className="w-3 h-3" />
+                )}
+                {data ? efficiencyHint : '—'}
               </p>
             </CardContent>
           </Card>
         </div>
+
+        {error && (
+          <Card className="rounded-2xl shadow-elevation-1 border-red-200 bg-red-50">
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                <p className="text-sm">{error}</p>
+              </div>
+              <button
+                type="button"
+                onClick={refresh}
+                className="text-sm font-medium text-red-700 hover:underline"
+              >
+                Erneut laden
+              </button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Best Shopping Days Insight */}
         <InsightCard

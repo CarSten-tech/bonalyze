@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 import { formatCents } from '@/lib/settlement-utils'
 import { ArrowRight, Check } from 'lucide-react'
 import type { Transfer } from '@/types/settlement'
@@ -10,9 +11,22 @@ import type { Transfer } from '@/types/settlement'
 interface TransferCardProps {
   transfers: Transfer[]
   isLoading?: boolean
+  editable?: boolean
+  paymentAmounts?: Record<string, number>
+  onPaymentChange?: (transfer: Transfer, index: number, paidAmount: number) => void
 }
 
-export function TransferCard({ transfers, isLoading = false }: TransferCardProps) {
+function transferKey(transfer: Transfer, index: number): string {
+  return `${transfer.fromUserId}:${transfer.toUserId}:${transfer.amount}:${index}`
+}
+
+export function TransferCard({
+  transfers,
+  isLoading = false,
+  editable = false,
+  paymentAmounts = {},
+  onPaymentChange,
+}: TransferCardProps) {
   if (isLoading) {
     return (
       <Card>
@@ -62,7 +76,13 @@ export function TransferCard({ transfers, isLoading = false }: TransferCardProps
       </CardHeader>
       <CardContent className="space-y-3">
         {transfers.map((transfer, index) => (
-          <TransferItem key={index} transfer={transfer} />
+          <TransferItem
+            key={index}
+            transfer={transfer}
+            editable={editable}
+            paidAmount={paymentAmounts[transferKey(transfer, index)]}
+            onPaymentChange={(paidAmount) => onPaymentChange?.(transfer, index, paidAmount)}
+          />
         ))}
       </CardContent>
     </Card>
@@ -71,9 +91,17 @@ export function TransferCard({ transfers, isLoading = false }: TransferCardProps
 
 interface TransferItemProps {
   transfer: Transfer
+  editable: boolean
+  paidAmount?: number
+  onPaymentChange?: (paidAmount: number) => void
 }
 
-function TransferItem({ transfer }: TransferItemProps) {
+function TransferItem({
+  transfer,
+  editable,
+  paidAmount,
+  onPaymentChange,
+}: TransferItemProps) {
   const fromInitials = transfer.fromDisplayName
     .split(' ')
     .map((n) => n[0])
@@ -88,8 +116,15 @@ function TransferItem({ transfer }: TransferItemProps) {
     .toUpperCase()
     .slice(0, 2)
 
+  const normalizedPaid = Math.max(
+    0,
+    Math.min(transfer.amount, typeof paidAmount === 'number' ? paidAmount : transfer.paidAmount ?? transfer.amount)
+  )
+  const remaining = Math.max(0, transfer.amount - normalizedPaid)
+
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+    <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+      <div className="flex items-center gap-3">
       {/* From Person */}
       <div className="flex items-center gap-2 min-w-0">
         <Avatar className="h-8 w-8">
@@ -122,6 +157,34 @@ function TransferItem({ transfer }: TransferItemProps) {
           {transfer.toDisplayName}
         </span>
       </div>
+      </div>
+      {editable && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {remaining > 0 ? `Rest: ${formatCents(remaining)}` : 'Komplett bezahlt'}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Bezahlt</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={transfer.amount / 100}
+              step="0.01"
+              className="h-8 w-28 text-right"
+              value={(normalizedPaid / 100).toFixed(2)}
+              onChange={(event) => {
+                const next = Number.parseFloat(event.target.value.replace(',', '.'))
+                if (Number.isNaN(next)) {
+                  onPaymentChange?.(0)
+                  return
+                }
+                onPaymentChange?.(Math.round(next * 100))
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -51,7 +51,7 @@ function stripForCompare(name: string): string {
 }
 
 export function createLinkCode() {
-  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0')
   return {
     code,
     codeHash: hashCode(code),

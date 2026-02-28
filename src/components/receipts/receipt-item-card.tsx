@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { CategorySelector } from './category-selector'
+import { cleanupProductName } from '@/lib/receipt-normalization'
 
 export interface ReceiptItemDraft {
   id: string
@@ -157,6 +158,28 @@ export function ReceiptItemCard({
             isLowConfidence && 'border-yellow-500/50 focus-visible:ring-yellow-500'
           )}
         />
+        {isLowConfidence && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => onUpdate(item.id, 'productName', cleanupProductName(item.productName))}
+            >
+              Namen säubern
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => onUpdate(item.id, 'quantity', 1)}
+            >
+              Menge auf 1
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Warranty Toggle & Date */}

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Sparkles } from 'lucide-react'
+import { AlertTriangle, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { addYears } from 'date-fns'
 
@@ -19,6 +19,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 import { DatePicker } from './date-picker'
 import { StoreSelector, type Merchant } from './store-selector'
@@ -27,15 +37,47 @@ import { ReceiptItemCard, type ReceiptItemDraft } from './receipt-item-card'
 import { ReceiptTotals } from './receipt-totals'
 import { ReceiptAIResponse } from '@/types/receipt-ai'
 import { checkBudgetAlerts } from '@/app/actions/budget'
+import {
+  cleanupProductName,
+  normalizeDateOnly,
+  normalizeProductName,
+} from '@/lib/receipt-normalization'
 
 // Generate unique ID for items
 function generateId(): string {
   return Math.random().toString(36).substring(2, 9)
 }
 
+interface LearnedProductMapping {
+  canonicalName: string
+  subcategory?: string
+  category?: string
+}
+
+interface DuplicateCandidate {
+  id: string
+  date: string
+  merchantId: string | null
+  merchantName: string
+  totalAmountCents: number
+  score: number
+  dateDelta: number
+  itemOverlap: number
+  exactFingerprint: boolean
+}
+
 interface ReceiptEditorProps {
   householdId: string
   currentUserId: string
+  mode?: 'create' | 'edit'
+  receiptId?: string
+  existingReceipt?: {
+    merchantId: string | null
+    date: string
+    paidBy: string
+    imagePath: string | null
+    items: ReceiptItemDraft[]
+  }
   initialData?: {
     aiResult?: ReceiptAIResponse
     imagePath?: string
@@ -47,6 +89,9 @@ interface ReceiptEditorProps {
 export function ReceiptEditor({
   householdId,
   currentUserId,
+  mode = 'create',
+  receiptId,
+  existingReceipt,
   initialData,
   onCancel,
 }: ReceiptEditorProps) {
@@ -57,6 +102,9 @@ export function ReceiptEditor({
   const [merchants, setMerchants] = React.useState<Merchant[]>([])
   const [members, setMembers] = React.useState<HouseholdMember[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [learnedProductMap, setLearnedProductMap] = React.useState<Map<string, LearnedProductMapping>>(
+    () => new Map()
+  )
 
   // Form state
   const [selectedMerchantId, setSelectedMerchantId] = React.useState<string | null>(null)
@@ -78,6 +126,9 @@ export function ReceiptEditor({
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [showDuplicateDialog, setShowDuplicateDialog] = React.useState(false)
+  const [duplicateCandidates, setDuplicateCandidates] = React.useState<DuplicateCandidate[]>([])
+  const [didInitializeFromAi, setDidInitializeFromAi] = React.useState(false)
 
   // Load merchants and members
   React.useEffect(() => {
@@ -109,22 +160,100 @@ export function ReceiptEditor({
         setMembers(formattedMembers)
       }
 
-      // Set default payer to current user
-      setPaidBy(currentUserId)
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('name, category, category_id')
+        .eq('household_id', householdId)
+
+      const categoryIds = [...new Set((productsData || []).map((p) => p.category_id).filter(Boolean))] as string[]
+      const categoryById = new Map<string, { name: string; parentId: string | null }>()
+      const parentNameById = new Map<string, string>()
+
+      if (categoryIds.length > 0) {
+        const { data: categoriesData } = await supabase
+          .from('categories')
+          .select('id, name, parent_id')
+          .in('id', categoryIds)
+
+        ;(categoriesData || []).forEach((cat) => {
+          categoryById.set(cat.id, { name: cat.name, parentId: cat.parent_id })
+        })
+
+        const parentIds = [
+          ...new Set((categoriesData || []).map((cat) => cat.parent_id).filter(Boolean)),
+        ] as string[]
+
+        if (parentIds.length > 0) {
+          const { data: parentData } = await supabase
+            .from('categories')
+            .select('id, name')
+            .in('id', parentIds)
+
+          ;(parentData || []).forEach((parent) => {
+            parentNameById.set(parent.id, parent.name)
+          })
+        }
+      }
+
+      const learnedMap = new Map<string, LearnedProductMapping>()
+      ;(productsData || []).forEach((product) => {
+        const key = normalizeProductName(product.name)
+        if (!key) return
+
+        const categoryRef = product.category_id ? categoryById.get(product.category_id) : null
+        const parentCategoryName = categoryRef?.parentId
+          ? parentNameById.get(categoryRef.parentId)
+          : undefined
+
+        learnedMap.set(key, {
+          canonicalName: product.name,
+          subcategory: categoryRef?.name || undefined,
+          category: parentCategoryName || product.category || undefined,
+        })
+      })
+      setLearnedProductMap(learnedMap)
+
+      // Set default payer to current user (or existing receipt payer in edit mode)
+      setPaidBy(existingReceipt?.paidBy || currentUserId)
 
       setIsLoading(false)
     }
 
     loadData()
-  }, [householdId, currentUserId, supabase])
+  }, [householdId, currentUserId, existingReceipt?.paidBy, supabase])
 
-  // Process initial AI data
+  // Prefill existing receipt data in edit mode.
   React.useEffect(() => {
-    if (!initialData?.aiResult) return
+    if (mode !== 'edit' || !existingReceipt) return
+
+    setSelectedMerchantId(existingReceipt.merchantId)
+    const parsedDate = new Date(existingReceipt.date)
+    if (!Number.isNaN(parsedDate.getTime())) {
+      setDate(parsedDate)
+    }
+    setPaidBy(existingReceipt.paidBy)
+    setItems(
+      existingReceipt.items.length > 0
+        ? existingReceipt.items
+        : [{ id: generateId(), productName: '', quantity: 1, priceCents: 0 }]
+    )
+    setImagePath(existingReceipt.imagePath)
+    setAiTotalCents(null)
+    setAiSuggestedMerchant(null)
+  }, [mode, existingReceipt])
+
+  React.useEffect(() => {
+    if (!initialData?.aiResult) {
+      setDidInitializeFromAi(false)
+    }
+  }, [initialData?.aiResult])
+
+  // Process initial AI data once after household data has loaded (for learned mappings).
+  React.useEffect(() => {
+    if (!initialData?.aiResult || didInitializeFromAi || isLoading) return
 
     const aiResult = initialData.aiResult
 
-    // Set date from AI
     if (aiResult.date) {
       const parsedDate = new Date(aiResult.date)
       if (!isNaN(parsedDate.getTime())) {
@@ -132,49 +261,51 @@ export function ReceiptEditor({
       }
     }
 
-    // Set merchant from match or AI
     if (initialData.merchantMatch) {
       setSelectedMerchantId(initialData.merchantMatch.id)
     }
 
-    // Store AI suggested merchant name for display
     if (aiResult.merchant) {
       setAiSuggestedMerchant(aiResult.merchant)
     }
 
-    // Store AI total for comparison
     if (aiResult.amounts?.total) {
       setAiTotalCents(Math.round(aiResult.amounts.total * 100))
     }
 
-    // Set items from AI
     if (aiResult.items && aiResult.items.length > 0) {
-      const scannedItems: ReceiptItemDraft[] = aiResult.items.map((item) => ({
-        id: generateId(),
-        productName: item.name,
-        quantity: item.quantity || 1,
-        priceCents: Math.round((item.total_price / (item.quantity || 1)) * 100),
-        confidence: aiResult.meta?.confidence || 0.5,
-        category: item.category,
-        subcategory: item.subcategory,
-        isWarranty: item.is_warranty_candidate,
-        warrantyEndDate: item.is_warranty_candidate ? addYears(new Date(), 2) : undefined,
-        // Supply Range nutrition fields
-        estimatedCaloriesKcal: item.estimated_calories_kcal || 0,
-        estimatedWeightG: item.estimated_weight_g || 0,
-        estimatedProteinG: item.estimated_protein_g || 0,
-        estimatedCarbsG: item.estimated_carbs_g || 0,
-        estimatedFatG: item.estimated_fat_g || 0,
-        isFoodItem: item.is_food_item ?? true,
-      }))
+      const scannedItems: ReceiptItemDraft[] = aiResult.items.map((item) => {
+        const normalizedKey = normalizeProductName(item.name)
+        const learned = learnedProductMap.get(normalizedKey)
+        const itemQuantity = item.quantity && item.quantity > 0 ? item.quantity : 1
+
+        return {
+          id: generateId(),
+          productName: learned?.canonicalName || cleanupProductName(item.name),
+          quantity: itemQuantity,
+          priceCents: Math.round((item.total_price / itemQuantity) * 100),
+          confidence: aiResult.meta?.confidence || 0.5,
+          category: learned?.category || item.category,
+          subcategory: learned?.subcategory || item.subcategory,
+          isWarranty: item.is_warranty_candidate,
+          warrantyEndDate: item.is_warranty_candidate ? addYears(new Date(), 2) : undefined,
+          estimatedCaloriesKcal: item.estimated_calories_kcal || 0,
+          estimatedWeightG: item.estimated_weight_g || 0,
+          estimatedProteinG: item.estimated_protein_g || 0,
+          estimatedCarbsG: item.estimated_carbs_g || 0,
+          estimatedFatG: item.estimated_fat_g || 0,
+          isFoodItem: item.is_food_item ?? true,
+        }
+      })
       setItems(scannedItems)
     }
 
-    // Set image path
     if (initialData.imagePath) {
       setImagePath(initialData.imagePath)
     }
-  }, [initialData])
+
+    setDidInitializeFromAi(true)
+  }, [didInitializeFromAi, initialData, isLoading, learnedProductMap])
 
   // Item management
   const addItem = () => {
@@ -204,6 +335,33 @@ export function ReceiptEditor({
     (sum, item) => sum + item.priceCents * item.quantity,
     0
   ))
+
+  const aiScanConfidence = initialData?.aiResult?.meta?.confidence ?? null
+  const lowConfidenceItems = items.filter(
+    (item) => typeof item.confidence === 'number' && item.confidence < 0.7
+  ).length
+
+  const applyQuickFixes = () => {
+    setItems((prev) =>
+      prev.map((item) => {
+        const cleanedName = cleanupProductName(item.productName)
+        const normalizedKey = normalizeProductName(cleanedName)
+        const learned = learnedProductMap.get(normalizedKey)
+        const quantity = item.quantity > 0 ? item.quantity : 1
+        const priceCents = Number.isFinite(item.priceCents) ? Math.round(item.priceCents) : 0
+
+        return {
+          ...item,
+          productName: learned?.canonicalName || cleanedName,
+          quantity,
+          priceCents,
+          subcategory: item.subcategory || learned?.subcategory,
+          category: item.category || learned?.category,
+        }
+      })
+    )
+    toast.success('Quick-Fixes angewendet')
+  }
 
   // Create new merchant
   const handleCreateMerchant = async () => {
@@ -236,7 +394,7 @@ export function ReceiptEditor({
   }
 
   // Submit receipt
-  const handleSubmit = async () => {
+  const handleSubmit = async (forceDuplicateSave = false) => {
     // Validation
     if (!selectedMerchantId) {
       toast.error('Bitte waehle einen Store aus')
@@ -264,25 +422,96 @@ export function ReceiptEditor({
     setIsSubmitting(true)
 
     try {
-      // Create receipt
-      const { data: receipt, error: receiptError } = await supabase
-        .from('receipts')
-        .insert({
-          household_id: householdId,
-          merchant_id: selectedMerchantId,
-          date: date.toISOString().split('T')[0],
-          total_amount_cents: calculatedTotalCents,
-          created_by: paidBy,
-          image_url: imagePath,
-        })
-        .select()
-        .single()
+      const isEditMode = mode === 'edit' && !!receiptId
+      const saveDate = normalizeDateOnly(date)
 
-      if (receiptError) {
-        console.error('Error creating receipt:', receiptError)
-        toast.error('Kassenbon konnte nicht erstellt werden')
-        setIsSubmitting(false)
-        return
+      if (!forceDuplicateSave) {
+        const duplicateResponse = await fetch('/api/receipts/check-duplicate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            householdId,
+            date: saveDate,
+            merchantId: selectedMerchantId,
+            totalAmountCents: calculatedTotalCents,
+            itemNames: validItems.map((item) => item.productName),
+            excludeReceiptId: isEditMode ? receiptId : undefined,
+          }),
+        })
+
+        if (duplicateResponse.ok) {
+          const duplicateData = await duplicateResponse.json()
+          if (duplicateData.isDuplicate) {
+            setDuplicateCandidates((duplicateData.duplicates || []) as DuplicateCandidate[])
+            setShowDuplicateDialog(true)
+            setIsSubmitting(false)
+            return
+          }
+        }
+      }
+
+      let targetReceiptId: string | null = null
+
+      if (isEditMode) {
+        const { data: updatedReceipt, error: updateError } = await supabase
+          .from('receipts')
+          .update({
+            merchant_id: selectedMerchantId,
+            date: saveDate,
+            total_amount_cents: calculatedTotalCents,
+            created_by: paidBy,
+            image_url: imagePath,
+          })
+          .eq('id', receiptId)
+          .eq('household_id', householdId)
+          .select('id')
+          .single()
+
+        if (updateError || !updatedReceipt) {
+          console.error('Error updating receipt:', updateError)
+          toast.error('Kassenbon konnte nicht aktualisiert werden')
+          setIsSubmitting(false)
+          return
+        }
+
+        targetReceiptId = updatedReceipt.id
+
+        const { error: deleteItemsError } = await supabase
+          .from('receipt_items')
+          .delete()
+          .eq('receipt_id', targetReceiptId)
+
+        if (deleteItemsError) {
+          console.error('Error resetting receipt items:', deleteItemsError)
+          toast.error('Produkte konnten nicht aktualisiert werden')
+          setIsSubmitting(false)
+          return
+        }
+      } else {
+        // Create receipt
+        const { data: receipt, error: receiptError } = await supabase
+          .from('receipts')
+          .insert({
+            household_id: householdId,
+            merchant_id: selectedMerchantId,
+            date: saveDate,
+            total_amount_cents: calculatedTotalCents,
+            created_by: paidBy,
+            image_url: imagePath,
+          })
+          .select()
+          .single()
+
+        if (receiptError || !receipt) {
+          console.error('Error creating receipt:', receiptError)
+          toast.error('Kassenbon konnte nicht erstellt werden')
+          setIsSubmitting(false)
+          return
+        }
+
+        targetReceiptId = receipt.id
       }
 
       // Look up category IDs for items with categories
@@ -314,14 +543,19 @@ export function ReceiptEditor({
 
       // Upsert products with new prices and get IDs
       const productPromises = validItems.map(async (item) => {
+        const resolvedCategoryId = item.subcategory
+          ? categoryLookup.get(item.subcategory) || fallbackCategoryId
+          : fallbackCategoryId
         // Upsert product to track price history
         const { data: product, error: productError } = await supabase
           .from('products')
           .upsert({
             household_id: householdId,
-            name: item.productName.trim(),
+            name: cleanupProductName(item.productName.trim()),
             last_price_cents: Math.round(item.priceCents),
             price_updated_at: new Date().toISOString(),
+            category: item.category || null,
+            category_id: resolvedCategoryId,
           }, {
             onConflict: 'household_id, name',
             ignoreDuplicates: false, 
@@ -331,10 +565,10 @@ export function ReceiptEditor({
 
         if (productError) {
           console.error("Error upserting product:", productError)
-          return { name: item.productName.trim(), id: null }
+          return { name: cleanupProductName(item.productName.trim()), id: null }
         }
         
-        return { name: item.productName.trim(), id: product?.id || null }
+        return { name: cleanupProductName(item.productName.trim()), id: product?.id || null }
       })
 
       const productResults = await Promise.all(productPromises)
@@ -342,11 +576,11 @@ export function ReceiptEditor({
 
       // Create receipt items with category_id and product_id
       const itemsToInsert = validItems.map((item) => ({
-        receipt_id: receipt.id,
-        product_name: item.productName.trim(),
+        receipt_id: targetReceiptId,
+        product_name: cleanupProductName(item.productName.trim()),
         quantity: item.quantity,
         price_cents: Math.round(item.priceCents),
-        product_id: productIdMap.get(item.productName.trim()) || null,
+        product_id: productIdMap.get(cleanupProductName(item.productName.trim())) || null,
         category_id: item.subcategory
           ? categoryLookup.get(item.subcategory) || fallbackCategoryId
           : fallbackCategoryId,
@@ -368,28 +602,32 @@ export function ReceiptEditor({
 
       if (itemsError) {
         console.error('Error creating receipt items:', itemsError)
-        toast.error('Produkte konnten nicht gespeichert werden')
+        toast.error(mode === 'edit' ? 'Produkte konnten nicht aktualisiert werden' : 'Produkte konnten nicht gespeichert werden')
         setIsSubmitting(false)
         return
       }
 
-      toast.success('Kassenbon wurde gespeichert')
+      toast.success(mode === 'edit' ? 'Kassenbon wurde aktualisiert' : 'Kassenbon wurde gespeichert')
       
       // Async background tasks
       try {
          // 1. Budget Alerts
          await checkBudgetAlerts(householdId)
          
-         // 2. New Receipt Notification
-         // Dynamically import to keep client bundle clean/avoid server action issues if any
-         const { sendReceiptNotification } = await import('@/app/actions/notifications')
-         await sendReceiptNotification(receipt.id)
+         if (!isEditMode && targetReceiptId) {
+           // 2. New Receipt Notification (create only)
+           // Dynamically import to keep client bundle clean/avoid server action issues if any
+           const { sendReceiptNotification } = await import('@/app/actions/notifications')
+           await sendReceiptNotification(targetReceiptId)
+         }
 
       } catch (err) {
          console.error("Failed to trigger background tasks:", err)
       }
 
-      router.push(`/dashboard/receipts/${receipt.id}`)
+      if (targetReceiptId) {
+        router.push(`/dashboard/receipts/${targetReceiptId}`)
+      }
     } catch (error) {
       console.error('Error saving receipt:', error)
       toast.error('Ein Fehler ist aufgetreten')
@@ -397,7 +635,7 @@ export function ReceiptEditor({
     }
   }
 
-  const isFromAIScan = !!initialData?.aiResult
+  const isFromAIScan = mode !== 'edit' && !!initialData?.aiResult
 
   if (isLoading) {
     return (
@@ -413,8 +651,33 @@ export function ReceiptEditor({
       {isFromAIScan && (
         <Alert className="border-primary/50 bg-primary/5">
           <Sparkles className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-primary">
-            Von KI erkannt - bitte pruefe die Daten und korrigiere falls noetig.
+          <AlertDescription className="text-primary flex flex-col gap-2">
+            <span>
+              Von KI erkannt - bitte pruefe die Daten und korrigiere falls noetig.
+              {aiScanConfidence !== null && (
+                <span className="ml-1">
+                  (Konfidenz: {Math.round(aiScanConfidence * 100)}%)
+                </span>
+              )}
+              {lowConfidenceItems > 0 && (
+                <span className="ml-1 inline-flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {lowConfidenceItems} unsichere Positionen
+                </span>
+              )}
+            </span>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={applyQuickFixes}
+              >
+                <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+                Quick-Fix anwenden
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -511,7 +774,9 @@ export function ReceiptEditor({
             Abbrechen
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => {
+              void handleSubmit(false)
+            }}
             disabled={isSubmitting}
             className="w-full"
             size="lg"
@@ -522,11 +787,42 @@ export function ReceiptEditor({
                 Wird gespeichert...
               </>
             ) : (
-              'Kassenbon speichern'
+              mode === 'edit' ? 'Änderungen speichern' : 'Kassenbon speichern'
             )}
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Möglicher Duplikat-Bon erkannt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ein ähnlicher Bon existiert bereits. Prüfe kurz, ob es wirklich ein neuer Einkauf ist.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {duplicateCandidates.length > 0 && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+              <p className="font-medium">Top-Treffer:</p>
+              <p>
+                {duplicateCandidates[0].merchantName} am {duplicateCandidates[0].date}
+              </p>
+              <p>Trefferquote: {duplicateCandidates[0].score}%</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zurück</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDuplicateDialog(false)
+                void handleSubmit(true)
+              }}
+            >
+              Trotzdem speichern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New Merchant Dialog */}
       <Dialog open={showNewMerchantDialog} onOpenChange={setShowNewMerchantDialog}>

@@ -10,16 +10,16 @@ export function useSync() {
   useEffect(() => {
     if (!isOffline) {
       // Try to process queue when coming online
-      processQueue()
+      void processQueue()
     }
   }, [isOffline])
 
   useEffect(() => {
     // Also try on mount
-    processQueue()
+    void processQueue()
 
     const interval = setInterval(() => {
-      processQueue()
+      void processQueue()
     }, 60 * 1000) // Periodic retry every minute
 
     return () => clearInterval(interval)

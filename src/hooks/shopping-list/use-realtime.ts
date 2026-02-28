@@ -1,11 +1,19 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
+import {
+  mergeItemPayload,
+  mergeListPayload,
+  type CachedShoppingListItem,
+  type ShoppingListItemRow,
+  type ShoppingListRow,
+} from './realtime-merge'
 
 export function useShoppingListRealtime(householdId: string | null, currentListId: string | null) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   // 1. Lists Subscription
@@ -13,19 +21,24 @@ export function useShoppingListRealtime(householdId: string | null, currentListI
     if (!householdId) return
 
     const listsChannel = supabase
-      .channel('shopping_lists_realtime')
+      .channel(`shopping_lists_realtime:${householdId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shopping_lists', filter: `household_id=eq.${householdId}` },
-        () => {
-          // Invalidate to refetch
+        (payload: RealtimePostgresChangesPayload<ShoppingListRow>) => {
+          queryClient.setQueryData<ShoppingListRow[]>(['shopping_lists', householdId], (old) => {
+            if (!old) return old
+            return mergeListPayload(old, payload)
+          })
+
+          // Keep relational data (joins/derived fields) correct.
           queryClient.invalidateQueries({ queryKey: ['shopping_lists', householdId] })
         }
       )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(listsChannel)
+      void supabase.removeChannel(listsChannel)
     }
   }, [householdId, queryClient, supabase])
 
@@ -38,16 +51,20 @@ export function useShoppingListRealtime(householdId: string | null, currentListI
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shopping_list_items', filter: `shopping_list_id=eq.${currentListId}` },
-        () => {
-           // Basic Invalidation strategy
-           // React Query keeps previous data visible while fetching new data
-           queryClient.invalidateQueries({ queryKey: ['shopping_list_items', currentListId] })
+        (payload: RealtimePostgresChangesPayload<ShoppingListItemRow>) => {
+          queryClient.setQueryData<CachedShoppingListItem[]>(['shopping_list_items', currentListId], (old) => {
+            if (!old) return old
+            return mergeItemPayload(old, payload)
+          })
+
+          // Keep relational fields (profile/offers/price hints) in sync.
+          queryClient.invalidateQueries({ queryKey: ['shopping_list_items', currentListId] })
         }
       )
       .subscribe()
 
-      return () => {
-        supabase.removeChannel(itemsChannel)
-      }
+    return () => {
+      void supabase.removeChannel(itemsChannel)
+    }
   }, [currentListId, queryClient, supabase])
 }

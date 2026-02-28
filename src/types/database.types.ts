@@ -1196,6 +1196,8 @@ export type Database = {
           created_at: string
           from_user_id: string
           id: string
+          paid_amount_cents: number
+          paid_at: string | null
           settlement_id: string
           to_user_id: string
         }
@@ -1204,6 +1206,8 @@ export type Database = {
           created_at?: string
           from_user_id: string
           id?: string
+          paid_amount_cents?: number
+          paid_at?: string | null
           settlement_id: string
           to_user_id: string
         }
@@ -1212,6 +1216,8 @@ export type Database = {
           created_at?: string
           from_user_id?: string
           id?: string
+          paid_amount_cents?: number
+          paid_at?: string | null
           settlement_id?: string
           to_user_id?: string
         }
@@ -1246,8 +1252,10 @@ export type Database = {
           id: string
           period_end: string
           period_start: string
+          remaining_amount_cents: number
           settled_at: string | null
           settled_by: string | null
+          status: string
           total_amount_cents: number
           updated_at: string
         }
@@ -1257,8 +1265,10 @@ export type Database = {
           id?: string
           period_end: string
           period_start: string
+          remaining_amount_cents?: number
           settled_at?: string | null
           settled_by?: string | null
+          status?: string
           total_amount_cents: number
           updated_at?: string
         }
@@ -1268,8 +1278,10 @@ export type Database = {
           id?: string
           period_end?: string
           period_start?: string
+          remaining_amount_cents?: number
           settled_at?: string | null
           settled_by?: string | null
+          status?: string
           total_amount_cents?: number
           updated_at?: string
         }

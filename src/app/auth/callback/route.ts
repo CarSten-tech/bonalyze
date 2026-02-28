@@ -5,13 +5,24 @@ import { logger } from '@/lib/logger'
 import { sendOperationalAlert } from '@/lib/alerting'
 import { getRouteLogMeta, resolveCorrelationId, withCorrelationId } from '@/lib/request-tracing'
 
+function sanitizeRedirectTo(value: string | null): string {
+  if (!value) return '/dashboard'
+
+  const candidate = value.trim()
+  if (!candidate.startsWith('/')) return '/dashboard'
+  if (candidate.startsWith('//')) return '/dashboard'
+  if (candidate.startsWith('/\\')) return '/dashboard'
+
+  return candidate
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const correlationId = resolveCorrelationId(request.headers)
   const route = 'auth/callback'
   const logMeta = getRouteLogMeta(route, correlationId)
   const code = searchParams.get('code')
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+  const redirectTo = sanitizeRedirectTo(searchParams.get('redirectTo'))
 
   const redirectWithCorrelation = (url: string) =>
     withCorrelationId(NextResponse.redirect(url), correlationId)

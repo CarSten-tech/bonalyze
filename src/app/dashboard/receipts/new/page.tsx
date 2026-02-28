@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2, PenLine, Sparkles, ImagePlus, Scan } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase'
@@ -22,16 +23,19 @@ interface ScanResult {
 }
 
 export default function NewReceiptPage() {
+  const searchParams = useSearchParams()
   const { currentHousehold, isLoading: isHouseholdLoading } = useHousehold()
   const supabase = createClient()
+  const source = searchParams.get('source')
+  const startsInScanMode = source === 'camera' || source === 'gallery'
 
-  const [mode, setMode] = useState<PageMode>('select')
+  const [mode, setMode] = useState<PageMode>(startsInScanMode ? 'scan' : 'select')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   
   // Initial state for scanner
   const [initialFile, setInitialFile] = useState<File | undefined>()
-  const [initialCamera, setInitialCamera] = useState(false)
+  const [initialCamera, setInitialCamera] = useState(source === 'camera')
 
   // Load current user
   useEffect(() => {

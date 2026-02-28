@@ -35,6 +35,7 @@ import { useShoppingLists, type ShoppingList } from '@/hooks/shopping-list/use-l
 import { cn } from '@/lib/utils'
 import { getOffers, getOfferOptions, type Offer } from '@/app/actions/offers'
 import { getStoreIcon } from '@/components/dashboard/receipt-list-item'
+import { useHousehold } from '@/contexts/household-context'
 
 const OFFERS_REFERENCE_NOW_MS = Date.now()
 
@@ -601,34 +602,14 @@ function OfferCardSkeleton() {
 export default function AngebotePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { currentHousehold, isLoading: isHouseholdLoading } = useHousehold()
 
   const [offers, setOffers] = useState<Offer[]>([])
   const [stores, setStores] = useState<string[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [total, setTotal] = useState(0)
-  
-  const [householdId, setHouseholdId] = useState<string | null>(null)
-  const supabase = useMemo(() => createClient(), [])
+  const householdId = currentHousehold?.id ?? null
   const { lists } = useShoppingLists(householdId)
-
-  useEffect(() => {
-    const getHousehold = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from("household_members")
-        .select("household_id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (data) {
-        setHouseholdId(data.household_id)
-      }
-    }
-
-    getHousehold()
-  }, [supabase])
 
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -749,6 +730,25 @@ export default function AngebotePage() {
   }, [groupedCategoryFilters])
 
   const hasMore = offers.length < total
+
+  if (isHouseholdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!householdId) {
+    return (
+      <div className="space-y-2 py-6">
+        <h1 className="text-2xl font-bold">Angebote</h1>
+        <p className="text-muted-foreground">
+          Bitte wähle einen Haushalt aus, um Angebote anzuzeigen.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">

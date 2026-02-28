@@ -184,7 +184,14 @@ export default function DashboardPage() {
   const insights = (() => {
     if (!data || data.current.receiptCount === 0) return []
 
-    const insightsList = []
+    const insightsList: Array<{
+      id: string
+      title: string
+      description: string
+      label?: string
+      variant: 'primary' | 'success' | 'warning' | 'info'
+      actionUrl?: string
+    }> = []
 
     // Top store insight
     if (data.topStores && data.topStores.length > 0) {
@@ -195,6 +202,7 @@ export default function DashboardPage() {
         description: `Bei ${topStore.name} hast du diesen Monat ${formatCurrency(topStore.amount, { inCents: true })} ausgegeben (${topStore.visitCount} ${topStore.visitCount === 1 ? 'Besuch' : 'Besuche'}).`,
         label: topStore.name.toUpperCase(),
         variant: 'primary' as const,
+        actionUrl: `/dashboard/receipts?merchant=${topStore.id}`,
       })
     }
 
@@ -207,6 +215,7 @@ export default function DashboardPage() {
           title: 'Deutlich sparsamer',
           description: `Du hast ${Math.abs(change).toFixed(0)}% weniger ausgegeben als im Vormonat. Weiter so!`,
           variant: 'success' as const,
+          actionUrl: '/dashboard/ausgaben',
         })
       } else if (change > 20) {
         insightsList.push({
@@ -214,6 +223,22 @@ export default function DashboardPage() {
           title: 'Ausgaben gestiegen',
           description: `Die Ausgaben sind um ${change.toFixed(0)}% gestiegen im Vergleich zum Vormonat.`,
           variant: 'warning' as const,
+          actionUrl: '/dashboard/ausgaben',
+        })
+      }
+    }
+
+    if (data.budgetStatus) {
+      const percentageUsed = Math.round(
+        (data.budgetStatus.usedAmount / data.budgetStatus.budget.total_amount_cents) * 100
+      )
+      if (percentageUsed >= 85) {
+        insightsList.push({
+          id: 'budget',
+          title: 'Budget benötigt Aufmerksamkeit',
+          description: `Bereits ${percentageUsed}% des Budgets genutzt. Jetzt anpassen oder gegensteuern.`,
+          variant: 'warning' as const,
+          actionUrl: '/settings/budget',
         })
       }
     }
@@ -280,6 +305,28 @@ export default function DashboardPage() {
           {/* Warranty Vault Widget */}
           <WarrantyWidget />
 
+          {/* Explainable Drivers */}
+          {data?.drivers && data.drivers.length > 0 && (
+            <section className="space-y-3">
+              <SectionHeader
+                title="Warum verändert sich dein Monat?"
+                icon={<span className="text-xl">📌</span>}
+              />
+              <div className="space-y-3">
+                {data.drivers.map((driver) => (
+                  <InsightCard
+                    key={driver.id}
+                    title={driver.title}
+                    description={driver.description}
+                    variant="info"
+                    icon={<Sparkles className="h-5 w-5" />}
+                    onClick={driver.actionUrl ? () => router.push(driver.actionUrl) : undefined}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* 4. Smart Insights Section */}
           <section className="space-y-3">
             <SectionHeader
@@ -310,6 +357,7 @@ export default function DashboardPage() {
                     description={insight.description}
                     label={insight.label}
                     variant={insight.variant}
+                    onClick={insight.actionUrl ? () => router.push(insight.actionUrl) : undefined}
                     icon={
                       insight.variant === 'primary' ? (
                         <ShoppingCart className="h-5 w-5" />

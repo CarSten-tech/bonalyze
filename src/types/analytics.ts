@@ -45,6 +45,13 @@ export interface ComparisonData {
   receiptCountChange: number | null // percentage change
 }
 
+export interface AnalyticsDriver {
+  id: string
+  title: string
+  description: string
+  actionUrl?: string
+}
+
 /**
  * Complete dashboard analytics data
  */
@@ -60,6 +67,8 @@ export interface DashboardAnalytics {
   categories: CategoryData[]
   // Top stores ranking
   topStores: StoreData[]
+  // Explainable drivers for period change
+  drivers: AnalyticsDriver[]
   // Period information
   periodLabel: string
   // Budget status

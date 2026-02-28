@@ -28,6 +28,12 @@ import {
   MonthSelector,
   SettlementEmptyState,
 } from '@/components/settlement'
+import { formatCents } from '@/lib/settlement-utils'
+import type { Transfer } from '@/types/settlement'
+
+function getTransferKey(transfer: Transfer, index: number): string {
+  return `${transfer.fromUserId}:${transfer.toUserId}:${transfer.amount}:${index}`
+}
 
 export default function SettlementPage() {
   const { currentHousehold, isLoading: isHouseholdLoading } = useHousehold()
@@ -43,15 +49,46 @@ export default function SettlementPage() {
   } = useSettlement()
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [transferPaymentOverrides, setTransferPaymentOverrides] = useState<Record<string, number>>({})
+
+  const handleMonthChange = (month: { value: string; label: string; start: string; end: string }) => {
+    setTransferPaymentOverrides({})
+    setSelectedMonth(month)
+  }
+
+  const transfers = settlement?.transfers || []
+  const totalTransferAmount = transfers.reduce((sum, transfer) => sum + transfer.amount, 0)
+  const totalPaidAmount = transfers.reduce((sum, transfer, index) => {
+    const key = getTransferKey(transfer, index)
+    const paid = transferPaymentOverrides[key]
+    const normalized = typeof paid === 'number' ? Math.max(0, Math.min(transfer.amount, paid)) : transfer.amount
+    return sum + normalized
+  }, 0)
+  const remainingAmount = Math.max(0, totalTransferAmount - totalPaidAmount)
 
   // Handle marking as settled
   const handleMarkAsSettled = async () => {
-    const success = await markAsSettled()
+    if (!settlement) return
+
+    const payload = settlement.transfers.map((transfer, index) => {
+      const key = getTransferKey(transfer, index)
+      const paidAmount = Math.max(
+        0,
+        Math.min(transfer.amount, transferPaymentOverrides[key] ?? transfer.amount)
+      )
+      return {
+        ...transfer,
+        paidAmount,
+      }
+    })
+
+    const success = await markAsSettled(payload)
     setShowConfirmDialog(false)
 
     if (success) {
+      const statusLabel = remainingAmount === 0 ? 'als erledigt gespeichert' : 'als offen gespeichert'
       toast.success('Abrechnung gespeichert', {
-        description: `Die Abrechnung für ${selectedMonth.label} wurde als erledigt markiert.`,
+        description: `Die Abrechnung für ${selectedMonth.label} wurde ${statusLabel}.`,
       })
     } else {
       toast.error('Fehler', {
@@ -87,7 +124,7 @@ export default function SettlementPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <Header selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <Header selectedMonth={selectedMonth} onMonthChange={handleMonthChange} />
         <div className="p-4 rounded-lg bg-destructive/10 text-destructive">
           <p>{error}</p>
         </div>
@@ -99,7 +136,7 @@ export default function SettlementPage() {
   if (!settlement) {
     return (
       <div className="space-y-6">
-        <Header selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <Header selectedMonth={selectedMonth} onMonthChange={handleMonthChange} />
         <SettlementEmptyState variant="no_receipts" periodLabel={selectedMonth.label} />
       </div>
     )
@@ -109,7 +146,7 @@ export default function SettlementPage() {
   if (settlement.memberCount < 2) {
     return (
       <div className="space-y-6">
-        <Header selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <Header selectedMonth={selectedMonth} onMonthChange={handleMonthChange} />
         <SettlementEmptyState variant="single_member" />
       </div>
     )
@@ -119,7 +156,7 @@ export default function SettlementPage() {
   if (settlement.receiptCount === 0) {
     return (
       <div className="space-y-6">
-        <Header selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <Header selectedMonth={selectedMonth} onMonthChange={handleMonthChange} />
         <SettlementEmptyState variant="no_receipts" periodLabel={selectedMonth.label} />
       </div>
     )
@@ -128,7 +165,7 @@ export default function SettlementPage() {
   return (
     <div className="space-y-6">
       {/* Header with month selector */}
-      <Header selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+      <Header selectedMonth={selectedMonth} onMonthChange={handleMonthChange} />
 
       {/* Overview Card */}
       <SettlementOverviewCard
@@ -153,7 +190,17 @@ export default function SettlementPage() {
 
       {/* Transfers Section */}
       <section>
-        <TransferCard transfers={settlement.transfers} />
+        <TransferCard
+          transfers={settlement.transfers}
+          editable={settlement.transfers.length > 0}
+          paymentAmounts={transferPaymentOverrides}
+          onPaymentChange={(transfer, index, paidAmount) => {
+            setTransferPaymentOverrides((prev) => ({
+              ...prev,
+              [getTransferKey(transfer, index)]: paidAmount,
+            }))
+          }}
+        />
       </section>
 
       <Separator />
@@ -166,7 +213,7 @@ export default function SettlementPage() {
             <Button
               className="w-full"
               size="lg"
-              disabled={isMarkingSettled || settlement.transfers.length === 0}
+              disabled={isMarkingSettled}
             >
               {isMarkingSettled ? (
                 <>
@@ -176,7 +223,9 @@ export default function SettlementPage() {
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Als erledigt markieren
+                  {remainingAmount === 0
+                    ? 'Als erledigt speichern'
+                    : `Offen speichern (${formatCents(remainingAmount)} Rest)`}
                 </>
               )}
             </Button>
@@ -185,9 +234,9 @@ export default function SettlementPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Abrechnung abschließen?</AlertDialogTitle>
               <AlertDialogDescription>
-                Damit bestätigst du, dass alle Überweisungen für{' '}
-                {selectedMonth.label} durchgeführt wurden. Diese Abrechnung
-                wird in der Historie gespeichert.
+                {remainingAmount === 0
+                  ? `Damit bestätigst du, dass alle Überweisungen für ${selectedMonth.label} durchgeführt wurden.`
+                  : `Es bleiben ${formatCents(remainingAmount)} offen. Der Rest wird als Carry-over in der Historie geführt.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

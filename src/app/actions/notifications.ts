@@ -270,7 +270,7 @@ export async function sendBudgetNotification(householdId: string, alertType: str
          body = `Ihr habt euer Budgetlimit überschritten (${usedPercent}%).`
     }
 
-    const data = { url: '/dashboard/ausgaben' }
+    const data = { url: '/settings/budget' }
     const payload = JSON.stringify({
         title,
         body,
@@ -366,6 +366,27 @@ export async function notifyShoppingListUpdate(householdId: string, shoppingList
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return fail('UNAUTHORIZED', 'Unauthorized')
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('household_members')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (membershipError || !membership) {
+      return fail('FORBIDDEN', 'Kein Zugriff auf diesen Haushalt')
+    }
+
+    const { data: list, error: listError } = await supabase
+      .from('shopping_lists')
+      .select('id, household_id')
+      .eq('id', shoppingListId)
+      .maybeSingle()
+
+    if (listError || !list || list.household_id !== householdId) {
+      return fail('FORBIDDEN', 'Kein Zugriff auf diese Liste')
+    }
 
     try {
         const { notifyShoppingListUpdate: serviceNotify } = await import('@/lib/notification-service')

@@ -33,6 +33,7 @@ const settlementsPostSchema = z.object({
         fromUserId: z.string().uuid(),
         toUserId: z.string().uuid(),
         amount: z.number().int().min(1),
+        paidAmount: z.number().int().min(0).optional(),
       })
     )
     .optional()
@@ -97,13 +98,16 @@ export async function GET(request: NextRequest) {
         period_start,
         period_end,
         total_amount_cents,
+        remaining_amount_cents,
+        status,
         settled_at,
         created_at,
         settlement_transfers (
           id,
           from_user_id,
           to_user_id,
-          amount_cents
+          amount_cents,
+          paid_amount_cents
         )
       `)
       .eq('household_id', householdId)
@@ -111,9 +115,9 @@ export async function GET(request: NextRequest) {
 
     // Apply filter
     if (filter === 'open') {
-      query = query.is('settled_at', null)
+      query = query.in('status', ['open', 'partial'])
     } else if (filter === 'settled') {
-      query = query.not('settled_at', 'is', null)
+      query = query.eq('status', 'settled')
     }
 
     const { data: settlementsData, error: settlementsError } = await query
@@ -136,15 +140,36 @@ export async function GET(request: NextRequest) {
     const settlements: SettlementWithDetails[] = (settlementsData || []).map((s) => {
       const periodStart = parseISO(s.period_start)
       const periodLabel = format(periodStart, 'MMMM yyyy', { locale: de })
-      const isSettled = s.settled_at !== null
+      const status = (s.status || (s.settled_at ? 'settled' : 'open')) as
+        | 'open'
+        | 'partial'
+        | 'settled'
+      const isSettled = status === 'settled'
 
       // Create transfer summary
       const transferCount = s.settlement_transfers?.length || 0
-      const transferSummary = transferCount === 0
+      const transferSummaryBase = transferCount === 0
         ? 'Keine Transfers'
         : transferCount === 1
           ? '1 Transfer'
           : `${transferCount} Transfers`
+      const remainingFromTransfers = (s.settlement_transfers || []).reduce(
+        (sum, transfer) => sum + Math.max(0, transfer.amount_cents - (transfer.paid_amount_cents || 0)),
+        0
+      )
+      const remainingAmountCents = Math.max(
+        0,
+        typeof s.remaining_amount_cents === 'number'
+          ? s.remaining_amount_cents
+          : remainingFromTransfers
+      )
+      const transferSummary =
+        remainingAmountCents > 0
+          ? `${transferSummaryBase} · Rest ${new Intl.NumberFormat('de-DE', {
+              style: 'currency',
+              currency: 'EUR',
+            }).format(remainingAmountCents / 100)}`
+          : transferSummaryBase
 
       return {
         id: s.id,
@@ -152,6 +177,8 @@ export async function GET(request: NextRequest) {
         periodStart: s.period_start,
         periodEnd: s.period_end,
         totalAmountCents: s.total_amount_cents,
+        remainingAmountCents,
+        status,
         settledAt: s.settled_at,
         createdAt: s.created_at,
         periodLabel,
@@ -236,57 +263,90 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if a settlement already exists for this period
+    // Check if a settlement already exists for this period.
+    // If yes, we update it (supports partial -> settled workflows).
     const { data: existing } = await supabase
       .from('settlements')
       .select('id')
       .eq('household_id', householdId)
       .eq('period_start', periodStart)
       .eq('period_end', periodEnd)
-      .single()
+      .maybeSingle()
 
-    if (existing) {
-      return withCorrelationId(
-        createApiErrorResponse('SETTLEMENT_ALREADY_EXISTS', 'Diese Periode wurde bereits abgerechnet', 409),
-        correlationId
-      )
+    const normalizedTransfers = (transfers || []).map((transfer) => {
+      const paidAmount = Math.min(transfer.amount, Math.max(0, transfer.paidAmount ?? transfer.amount))
+      return {
+        ...transfer,
+        paidAmount,
+      }
+    })
+
+    const totalTransferAmount = normalizedTransfers.reduce((sum, transfer) => sum + transfer.amount, 0)
+    const totalPaidAmount = normalizedTransfers.reduce((sum, transfer) => sum + transfer.paidAmount, 0)
+    const remainingAmountCents = Math.max(0, totalTransferAmount - totalPaidAmount)
+    const hasAnyPaid = totalPaidAmount > 0
+    const status: 'open' | 'partial' | 'settled' =
+      totalTransferAmount === 0 || remainingAmountCents === 0
+        ? 'settled'
+        : hasAnyPaid
+          ? 'partial'
+          : 'open'
+    const settledAt = status === 'settled' ? new Date().toISOString() : null
+
+    const settlementPayload = {
+      household_id: householdId,
+      period_start: periodStart,
+      period_end: periodEnd,
+      total_amount_cents: totalAmountCents,
+      remaining_amount_cents: remainingAmountCents,
+      status,
+      settled_at: settledAt,
+      settled_by: status === 'settled' ? userId : null,
     }
 
-    // Create settlement
-    const { data: settlement, error: settlementError } = await supabase
-      .from('settlements')
-      .insert({
-        household_id: householdId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        total_amount_cents: totalAmountCents,
-        settled_at: new Date().toISOString(),
-        settled_by: userId,
-      })
-      .select()
-      .single()
+    const settlementMutation = existing
+      ? supabase
+          .from('settlements')
+          .update(settlementPayload)
+          .eq('id', existing.id)
+      : supabase.from('settlements').insert(settlementPayload)
+
+    const { data: settlement, error: settlementError } = await settlementMutation.select().single()
 
     if (settlementError || !settlement) {
-      logger.error('[settlements] Error creating settlement', settlementError, logMeta)
+      logger.error('[settlements] Error upserting settlement', settlementError, logMeta)
       await sendOperationalAlert({
         route,
         severity: 'critical',
-        message: 'Failed to create settlement',
+        message: 'Failed to upsert settlement',
         correlationId,
       })
       return withCorrelationId(
-        createApiErrorResponse('SETTLEMENT_CREATE_FAILED', 'Fehler beim Erstellen der Abrechnung', 500),
+        createApiErrorResponse('SETTLEMENT_UPSERT_FAILED', 'Fehler beim Speichern der Abrechnung', 500),
         correlationId
       )
     }
 
+    // Reset and recreate transfers for this settlement snapshot.
+    const { error: deleteTransfersError } = await supabase
+      .from('settlement_transfers')
+      .delete()
+      .eq('settlement_id', settlement.id)
+
+    if (deleteTransfersError) {
+      logger.error('[settlements] Error resetting transfers', deleteTransfersError, logMeta)
+    }
+
     // Create settlement transfers if any
-    if (transfers && transfers.length > 0) {
-      const transfersToInsert = transfers.map((t) => ({
+    if (normalizedTransfers.length > 0) {
+      const nowIso = new Date().toISOString()
+      const transfersToInsert = normalizedTransfers.map((t) => ({
         settlement_id: settlement.id,
         from_user_id: t.fromUserId,
         to_user_id: t.toUserId,
         amount_cents: t.amount,
+        paid_amount_cents: t.paidAmount,
+        paid_at: t.paidAmount > 0 ? nowIso : null,
       }))
 
       const { error: transfersError } = await supabase
@@ -303,14 +363,16 @@ export async function POST(request: NextRequest) {
     await writeAuditLog({
       householdId,
       actorUserId: userId,
-      action: 'create',
+      action: existing ? 'update' : 'create',
       entityType: 'settlement',
       entityId: settlement.id,
       details: {
         periodStart,
         periodEnd,
         totalAmountCents,
-        transferCount: transfers?.length || 0,
+        transferCount: normalizedTransfers.length,
+        remainingAmountCents,
+        status,
       },
     })
 
@@ -322,6 +384,8 @@ export async function POST(request: NextRequest) {
         periodStart: settlement.period_start,
         periodEnd: settlement.period_end,
         totalAmountCents: settlement.total_amount_cents,
+        remainingAmountCents: settlement.remaining_amount_cents || 0,
+        status: settlement.status || status,
         settledAt: settlement.settled_at,
         createdAt: settlement.created_at,
       },

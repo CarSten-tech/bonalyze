@@ -19,12 +19,19 @@ import { verifyAlexaRequest } from '@/lib/alexa/signature'
 import type { AlexaRequestEnvelope } from '@/lib/alexa/types'
 import { logger } from '@/lib/logger'
 import { enforceContentLength, mbToBytes } from '@/lib/api-guards'
+import { isRateLimited } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
 const HELP_TEXT =
   'Du kannst sagen: fuege Milch und Eier hinzu, entferne Brot, setze Milch auf 2 Liter, oeffne Liste DM, erstelle Liste Wochenmarkt oder lies meine Einkaufsliste vor.'
 const MAX_ALEXA_REQUEST_BYTES = mbToBytes(0.25)
+const ALEXA_RATE_LIMIT_WINDOW_MS = 60_000
+const ALEXA_RATE_LIMIT_PER_IP = 60
+const ALEXA_RATE_LIMIT_PER_USER = 40
+const ALEXA_LINK_RATE_LIMIT_WINDOW_MS = 10 * 60_000
+const ALEXA_LINK_RATE_LIMIT_PER_USER = 6
+const ALEXA_LINK_RATE_LIMIT_PER_IP = 15
 
 function getAppId(envelope: AlexaRequestEnvelope): string | undefined {
   return envelope.context?.System?.application?.applicationId || envelope.session?.application?.applicationId
@@ -32,6 +39,19 @@ function getAppId(envelope: AlexaRequestEnvelope): string | undefined {
 
 function getAlexaUserId(envelope: AlexaRequestEnvelope): string | undefined {
   return envelope.context?.System?.user?.userId || envelope.session?.user?.userId
+}
+
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    const [firstIp] = forwardedFor.split(',')
+    if (firstIp?.trim()) return firstIp.trim()
+  }
+
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+
+  return 'unknown'
 }
 
 function extractSlotValue(envelope: AlexaRequestEnvelope, slotNames: string[]): string | null {
@@ -69,7 +89,7 @@ function isSignatureVerificationEnabled(): boolean {
   return envValue !== 'false'
 }
 
-async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: string) {
+async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: string, clientIp: string) {
   const intentName = envelope.request.intent?.name
   const locale = envelope.request.locale || 'de-DE'
 
@@ -90,6 +110,23 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
   }
 
   if (intentName === 'LinkAccountIntent') {
+    const linkCodeRateLimited =
+      (await isRateLimited(
+        `alexa:link-code:user:${alexaUserId}`,
+        ALEXA_LINK_RATE_LIMIT_PER_USER,
+        ALEXA_LINK_RATE_LIMIT_WINDOW_MS
+      )) ||
+      (await isRateLimited(
+        `alexa:link-code:ip:${clientIp}`,
+        ALEXA_LINK_RATE_LIMIT_PER_IP,
+        ALEXA_LINK_RATE_LIMIT_WINDOW_MS
+      ))
+
+    if (linkCodeRateLimited) {
+      logger.warn('[alexa] link code rate limited', { alexaUserId, clientIp })
+      return createAlexaResponse('Zu viele Verknuepfungsversuche. Bitte warte ein paar Minuten.')
+    }
+
     const code = extractSlotValue(envelope, ['code', 'linkCode', 'verificationCode'])
 
     if (!code) {
@@ -227,6 +264,7 @@ async function handleIntentRequest(envelope: AlexaRequestEnvelope, alexaUserId: 
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request)
     const tooLarge = enforceContentLength(
       request,
       MAX_ALEXA_REQUEST_BYTES,
@@ -244,6 +282,14 @@ export async function POST(request: NextRequest) {
     if (rawBodyBytes > MAX_ALEXA_REQUEST_BYTES) {
       return NextResponse.json(
         createAlexaResponse('Request ist zu gross.', { shouldEndSession: true }),
+        { status: 200 }
+      )
+    }
+
+    if (await isRateLimited(`alexa:req:ip:${clientIp}`, ALEXA_RATE_LIMIT_PER_IP, ALEXA_RATE_LIMIT_WINDOW_MS)) {
+      logger.warn('[alexa] request rate limited by ip', { clientIp })
+      return NextResponse.json(
+        createAlexaResponse('Zu viele Anfragen. Bitte versuche es gleich erneut.', { shouldEndSession: true }),
         { status: 200 }
       )
     }
@@ -300,6 +346,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (
+      await isRateLimited(
+        `alexa:req:user:${alexaUserId}`,
+        ALEXA_RATE_LIMIT_PER_USER,
+        ALEXA_RATE_LIMIT_WINDOW_MS
+      )
+    ) {
+      logger.warn('[alexa] request rate limited by user', { alexaUserId, clientIp })
+      return NextResponse.json(
+        createAlexaResponse('Zu viele Anfragen. Bitte versuche es gleich erneut.', { shouldEndSession: true }),
+        { status: 200 }
+      )
+    }
+
     if (envelope.request.type === 'LaunchRequest') {
       const link = await getAlexaLinkByAlexaUserId(alexaUserId)
 
@@ -339,7 +399,7 @@ export async function POST(request: NextRequest) {
       const intentName = envelope.request.intent?.name
       const slots = envelope.request.intent?.slots
       logger.debug('[alexa] intent received', { intentName, slots })
-      const response = await handleIntentRequest(envelope, alexaUserId)
+      const response = await handleIntentRequest(envelope, alexaUserId, clientIp)
       return NextResponse.json(response)
     }
 

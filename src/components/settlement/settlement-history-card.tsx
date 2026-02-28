@@ -21,12 +21,17 @@ export function SettlementHistoryCard({
   const {
     periodLabel,
     totalAmountCents,
+    remainingAmountCents,
+    status,
     transferSummary,
     isSettled,
     settledAt,
     periodStart,
     periodEnd,
   } = settlement
+
+  const isPartial = status === 'partial'
+  const isOpen = status === 'open'
 
   return (
     <Card
@@ -47,13 +52,20 @@ export function SettlementHistoryCard({
             className={
               isSettled
                 ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                : ''
+                : isPartial
+                  ? 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                  : ''
             }
           >
             {isSettled ? (
               <>
                 <Check className="h-3 w-3 mr-1" />
                 Erledigt
+              </>
+            ) : isPartial ? (
+              <>
+                <Clock className="h-3 w-3 mr-1" />
+                Teilweise erledigt
               </>
             ) : (
               <>
@@ -75,6 +87,11 @@ export function SettlementHistoryCard({
           <p className="text-sm text-muted-foreground truncate">
             {transferSummary}
           </p>
+          {(isOpen || isPartial) && remainingAmountCents > 0 && (
+            <p className="text-xs text-amber-700 mt-1">
+              Restbetrag: {formatCents(remainingAmountCents)}
+            </p>
+          )}
           {isSettled && settledAt && (
             <p className="text-xs text-muted-foreground mt-1">
               Erledigt am{' '}

@@ -45,6 +45,7 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
   const [progress, setProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null)
+  const [qualityHint, setQualityHint] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showSmartCamera, setShowSmartCamera] = useState(false)
   
@@ -56,11 +57,32 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
     }
   }, [previewUrl])
 
+  const assessImageQuality = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const bitmap = await createImageBitmap(file)
+      const minEdge = Math.min(bitmap.width, bitmap.height)
+      const longEdge = Math.max(bitmap.width, bitmap.height)
+      bitmap.close()
+
+      if (minEdge < 900) {
+        return 'Niedrige Auflösung erkannt. Wenn möglich näher ran oder besseres Licht nutzen.'
+      }
+
+      if (longEdge / minEdge > 4.2) {
+        return 'Sehr schmaler Zuschnitt erkannt. Prüfe, ob der ganze Bon sichtbar ist.'
+      }
+    } catch {
+      return null
+    }
+    return null
+  }, [])
+
   const resetState = useCallback(() => {
     setState('idle')
     setProgress(0)
     setErrorMessage('')
     setDebugInfo(null)
+    setQualityHint(null)
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
@@ -69,6 +91,9 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
 
   const processImage = useCallback(async (file: File) => {
     try {
+      const quality = await assessImageQuality(file)
+      setQualityHint(quality)
+
       // Show preview
       const preview = URL.createObjectURL(file)
       setPreviewUrl((prev) => {
@@ -133,7 +158,7 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
       setState('error')
       setErrorMessage('Verbindungsfehler. Bitte erneut versuchen.')
     }
-  }, [householdId, onScanComplete])
+  }, [assessImageQuality, householdId, onScanComplete])
 
   // Handle initial props
   useEffect(() => {
@@ -266,6 +291,12 @@ export function ReceiptScanner({ householdId, onScanComplete, onCancel, initialF
           <p className="text-sm text-muted-foreground">
             Die KI liest den Kassenbon
           </p>
+          {qualityHint && (
+            <p className="text-xs text-amber-600 flex items-center justify-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {qualityHint}
+            </p>
+          )}
         </div>
       </div>
     )

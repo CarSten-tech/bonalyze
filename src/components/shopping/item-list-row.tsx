@@ -3,7 +3,7 @@
 import { Package, Check, MoreVertical, HelpCircle } from "lucide-react"
 import { cn, formatStoreName } from "@/lib/utils"
 import type { ShoppingListItem, Offer } from "@/types/shopping"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 
 interface ItemListRowProps {
   item: ShoppingListItem

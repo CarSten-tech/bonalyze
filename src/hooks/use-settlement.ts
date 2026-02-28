@@ -26,7 +26,14 @@ interface UseSettlementReturn {
   selectedMonth: MonthOption
   setSelectedMonth: (month: MonthOption) => void
   refresh: () => Promise<void>
-  markAsSettled: () => Promise<boolean>
+  markAsSettled: (
+    transfers?: Array<{
+      fromUserId: string
+      toUserId: string
+      amount: number
+      paidAmount?: number
+    }>
+  ) => Promise<boolean>
   isMarkingSettled: boolean
   settlementTableReady: boolean
 }
@@ -168,7 +175,14 @@ export function useSettlement(
   // Mark settlement as settled
   // Note: This requires the settlements table to exist in the database
   // The Backend Developer needs to create the migration first
-  const markAsSettled = useCallback(async (): Promise<boolean> => {
+  const markAsSettled = useCallback(async (
+    transferOverrides?: Array<{
+      fromUserId: string
+      toUserId: string
+      amount: number
+      paidAmount?: number
+    }>
+  ): Promise<boolean> => {
     if (!currentHousehold || !settlement) return false
 
     setIsMarkingSettled(true)
@@ -187,7 +201,7 @@ export function useSettlement(
           periodStart: settlement.period.start,
           periodEnd: settlement.period.end,
           totalAmountCents: settlement.totalSpent,
-          transfers: settlement.transfers,
+          transfers: transferOverrides ?? settlement.transfers,
         }),
       })
 

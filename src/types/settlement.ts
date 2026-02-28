@@ -25,6 +25,7 @@ export interface Transfer {
   toUserId: string
   toDisplayName: string
   amount: number // Amount to transfer in cents
+  paidAmount?: number // Amount already paid in cents
 }
 
 /**
@@ -76,6 +77,8 @@ export interface Settlement {
   periodStart: string
   periodEnd: string
   totalAmountCents: number
+  remainingAmountCents: number
+  status: 'open' | 'partial' | 'settled'
   settledAt: string | null // null = open
   createdAt: string
 }
@@ -89,6 +92,8 @@ export interface SettlementTransfer {
   fromUserId: string
   toUserId: string
   amountCents: number
+  paidAmountCents: number
+  paidAt: string | null
 }
 
 /**

@@ -146,6 +146,11 @@ export function BudgetWidget({ budgetStatus, isLoading = false }: BudgetWidgetPr
                     style={{ width: `${percentageUsed}%` }}
                 />
             </div>
+            {percentageUsed >= 85 && (
+              <Button variant="outline" size="sm" className="h-7 text-xs w-full mt-2" asChild>
+                <Link href="/settings/budget">Budget anpassen</Link>
+              </Button>
+            )}
          </div>
       </CardContent>
     </Card>

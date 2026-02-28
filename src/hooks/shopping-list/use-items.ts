@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getShoppingListItemsWithOffers } from '@/app/actions/shopping-list'
 import { notifyShoppingListUpdate } from '@/app/actions/notifications'
@@ -8,8 +9,31 @@ import type { ShoppingListItem } from '@/types/shopping'
 
 export type { ShoppingListItem }
 
+type CachedShoppingListItem = ShoppingListItem & {
+  __optimistic?: boolean
+  __optimisticInsertedAt?: number
+}
+
+function toTimestamp(value: string | null | undefined): number {
+  if (!value) return 0
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function sortItemsByCreatedAtAsc(items: CachedShoppingListItem[]): CachedShoppingListItem[] {
+  return [...items].sort((a, b) => toTimestamp(a.created_at) - toTimestamp(b.created_at))
+}
+
+function dedupeItemsById(items: CachedShoppingListItem[]): CachedShoppingListItem[] {
+  const byId = new Map<string, CachedShoppingListItem>()
+  for (const item of items) {
+    byId.set(item.id, item)
+  }
+  return [...byId.values()]
+}
+
 export function useShoppingItems(listId: string | null) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
   const queryKey = ['shopping_list_items', listId]
 
@@ -69,10 +93,10 @@ export function useShoppingItems(listId: string | null) {
         await queryClient.cancelQueries({ queryKey })
         
         // Snapshot
-        const previousItems = queryClient.getQueryData<ShoppingListItem[]>(queryKey)
+        const previousItems = queryClient.getQueryData<CachedShoppingListItem[]>(queryKey)
         
         // Optimistic Item
-        const optimisticItem: ShoppingListItem = {
+        const optimisticItem: CachedShoppingListItem = {
             id: crypto.randomUUID(), // Temp ID
             shopping_list_id: listId!,
             product_name: newItemInput.product_name,
@@ -83,11 +107,15 @@ export function useShoppingItems(listId: string | null) {
             is_checked: false,
             user_id: null, // Optimistic: we don't know the exact ID or name yet easily, but it renders fine.
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            __optimistic: true,
+            __optimisticInsertedAt: Date.now(),
         }
 
         // Update Cache
-        queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => [...(old || []), optimisticItem])
+        queryClient.setQueryData<CachedShoppingListItem[]>(queryKey, (old) => {
+          return sortItemsByCreatedAtAsc([...(old || []), optimisticItem])
+        })
 
         return { previousItems, optimisticId: optimisticItem.id }
     },
@@ -95,10 +123,24 @@ export function useShoppingItems(listId: string | null) {
         queryClient.setQueryData(queryKey, context?.previousItems)
     },
     onSuccess: (savedItem, variables, context) => {
-        // Replace optimistic with real
-        queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+        // Replace optimistic placeholder and dedupe against realtime row by server ID.
+        queryClient.setQueryData<CachedShoppingListItem[]>(queryKey, (old) => {
              if (!old) return [savedItem]
-             return old.map(item => item.id === context?.optimisticId ? savedItem : item)
+
+             const replacedOptimistic = old.map((item) =>
+               item.id === context?.optimisticId
+                 ? ({ ...item, ...savedItem, __optimistic: false, __optimisticInsertedAt: undefined } as CachedShoppingListItem)
+                 : item
+             )
+
+             const hasServerRow = replacedOptimistic.some((item) => item.id === savedItem.id)
+             const withServerRow = hasServerRow
+               ? replacedOptimistic.map((item) =>
+                   item.id === savedItem.id ? ({ ...item, ...savedItem } as CachedShoppingListItem) : item
+                 )
+               : [...replacedOptimistic, savedItem as CachedShoppingListItem]
+
+             return sortItemsByCreatedAtAsc(dedupeItemsById(withServerRow))
         })
 
         // Trigger Notification (Fire and forget, but with 'includeSelf' if user wants to test)
