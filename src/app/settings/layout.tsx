@@ -11,6 +11,7 @@ import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
 import { HouseholdSwitcher } from '@/components/household-switcher'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Button } from '@/components/ui/button'
+import { UiModeToggle } from '@/components/layout/ui-mode-toggle'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useUiMode } from '@/components/layout/ui-mode-sync'
+import { cn } from '@/lib/utils'
 
 interface SettingsLayoutProps {
   children: React.ReactNode
@@ -30,6 +33,7 @@ function SettingsContent({ children }: SettingsLayoutProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { currentHousehold, isLoading: isHouseholdLoading, households } = useHousehold()
+  const { isDesignLab } = useUiMode()
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -106,70 +110,73 @@ function SettingsContent({ children }: SettingsLayoutProps) {
     : '?'
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={cn('min-h-screen flex flex-col', isDesignLab ? 'design-lab-shell' : 'bg-background')}>
       {/* Mobile-first Header */}
-      <header className="sticky top-0 z-40 bg-background border-b border-border safe-top">
-        <div className="flex h-14 items-center justify-between px-4">
+      <header className={cn('sticky top-0 z-40 safe-top', isDesignLab ? 'design-lab-header-wrap' : 'bg-background border-b border-border')}>
+        <div className={cn('mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4', isDesignLab && 'h-16')}>
           {/* Left: Household Switcher */}
           <HouseholdSwitcher />
 
           {/* Right: User Avatar & Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="flex items-center justify-start gap-2 p-2">
-                <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{displayName}</p>
-                  {currentHousehold && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {currentHousehold.name}
-                    </p>
-                  )}
+          <div className="flex items-center gap-2">
+            <UiModeToggle compact />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="flex items-center justify-start gap-2 p-2">
+                  <div className="flex flex-col space-y-1 leading-none">
+                    <p className="font-medium">{displayName}</p>
+                    {currentHousehold && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {currentHousehold.name}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings/household" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Haushalt-Einstellungen
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings/budget" className="cursor-pointer">
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Budget-Einstellungen
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                {isLoggingOut ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <LogOut className="mr-2 h-4 w-4" />
-                )}
-                Abmelden
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings/household" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Haushalt-Einstellungen
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings/budget" className="cursor-pointer">
+                    <Wallet className="mr-2 h-4 w-4" />
+                    Budget-Einstellungen
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  {isLoggingOut ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut className="mr-2 h-4 w-4" />
+                  )}
+                  Abmelden
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
 
 
       {/* Main Content - with padding for bottom nav */}
-      <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
+      <main className="mx-auto flex-1 w-full max-w-5xl overflow-y-auto px-4 py-6 pb-24">
         {children}
       </main>
 

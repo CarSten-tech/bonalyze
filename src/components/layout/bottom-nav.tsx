@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { MenuSheet } from "./menu-sheet"
+import { useUiMode } from "@/components/layout/ui-mode-sync"
 
 /**
  * Bottom Navigation Component
@@ -44,6 +45,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
   const pathname = usePathname()
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false)
   const [menuSheetOpen, setMenuSheetOpen] = useState(false)
+  const { isDesignLab } = useUiMode()
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -76,10 +78,24 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
-        style={{ paddingBottom: "var(--safe-bottom-nav)" }}
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-50",
+          isDesignLab ? "px-3" : "bg-card border-t border-border"
+        )}
+        style={{
+          paddingBottom: isDesignLab
+            ? "calc(var(--safe-bottom-nav) + 0.55rem)"
+            : "var(--safe-bottom-nav)",
+        }}
       >
-        <div className="flex items-center justify-around h-12 max-w-lg mx-auto px-2">
+        <div
+          className={cn(
+            "mx-auto flex items-center justify-around",
+            isDesignLab
+              ? "h-16 max-w-3xl rounded-2xl border border-white/70 bg-white/80 px-2 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.95)] backdrop-blur-xl"
+              : "h-12 max-w-lg px-2"
+          )}
+        >
           {/* First two nav items (HOME, AUSGABEN) */}
           {navItems.slice(0, 2).map((item) => (
             <NavLink
@@ -88,6 +104,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
               icon={item.icon}
               label={item.label}
               isActive={isActive(item.href)}
+              isDesignLab={isDesignLab}
             />
           ))}
 
@@ -99,16 +116,16 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                 className={cn(
                   "flex flex-col items-center justify-center",
                   "min-w-touch min-h-touch",
-                  "-mt-6" // Elevate above the nav bar
+                  isDesignLab ? "-mt-9" : "-mt-6" // Elevate above the nav bar
                 )}
                 aria-label="Kassenbon scannen"
               >
                 <span
                   className={cn(
                     "flex items-center justify-center",
-                    "w-14 h-14 rounded-full",
-                    "bg-foreground text-background",
-                    "shadow-lg shadow-slate-900/25",
+                    isDesignLab
+                      ? "h-14 w-14 rounded-2xl bg-[linear-gradient(140deg,#07b8dc_0%,#0f91d1_52%,#1f6dd8_100%)] text-white shadow-[0_22px_45px_-24px_rgba(15,23,42,0.95)] ring-4 ring-white/80"
+                      : "w-14 h-14 rounded-full bg-foreground text-background shadow-lg shadow-slate-900/25",
                     "transition-transform active:scale-95"
                   )}
                 >
@@ -116,7 +133,13 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                 </span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="rounded-t-2xl">
+            <SheetContent
+              side="bottom"
+              className={cn(
+                "rounded-t-2xl",
+                isDesignLab && "rounded-t-[28px] border-white/70 bg-white/90 backdrop-blur-xl"
+              )}
+            >
               <SheetTitle className="text-lg font-semibold mb-4">
                 Was möchtest du tun?
               </SheetTitle>
@@ -124,7 +147,10 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  className={cn(
+                    "w-full justify-start gap-3 h-14 rounded-xl",
+                    isDesignLab && "border-cyan-200 bg-cyan-50/70"
+                  )}
                   onClick={handleFoodPhotoClick}
                 >
                   <Sparkles className="w-5 h-5 text-amber-500" />
@@ -136,7 +162,10 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  className={cn(
+                    "w-full justify-start gap-3 h-14 rounded-xl",
+                    isDesignLab && "border-slate-200 bg-white/80"
+                  )}
                   onClick={handleCameraClick}
                 >
                   <Camera className="w-5 h-5" />
@@ -145,7 +174,10 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full justify-start gap-3 h-14 rounded-xl"
+                  className={cn(
+                    "w-full justify-start gap-3 h-14 rounded-xl",
+                    isDesignLab && "border-slate-200 bg-white/80"
+                  )}
                   onClick={handleGalleryClick}
                 >
                   <ImageIcon className="w-5 h-5" />
@@ -163,6 +195,7 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
               icon={item.icon}
               label={item.label}
               isActive={isActive(item.href)}
+              isDesignLab={isDesignLab}
             />
           ))}
 
@@ -179,13 +212,13 @@ export function BottomNav({ onScanFromCamera, onScanFromGallery, onFoodPhoto }: 
             <Menu
               className={cn(
                 "w-6 h-6 transition-colors",
-                menuSheetOpen ? "text-primary" : "text-muted-foreground"
+                menuSheetOpen ? "text-primary" : isDesignLab ? "text-slate-600" : "text-muted-foreground"
               )}
             />
             <span
               className={cn(
                 "text-[10px] font-medium tracking-wide transition-colors",
-                menuSheetOpen ? "text-primary" : "text-muted-foreground"
+                menuSheetOpen ? "text-primary" : isDesignLab ? "text-slate-600" : "text-muted-foreground"
               )}
             >
               MENÜ
@@ -205,9 +238,10 @@ interface NavLinkProps {
   icon: React.ComponentType<{ className?: string }>
   label: string
   isActive: boolean
+  isDesignLab?: boolean
 }
 
-function NavLink({ href, icon: Icon, label, isActive }: NavLinkProps) {
+function NavLink({ href, icon: Icon, label, isActive, isDesignLab = false }: NavLinkProps) {
   return (
     <Link
       href={href}
@@ -220,13 +254,17 @@ function NavLink({ href, icon: Icon, label, isActive }: NavLinkProps) {
       <Icon
         className={cn(
           "w-6 h-6 transition-colors",
-          isActive ? "text-primary fill-primary/10" : "text-muted-foreground"
+          isActive
+            ? "text-primary fill-primary/10"
+            : isDesignLab
+              ? "text-slate-600"
+              : "text-muted-foreground"
         )}
       />
       <span
         className={cn(
           "text-[10px] font-medium tracking-wide transition-colors",
-          isActive ? "text-primary" : "text-muted-foreground"
+          isActive ? "text-primary" : isDesignLab ? "text-slate-600" : "text-muted-foreground"
         )}
       >
         {label}

@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { UiModeToggle } from '@/components/layout/ui-mode-toggle'
 import {
   Sheet,
   SheetContent,
@@ -142,6 +143,13 @@ export function MenuSheet({ open, onOpenChange }: MenuSheetProps) {
                 <h2 className="text-lg font-semibold">{displayName}</h2>
                 <p className="text-sm text-muted-foreground">Enterprise Account</p>
               </div>
+            </div>
+
+            <div className="mb-3 rounded-2xl border border-border/70 bg-muted/30 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Design-Modus
+              </p>
+              <UiModeToggle />
             </div>
 
             {/* Menu Groups */}

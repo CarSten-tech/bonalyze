@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { Home, Wallet, Utensils, ChevronRight, Sun, Moon } from 'lucide-react'
+import { Home, Wallet, Utensils, ChevronRight, Sun, Moon, Layers3, Sparkles } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { UiModeToggle } from '@/components/layout/ui-mode-toggle'
+import { useUiMode } from '@/components/layout/ui-mode-sync'
 
 interface SettingsLink {
   href: string
@@ -42,6 +44,7 @@ const settingsLinks: SettingsLink[] = [
 export default function AppSettingsPage() {
   const { theme, setTheme } = useTheme()
   const isDark = theme === 'dark'
+  const { mode } = useUiMode()
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -73,6 +76,29 @@ export default function AppSettingsPage() {
         ))}
 
         {/* Theme Toggle */}
+        <Card className="hover:bg-accent/50 transition-colors">
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                {mode === 'design-lab' ? (
+                  <Sparkles className="h-5 w-5 text-primary" />
+                ) : (
+                  <Layers3 className="h-5 w-5 text-primary" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium">UI Design-Modus</p>
+                <p className="text-sm text-muted-foreground">
+                  {mode === 'design-lab'
+                    ? 'Design Lab ist aktiv (modernes Clone-Design)'
+                    : 'Original-Design ist aktiv'}
+                </p>
+              </div>
+            </div>
+            <UiModeToggle />
+          </CardContent>
+        </Card>
+
         <Card
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => setTheme(isDark ? 'light' : 'dark')}

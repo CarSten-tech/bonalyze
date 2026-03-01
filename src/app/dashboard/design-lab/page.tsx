@@ -33,6 +33,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AnalyticsEmptyState, AnalyticsErrorState } from '@/components/analytics'
 import { MonthNavigation } from '@/components/dashboard'
+import { setUiMode, useUiMode } from '@/components/layout/ui-mode-sync'
+import { UiModeToggle } from '@/components/layout/ui-mode-toggle'
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -88,6 +90,7 @@ function CompareCard({ title, subtitle, ctaLabel, href, tone }: CompareCardProps
 export default function DesignLabPage() {
   const router = useRouter()
   const { currentHousehold, isLoading: isHouseholdLoading } = useHousehold()
+  const { mode } = useUiMode()
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
@@ -108,6 +111,10 @@ export default function DesignLabPage() {
   const [recentReceipts, setRecentReceipts] = useState<RecentReceipt[]>([])
   const [receiptsLoading, setReceiptsLoading] = useState(true)
   const supabase = createClient()
+
+  useEffect(() => {
+    setUiMode('design-lab')
+  }, [])
 
   useEffect(() => {
     async function fetchRecentReceipts() {
@@ -271,11 +278,15 @@ export default function DesignLabPage() {
             className="grid gap-2 sm:grid-cols-3"
             style={{ animation: 'fade-in 0.6s ease-out both', animationDelay: '160ms' }}
           >
-            <Button asChild className="h-11 justify-between rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400">
-              <Link href="/dashboard">
-                Original Dashboard
-                <ArrowRightLeft className="h-4 w-4" />
-              </Link>
+            <Button
+              className="h-11 justify-between rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+              onClick={() => {
+                setUiMode('original')
+                router.push('/dashboard')
+              }}
+            >
+              Original Dashboard
+              <ArrowRightLeft className="h-4 w-4" />
             </Button>
             <Button asChild variant="outline" className="h-11 justify-between rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20">
               <Link href="/dashboard/scan-first">
@@ -291,6 +302,21 @@ export default function DesignLabPage() {
               Direkt scannen
               <Zap className="h-4 w-4" />
             </Button>
+          </div>
+
+          <div
+            className="rounded-2xl border border-white/25 bg-white/10 p-3 backdrop-blur"
+            style={{ animation: 'fade-in 0.6s ease-out both', animationDelay: '220ms' }}
+          >
+            <p className="mb-2 text-xs uppercase tracking-[0.18em] text-cyan-100/80">
+              Globaler UI Modus
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-cyan-50/80">
+                Aktuell aktiv: {mode === 'design-lab' ? 'Design Lab Clone' : 'Original'}
+              </p>
+              <UiModeToggle />
+            </div>
           </div>
         </div>
       </section>

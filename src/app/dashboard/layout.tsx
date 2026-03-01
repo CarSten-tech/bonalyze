@@ -10,6 +10,9 @@ import { HouseholdProvider, useHousehold } from '@/contexts/household-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { InstallBanner, UpdatePrompt } from '@/components/pwa'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { UiModeToggle } from '@/components/layout/ui-mode-toggle'
+import { useUiMode } from '@/components/layout/ui-mode-sync'
+import { cn } from '@/lib/utils'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -20,6 +23,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
   const { isLoading: isHouseholdLoading, households } = useHousehold()
+  const { isDesignLab } = useUiMode()
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -89,39 +93,63 @@ function DashboardContent({ children }: DashboardLayoutProps) {
   const isMealEntryPage = pathname.includes('/ernaehrung/mahlzeit/')
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div
+      className={cn(
+        'min-h-screen flex flex-col',
+        isDesignLab ? 'design-lab-shell' : 'bg-background'
+      )}
+    >
       {/* Mobile-first Header - Only on main pages */}
       {!isDetailPage && !isCameraPage && (
-        <header className="sticky top-0 z-40 bg-background safe-top">
-            <div className="flex h-14 items-center justify-between px-4">
-    
+        <header className={cn('sticky top-0 z-40 safe-top', isDesignLab ? 'design-lab-header-wrap' : 'bg-background')}>
+          <div className={cn('mx-auto flex h-14 max-w-5xl items-center justify-between px-4', isDesignLab && 'h-16')}>
             {/* Left: Bonalyze Logo */}
-            <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <div
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-lg bg-primary',
+                  isDesignLab && 'rounded-xl bg-[linear-gradient(135deg,#1ecbe1_0%,#1397d6_50%,#1f6fd8_100%)] shadow-[0_10px_28px_-14px_rgba(15,23,42,0.65)]'
+                )}
+              >
                 <span className="text-primary-foreground font-bold text-lg">B</span>
-                </div>
-                <span className="text-lg font-semibold">Bonalyze</span>
+              </div>
+              <span className={cn('text-lg font-semibold', isDesignLab && 'tracking-tight')}>Bonalyze</span>
             </Link>
-    
-            {/* Right: Notification Bell */}
+
+            {/* Right: UI Mode + Notification */}
             <div className="flex items-center gap-2">
+              <UiModeToggle compact />
+              <div className={cn(isDesignLab && 'rounded-full border border-white/55 bg-white/65 shadow-sm backdrop-blur')}>
                 <NotificationBell />
+              </div>
             </div>
-            </div>
+          </div>
         </header>
       )}
 
       {/* Main Content - with padding for bottom nav */}
-      <main className={`flex-1 overflow-y-auto ${isCameraPage ? 'p-0 pb-0 overflow-hidden' : `px-4 pb-24 ${isDetailPage ? 'pt-2' : 'py-6'}`}`}>
-        {children}
+      <main
+        className={cn(
+          'flex-1 overflow-y-auto',
+          isCameraPage
+            ? 'overflow-hidden p-0 pb-0'
+            : cn(
+                'mx-auto w-full max-w-5xl px-4 pb-24',
+                isDesignLab ? (isDetailPage ? 'pt-3' : 'pt-5') : isDetailPage ? 'pt-2' : 'py-6'
+              )
+        )}
+      >
+        <div className={cn(isDesignLab && !isCameraPage && 'animate-fade-in')}>
+          {children}
+        </div>
       </main>
 
       {/* Bottom Navigation */}
       {!isCameraPage && !isMealEntryPage && (
         <BottomNav
-            onScanFromCamera={handleScanFromCamera}
-            onScanFromGallery={handleScanFromGallery}
-            onFoodPhoto={handleFoodPhoto}
+          onScanFromCamera={handleScanFromCamera}
+          onScanFromGallery={handleScanFromGallery}
+          onFoodPhoto={handleFoodPhoto}
         />
       )}
 
